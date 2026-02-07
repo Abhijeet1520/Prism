@@ -33,7 +33,7 @@ Every user requirement is mapped to one or more functional requirements (FR), wh
 |---|---|---|---|
 | Personal assistant app | FR-01 (Chat) | Chat Module | Chat Screen |
 | Run AI models locally | FR-02 (Model Management) | Models Module | Model Manager |
-| Connect using AI API tools | FR-03 (Cloud AI APIs) | Provider Module | Settings > Providers |
+| Connect using AI API tools | FR-03 (Cloud AI APIs) | Provider Module (LangChain.dart) | Settings > Providers |
 | Tools tab for AI interaction | FR-04 (Tools System) | Tools Module | Tools Tab |
 | Settings with profiles & tokens | FR-05 (Settings & Profiles) | Settings Module | Settings Screen |
 | Organized file storage | FR-06 (File Storage) | Storage Module | File Explorer |
@@ -60,5 +60,8 @@ Every user requirement is mapped to one or more functional requirements (FR), wh
 ## Quick Links
 
 - **Reference Codebase:** [AI Edge Gallery](../gallery/Android/) — Android app for on-device GenAI models (Kotlin/Compose)
+- **Reference Flutter App:** [Maid](../../repos/maid/) — Flutter LLM app with llama.cpp, Ollama, multi-provider support
+- **Provider Framework:** [LangChain.dart](../../repos/_AI_Modules/langchain_dart/) — LLM framework with unified abstractions for all providers
+- **Local Inference Engine:** [llama.cpp](../../repos/_AI_Modules/llama.cpp/) — C/C++ LLM inference powering local model support
 - **Gallery Module Porting Notes:** See [Development Roadmap § Gallery Porting](./08-DEVELOPMENT-ROADMAP.md#gallery-module-porting)
 - **Contributing:** TBD once project structure is finalized

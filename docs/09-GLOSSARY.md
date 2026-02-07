@@ -64,7 +64,8 @@
 |------|-----------|
 | **Gated** | The default permission tier. AI can access the file/folder only after explicit user approval (per-request, per-session, or permanent grant). |
 | **GCM** | Galois/Counter Mode — an authenticated encryption mode that provides both encryption and integrity verification. |
-| **GemmieFile** | A virtual file stored in Isar (not the device filesystem). Contains content, metadata, version history, and permission settings. |
+| **GGUF** | GGML Universal Format — the file format for quantized LLM models used by llama.cpp and Ollama. Gemmie loads .gguf files for on-device inference via `llama_sdk`. |
+| **GemmieProvider** | Wrapper around LangChain.dart's `BaseChatModel` that adds Gemmie-specific concerns: credential management, rate limiting, cost tracking, and health checks. |
 | **GemmieFolder** | A virtual folder organizing GemmieFiles. Can have permission overrides that cascade to children. |
 | **GoRouter** | A declarative routing package for Flutter. Used for Gemmie's navigation with deep link support. |
 | **Grant** | A permission approval from the user to the AI for a specific file/operation, with an expiration scope (this time / session / always). |
@@ -93,7 +94,11 @@
 
 | Term | Definition |
 |------|-----------|
-| **LiteRT** | Google's on-device AI inference runtime (formerly TensorFlow Lite). Used for running local models in Gemmie via FFI or platform channels. |
+| **LAN Discovery** | Feature that automatically scans the local network to find running Ollama instances. Uses `lan_scanner` + `network_info_plus` packages. Ported from the Maid Flutter app. |
+| **LangChain.dart** | A Dart port of the LangChain framework providing unified abstractions (`BaseChatModel`, `Runnable`, chains, agents, tools) for working with LLMs. Gemmie's provider abstraction layer. See [langchain_dart](https://pub.dev/packages/langchain). |
+| **LiteRT** | Google's on-device AI inference runtime (formerly TensorFlow Lite). Used for running TFLite models in Gemmie via platform channels. |
+| **llama.cpp** | A C/C++ library for local LLM inference supporting 100+ model architectures with extensive quantization. Gemmie accesses it via `llama_sdk` (FFI) or Ollama. |
+| **llama_sdk** | A Dart package wrapping llama.cpp via FFI for direct in-process LLM inference. Used by the Maid Flutter app. Supports conditional imports for web. |
 | **Locked** | The most restrictive permission tier. AI cannot access the file/folder under any circumstances. Only the user has access. |
 | **LWW** | Last Writer Wins — a simple conflict resolution strategy where the most recent write takes precedence. Used as the default sync conflict strategy. |
 
@@ -115,6 +120,7 @@
 
 | Term | Definition |
 |------|-----------|
+| **Ollama** | A tool for running LLMs locally, wrapping llama.cpp with an easy API and model management. First-class provider in Gemmie via `langchain_ollama`. Supports LAN discovery for mobile-to-desktop connectivity. |
 | **Open** | The least restrictive permission tier. AI can freely access the file/folder without asking. All accesses are still logged. |
 | **OpenRouter** | A meta-provider that routes AI requests to various models via a unified API (OpenAI-compatible format). |
 
@@ -141,7 +147,7 @@
 |------|-----------|
 | **Recovery Key** | A 24-word BIP39 mnemonic that can restore access to cloud sync data if the user forgets their passphrase. |
 | **Riverpod** | A reactive state management framework for Flutter. Version 2.x used in Gemmie for compile-safe dependency injection and state management. |
-
+| **Runnable** | LangChain.dart's core composable interface. Allows chaining components with the pipe operator: `promptTemplate \| chatModel \| outputParser`. Every step in a chain is a Runnable. |
 ## S
 
 | Term | Definition |
@@ -151,6 +157,7 @@
 | **SSE** | Server-Sent Events — a protocol for server-to-client streaming over HTTP. Used by some AI providers for streaming responses. |
 | **STRIDE** | A threat modeling framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege. |
 | **Streaming** | Receiving AI responses token-by-token as they are generated, rather than waiting for the complete response. |
+| **Supabase** | An open-source Firebase alternative providing auth, real-time database, storage, and edge functions. Chosen for Gemmie's cloud sync backend (proven in Maid). |
 | **System Prompt** | The initial instruction message sent to the AI model, assembled from the active persona's components (soul + personality + memory + rules + knowledge). |
 
 ## T
@@ -193,14 +200,18 @@
 | FFI | Foreign Function Interface |
 | FR | Functional Requirement |
 | GCM | Galois/Counter Mode |
+| GGUF | GGML Universal Format |
 | KEK | Key Encryption Key |
 | KDF | Key Derivation Function |
+| LAN | Local Area Network |
+| LCEL | LangChain Expression Language |
 | LWW | Last Writer Wins |
 | MD | Markdown |
 | NFR | Non-Functional Requirement |
 | OWASP | Open Worldwide Application Security Project |
 | PBKDF2 | Password-Based Key Derivation Function 2 |
 | PKCE | Proof Key for Code Exchange |
+| RLS | Row Level Security |
 | SSE | Server-Sent Events |
 | TEE | Trusted Execution Environment |
 | TLS | Transport Layer Security |

@@ -13,18 +13,20 @@
 - [5. Anthropic Claude Integration](#5-anthropic-claude-integration)
 - [6. HuggingFace Integration](#6-huggingface-integration)
 - [7. OpenRouter Integration](#7-openrouter-integration)
-- [8. Local Model Integration](#8-local-model-integration)
-- [9. Custom Provider Integration](#9-custom-provider-integration)
-- [10. Error Handling & Retry Strategy](#10-error-handling--retry-strategy)
-- [11. Rate Limiting & Quotas](#11-rate-limiting--quotas)
-- [12. Token Counting & Cost Estimation](#12-token-counting--cost-estimation)
-- [13. Adding a New Provider Guide](#13-adding-a-new-provider-guide)
+- [8. Ollama Integration](#8-ollama-integration)
+- [9. Mistral AI Integration](#9-mistral-ai-integration)
+- [10. Local Model Integration (llama_sdk)](#10-local-model-integration-llama_sdk)
+- [11. Custom Provider Integration](#11-custom-provider-integration)
+- [12. Error Handling & Retry Strategy](#12-error-handling--retry-strategy)
+- [13. Rate Limiting & Quotas](#13-rate-limiting--quotas)
+- [14. Token Counting & Cost Estimation](#14-token-counting--cost-estimation)
+- [15. Adding a New Provider Guide](#15-adding-a-new-provider-guide)
 
 ---
 
 ## 1. Unified Provider Interface
 
-All AI provider adapters implement the same `AIProvider` interface (see [Architecture § Provider Abstraction](./03-ARCHITECTURE.md#4-provider-abstraction-layer)). The interface ensures:
+All AI provider adapters are built on **LangChain.dart** (`langchain_core`). Each provider uses the corresponding `langchain_<provider>` package, wrapped by `GemmieProvider` to add credential management, rate limiting, cost tracking, and health checks. See [Architecture § Provider Abstraction](./03-ARCHITECTURE.md#4-provider-abstraction-layer). The interface ensures:
 
 - **Consistent API** for the chat module regardless of backend
 - **Hot-swappable** providers mid-conversation
@@ -34,12 +36,12 @@ All AI provider adapters implement the same `AIProvider` interface (see [Archite
 
 | Method | Purpose | Return |
 |--------|---------|--------|
-| `getAvailableModels()` | List models offered by this provider | `List<ProviderModel>` |
-| `sendMessage(request)` | Send chat and get complete response | `ChatResponse` |
-| `streamMessage(request)` | Send chat and stream tokens | `Stream<ChatStreamEvent>` |
-| `cancel()` | Cancel in-progress request | `void` |
-| `validateCredentials(creds)` | Test if API key is valid | `bool` |
-| `estimateTokens(text)` | Approximate token count | `int` |
+| `chatModel.invoke(prompt)` | Send chat and get complete response | `ChatResult` |
+| `chatModel.stream(prompt)` | Send chat and stream tokens | `Stream<ChatResult>` |
+| `chatModel.bind(options)` | Configure model options (temp, tools) | `BaseChatModel` |
+| `provider.validateCredentials()` | Test if API key is valid | `bool` |
+| `provider.getAvailableModels()` | List models offered by this provider | `List<ProviderModel>` |
+| `provider.estimateTokens(text)` | Approximate token count | `int` |
 
 ---
 
@@ -444,45 +446,171 @@ Models are namespaced by provider: `openai/gpt-4o`, `anthropic/claude-sonnet-4-2
 
 ---
 
-## 8. Local Model Integration
+## 8. Ollama Integration
+
+### Provider Details
+
+| Field | Value |
+|-------|-------|
+| **Provider ID** | `ollama` |
+| **Package** | `langchain_ollama` / `ollama_dart` |
+| **Base URL** | `http://localhost:11434` (default, configurable) |
+| **Auth** | None required (self-hosted) |
+| **Streaming** | ✅ Via `POST /api/chat` with `stream: true` |
+| **Function Calling** | ✅ Supported on select models |
+| **Vision** | ✅ Multi-modal models (LLaVA, etc.) |
+
+### Why Ollama Is a First-Class Provider
+
+Ollama wraps llama.cpp with an easy-to-use API and model management system. It's the recommended way to run models locally on desktop and connect to them from mobile devices over LAN.
+
+### Endpoints Used
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `POST /api/chat` | POST | Chat completion (streaming and non-streaming) |
+| `GET /api/tags` | GET | List locally available models |
+| `POST /api/pull` | POST | Download a model |
+| `POST /api/show` | POST | Show model details |
+| `DELETE /api/delete` | DELETE | Remove a model |
+| `POST /api/generate` | POST | Raw text generation |
+
+### LAN Discovery (from Maid)
+
+Gemmie can automatically discover Ollama instances running on the local network:
+
+```
+1. Get device's local IP and subnet mask via network_info_plus
+2. Scan subnet using lan_scanner package
+3. For each responsive IP, probe port 11434 (Ollama default)
+4. If /api/tags responds → register as discovered Ollama server
+5. Display discovered servers in provider setup UI
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Auto-scan LAN | Off | Scan for Ollama on app launch |
+| Custom Ollama URL | `http://localhost:11434` | Override for non-standard setups |
+| Preferred models | — | Pin favorite models for quick access |
+
+### Supported Models (Dynamic)
+
+Models are fetched via `/api/tags`. Commonly used:
+
+| Model | Parameters | Context | Vision | Notes |
+|-------|-----------|---------|--------|-------|
+| llama3.2 | 3B/1B | 128K | ❌ | Meta's latest compact model |
+| gemma3 | 4B/12B/27B | 128K | ✅ (4B+) | Google's Gemma 3 |
+| phi4 | 14B | 16K | ❌ | Microsoft Phi-4 |
+| mistral | 7B | 32K | ❌ | Mistral 7B |
+| qwen3 | 0.6B-235B | 40K+ | ❌ | Alibaba Qwen 3 |
+| deepseek-coder-v2 | 16B | 128K | ❌ | Code-specialized |
+| llava | 7B/13B | 4K | ✅ | Vision model |
+
+### LangChain.dart Usage
+
+```dart
+final chatModel = ChatOllama(
+  defaultOptions: ChatOllamaOptions(
+    model: 'llama3.2',
+    temperature: 0.7,
+  ),
+  baseUrl: 'http://192.168.1.100:11434/api', // LAN or localhost
+);
+
+// Streaming
+final stream = chatModel.stream(PromptValue.string('Hello!'));
+await for (final chunk in stream) {
+  print(chunk.output.content);
+}
+```
+
+---
+
+## 9. Mistral AI Integration
+
+### Provider Details
+
+| Field | Value |
+|-------|-------|
+| **Provider ID** | `mistral` |
+| **Package** | `langchain_mistralai` / `mistralai_dart` |
+| **Base URL** | `https://api.mistral.ai/v1` |
+| **Auth** | Bearer token (`Authorization: Bearer ...`) |
+| **Streaming** | ✅ SSE via `POST /chat/completions` |
+| **Function Calling** | ✅ Supported |
+| **Vision** | ❌ Text-only |
+
+### Endpoints Used
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/v1/chat/completions` | POST | Chat completion |
+| `/v1/models` | GET | List available models |
+| `/v1/embeddings` | POST | Generate embeddings |
+
+### Supported Models
+
+| Model | Context | Function Calling | Notes |
+|-------|---------|-----------------|-------|
+| mistral-large-latest | 128K | ✅ | Flagship model |
+| mistral-medium-latest | 32K | ✅ | Balanced |
+| mistral-small-latest | 32K | ✅ | Cost-effective |
+| codestral-latest | 32K | ✅ | Code-specialized |
+| open-mistral-nemo | 128K | ✅ | Open-weight |
+
+### LangChain.dart Usage
+
+```dart
+final chatModel = ChatMistralAI(
+  apiKey: config.apiKey,
+  defaultOptions: ChatMistralAIOptions(
+    model: 'mistral-large-latest',
+    temperature: 0.7,
+  ),
+);
+```
+
+---
+
+## 10. Local Model Integration (llama_sdk)
 
 ### Provider Details
 
 | Field | Value |
 |-------|-------|
 | **Provider ID** | `local` |
-| **Runtime** | LiteRT (via platform channels / FFI) |
+| **Runtime** | `llama_sdk` (wraps llama.cpp via FFI) + LiteRT (via platform channels) |
 | **Auth** | None (on-device) |
-| **Streaming** | Token-by-token via callback |
+| **Streaming** | Token-by-token via callback / Stream |
 
-### Architecture
+### Architecture (Dual Runtime)
 
 ```
-Dart (AIProvider interface)
+Dart (GemmieProvider.local)
     │
-    ▼
-Platform Channel / FFI
+    ├── GGUF Models (llama.cpp path):
+    │   └── llama_sdk package
+    │       ├── Conditional import: native vs web stub
+    │       ├── Llama.fromController(model_path, params)
+    │       ├── llama.prompt(messages) → Stream<String>
+    │       └── Supports: Gemma, Llama, Mistral, Phi, Qwen, 100+ architectures
     │
-    ▼
-LiteRT-LM Engine (native C++)
-    │
-    ├── EngineConfig (model path, GPU delegation)
-    ├── ConversationConfig (system prompt, history)
-    └── SamplerConfig (temperature, topK, topP)
+    └── TFLite Models (LiteRT path):
+        └── Platform Channel / FFI
+            ├── EngineConfig (model path, GPU delegation)
+            ├── ConversationConfig (system prompt, history)
+            └── SamplerConfig (temperature, topK, topP)
 ```
 
-### Request Mapping
+### Alternative: Ollama as Local Runtime
 
-```
-ChatRequest → LiteRT Engine
-─────────────────────────────
-messages       → Formatted as conversation turns for the model's chat template
-systemPrompt   → ConversationConfig.systemPrompt
-temperature    → SamplerConfig.temperature
-topK           → SamplerConfig.topK
-topP           → SamplerConfig.topP
-maxTokens      → SamplerConfig.maxTokens
-```
+Instead of embedding llama.cpp directly, users can run Ollama locally and connect via `langchain_ollama`. This is often simpler:
+
+- No FFI complexity
+- Easy model management (`ollama pull gemma3`)
+- GPU acceleration handled by Ollama
+- Same API as LAN Ollama
 
 ### Local-Specific Considerations
 
@@ -494,10 +622,11 @@ maxTokens      → SamplerConfig.maxTokens
 | Battery impact | Throttle inference speed on low battery |
 | Concurrent requests | Queue requests — only one inference at a time |
 | Function calling | Not natively supported by most local models; parse output for tool call patterns |
+| Web platform | Conditional import switches to stub; fall back to cloud/Ollama |
 
 ---
 
-## 9. Custom Provider Integration
+## 11. Custom Provider Integration
 
 For self-hosted or non-standard providers:
 
@@ -522,7 +651,7 @@ Custom providers that follow OpenAI's API format (many self-hosted solutions lik
 
 ---
 
-## 10. Error Handling & Retry Strategy
+## 12. Error Handling & Retry Strategy
 
 ### Error Categories
 
@@ -562,7 +691,7 @@ ProviderError:
 
 ---
 
-## 11. Rate Limiting & Quotas
+## 13. Rate Limiting & Quotas
 
 ### Per-Provider Rate Limiting
 
@@ -573,6 +702,8 @@ ProviderError:
 | Claude | Follows API tier | Follows API tier | No |
 | HuggingFace | 300 RPM (free) | — | No |
 | OpenRouter | Follows model limits | Follows model limits | No |
+| Ollama | Unlimited (local) | N/A | N/A |
+| Mistral | Follows API tier | Follows API tier | No |
 | Local | Unlimited | N/A | N/A |
 
 ### Client-Side Rate Limiting
@@ -604,7 +735,7 @@ Running total tracked in ProviderConfig.rateLimits.currentMonthSpend
 
 ---
 
-## 12. Token Counting & Cost Estimation
+## 14. Token Counting & Cost Estimation
 
 ### Token Estimation
 
@@ -615,7 +746,9 @@ Since exact token counting requires provider-specific tokenizers:
 | OpenAI | `tiktoken` (if available) or approximation: chars / 4 |
 | Gemini | Approximation: chars / 4 |
 | Claude | Approximation: chars / 4 (Anthropic doesn't publish tokenizer) |
-| Local | Model-specific tokenizer via LiteRT |
+| Ollama | Ollama returns token counts in response | Free (local) |
+| Mistral | Approximation: chars / 4 | Mistral pricing |
+| Local | Model-specific tokenizer via llama_sdk / LiteRT | Free (local) |
 
 ### Cost Calculation
 
@@ -628,37 +761,27 @@ Prices are stored per-model in `ProviderModel.inputPricePerMT` / `outputPricePer
 
 ---
 
-## 13. Adding a New Provider Guide
+## 15. Adding a New Provider Guide
 
 ### Step-by-Step
 
-1. **Create adapter file:**
+1. **Check LangChain.dart packages:**
+   Many providers are already supported. Check [pub.dev langchain packages](https://pub.dev/packages?q=langchain).
+
+2. **If LangChain.dart has the package:**
+   ```
+   dart pub add langchain_<provider>
+   ```
+   Create `GemmieProvider.<provider>()` factory — done in ~50 lines.
+
+3. **If OpenAI-compatible:**
+   Use `langchain_openai` with custom `baseUrl` — most self-hosted solutions (vLLM, LM Studio, GPT4All, llama-server) work this way.
+
+4. **If truly custom:**
+   Create adapter file:
    ```
    lib/features/providers/data/adapters/new_provider_adapter.dart
    ```
-
-2. **Implement `AIProvider` interface:**
-   - Map `ChatRequest` → provider-specific format
-   - Map provider response → `ChatResponse`
-   - Implement streaming (parse SSE or WebSocket events)
-   - Handle authentication (key format, headers)
-
-3. **Define provider type:**
-   Add new enum value to `ProviderType` in data models.
-
-4. **Register provider:**
-   Add to `ProviderRegistry` initialization in DI setup.
-
-5. **Create configuration UI:**
-   Add provider setup card in Settings > AI Providers.
-
-6. **Add credential schema:**
-   Define what credentials are needed (API key, OAuth, etc.).
-
-7. **Write tests:**
-   - Unit tests for request/response mapping
-   - Integration tests with mock HTTP responses
-   - Streaming tests with mock SSE events
 
 ### Estimated Effort
 

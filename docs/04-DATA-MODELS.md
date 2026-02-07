@@ -90,7 +90,9 @@ Message:
   attachments:     List<Attachment>           # Images, files, etc.
   toolInvocations: List<ToolInvocation>       # Tools called during this message
   modelId:         String?                    # Model that generated this (for assistant)
-  parentId:        String?                    # For branching conversations
+  parentId:        String?                    # For branching conversations (FK to parent Message)
+  childrenIds:     List<String>               # Child branch message IDs (tree structure)
+  currentChildId:  String?                    # Active branch child (for navigation)
   isEdited:        bool                       # Whether user edited after sending
   tokenCount:      int?                       # Token count for this message
   status:          MessageStatus              # sending | streaming | complete | error | cancelled
@@ -262,12 +264,14 @@ ProviderCapabilities:
 
 ```yaml
 ProviderType:
-  - openai         # OpenAI API (GPT models)
-  - gemini         # Google Gemini API
-  - claude         # Anthropic Claude API
-  - huggingface    # HuggingFace Inference API
-  - openrouter     # OpenRouter (meta-provider)
-  - local          # Local on-device model via LiteRT
+  - openai         # OpenAI API (GPT models) — via langchain_openai
+  - gemini         # Google Gemini API — via langchain_google
+  - claude         # Anthropic Claude API — via langchain_anthropic
+  - huggingface    # HuggingFace Inference API — via langchain_huggingface
+  - openrouter     # OpenRouter (meta-provider) — via langchain_openai (custom baseUrl)
+  - ollama         # Ollama (local/LAN, no API key) — via langchain_ollama
+  - mistral        # Mistral AI — via langchain_mistralai
+  - local          # Local on-device model via llama_sdk / LiteRT
   - custom         # User-configured custom endpoint
 ```
 
@@ -280,6 +284,22 @@ RateLimitConfig:
   monthlyBudgetUSD:   double?                 # User-set spending limit
   currentMonthSpend:  double                  # Tracked spending
   alertThreshold:     double?                 # Alert at this % of budget
+```
+
+### OllamaServerConfig
+
+```yaml
+OllamaServerConfig:
+  id:              String (UUID v4)
+  host:            String                     # Hostname or IP address
+  port:            int                        # Default: 11434
+  displayName:     String                     # User-friendly name (e.g., "Desktop PC")
+  isDiscovered:    bool                       # Found via LAN scan vs manually added
+  lastSeen:        DateTime?                  # Last successful health check
+  isOnline:        bool                       # Current reachability status
+  models:          List<String>               # Cached list of available model tags
+  createdAt:       DateTime
+  updatedAt:       DateTime
 ```
 
 ---

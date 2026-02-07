@@ -73,10 +73,19 @@
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
-| **Local Inference** | LiteRT (via FFI/platform channels) | Google's on-device AI runtime; used by Gallery reference app |
-| **Model Download** | HuggingFace Hub API + OAuth | Gated model support; token-based auth |
-| **Cloud Providers** | Provider abstraction layer | Pluggable adapters for OpenAI, Gemini, Claude, HF Inference, OpenRouter |
+| **Provider Framework** | LangChain.dart (`langchain_core`) | Proven Dart LLM framework with unified `BaseChatModel` abstraction, Runnable chains, agents, tools, embeddings, and 10+ provider integrations. Eliminates need for custom provider interface. |
+| **OpenAI** | `langchain_openai` / `openai_dart` | Chat + streaming + tool calling + OpenAI-compatible endpoints (vLLM, LM Studio, etc.) |
+| **Google Gemini** | `langchain_google` / `googleai_dart` | Native Gemini API with multimodal + function calling |
+| **Anthropic Claude** | `langchain_anthropic` / `anthropic_sdk_dart` | Claude chat + streaming + tool use |
+| **Ollama (Local)** | `langchain_ollama` / `ollama_dart` | Connect to local or LAN Ollama servers; supports 100+ models (Llama, Gemma, Phi, Mistral, Qwen, etc.) |
+| **Mistral AI** | `langchain_mistralai` / `mistralai_dart` | Mistral + Mixtral models |
+| **HuggingFace** | `langchain_huggingface` + HF Hub API | Inference API + model downloads with OAuth |
+| **OpenRouter** | `langchain_openai` (compatible format) | Meta-provider routing to 200+ models via single API key |
+| **Local Inference (GGUF)** | `llama_sdk` (wraps llama.cpp via FFI) | On-device GGUF model inference; conditional import for web |
+| **Local Inference (LiteRT)** | LiteRT (via platform channels) | Google's on-device runtime for TFLite models; ported from Gallery |
+| **Model Download** | HuggingFace Hub API + OAuth + Dio | Gated model support; token-based auth; download queue with progress |
 | **Streaming** | Server-Sent Events / WebSocket | Real-time token streaming from all providers |
+| **Agent Graphs** | `langgraph` (future) | Build resilient agent workflows as composable graphs |
 
 ### Storage & Files
 
@@ -101,8 +110,9 @@
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
 | **HTTP** | dio | Interceptors, cancellation, streaming support |
-| **Cloud Sync** | Firebase / Supabase (TBD) | Optional E2E encrypted sync |
+| **Cloud Sync** | Supabase (`supabase_flutter`) | E2E encrypted sync; Maid reference app proves this works well with Flutter for chat sync + storage policies |
 | **Auth** | AppAuth (OAuth 2.0) | HuggingFace and provider authentication |
+| **LAN Discovery** | `lan_scanner` + `network_info_plus` | Auto-discover Ollama instances on local network (pattern from Maid) |
 
 ---
 
@@ -138,12 +148,16 @@
 │                          DATA LAYER                            │
 │  ┌─────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
 │  │  Encrypted  │ │   Provider   │ │    Platform Channels     │ │
-│  │  Isar DB    │ │   Adapters   │ │  (LiteRT, Keychain, FS)  │ │
-│  └─────────────┘ │ ┌──────────┐ │ └──────────────────────────┘ │
-│                  │ │  OpenAI  │ │                              │
-│                  │ │  Gemini  │ │                              │
-│                  │ │  Claude  │ │                              │
-│                  │ │HuggingFace││                              │
+│  │  Isar DB    │ │  Adapters    │ │  (LiteRT, Keychain, FS)  │ │
+│  └─────────────┘ │ (LangChain.  │ ├──────────────────────────┤ │
+│                  │   dart)      │ │   Local Inference        │ │
+│                  │ ┌──────────┐ │ │  ┌─────────────────────┐ │ │
+│                  │ │  OpenAI  │ │ │  │  llama_sdk (GGUF)   │ │ │
+│                  │ │  Gemini  │ │ │  │  LiteRT (TFLite)    │ │ │
+│                  │ │  Claude  │ │ │  └─────────────────────┘ │ │
+│                  │ │  Ollama  │ │ └──────────────────────────┘ │
+│                  │ │ Mistral  │ │                              │
+│                  │ │Hugging F.│ │                              │
 │                  │ │OpenRouter│ │                              │
 │                  │ └──────────┘ │                              │
 │                  └──────────────┘                              │
@@ -220,10 +234,13 @@ The [AI Edge Gallery](../gallery/Android/) is a production-quality Android app b
 | Start fresh vs fork Gallery | Fresh project with future module porting | Different platform (Flutter vs Android-native); cleaner architecture | 2026-02-07 |
 | State management | Riverpod | Modern, compile-safe, better async support than BLoC | 2026-02-07 |
 | Storage backend | Encrypted Isar DB | High-performance, encryption support, NoSQL flexibility for MD storage | 2026-02-07 |
-| AI provider strategy | All major + pluggable | OpenAI, Gemini, Claude, HF, OpenRouter + extensible adapter pattern | 2026-02-07 |
+| Provider framework | LangChain.dart (`langchain_core`) | Proven framework with 10+ provider integrations; Runnable composability; eliminates need for custom AIProvider interface | 2026-02-07 |
+| Local inference | llama_sdk (GGUF) + LiteRT (TFLite) | Dual runtime: llama.cpp FFI for GGUF models (proven in Maid), LiteRT for TFLite (from Gallery) | 2026-02-07 |
+| Ollama support | First-class via `langchain_ollama` | Ollama wraps llama.cpp with easy model management; LAN discovery from Maid enables mobile-to-desktop connectivity | 2026-02-07 |
 | File format (internal) | Markdown | Universal; AI-readable; supports embedded references (CSV, etc.) | 2026-02-07 |
 | Permission model | Multi-tier (Locked/Gated/Open) | Balances security with usability; git-like audit trail | 2026-02-07 |
 | Agent persona | Full persona system with soul files | Differentiator feature; enables personalized AI experience | 2026-02-07 |
-| Cloud sync | Optional with E2E encryption | Privacy-first; user controls what leaves device | 2026-02-07 |
+| Cloud sync | Supabase (`supabase_flutter`) | Proven in Maid for chat sync; supports RLS policies, storage, auth; optional with E2E encryption | 2026-02-07 |
 | Code execution | Local sandboxed + remote | Flexibility: quick local runs + powerful remote environments | 2026-02-07 |
 | Release scope | Full feature set (phased implementation) | All features designed upfront; implementation phases for delivery | 2026-02-07 |
+| Branching conversations | Tree structure (from Maid) | Support conversation forking with parent/children message nodes | 2026-02-07 |

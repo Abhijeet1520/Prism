@@ -154,6 +154,9 @@ TLS_AES_128_GCM_SHA256
 | Gemini API key | Platform keystore | Secure storage plugin |
 | Claude API key | Platform keystore | Secure storage plugin |
 | OpenRouter API key | Platform keystore | Secure storage plugin |
+| Ollama server config | App storage (unencrypted — no secret) | Direct access (host/port only, no API key) |
+| Mistral AI API key | Platform keystore | Secure storage plugin |
+| Supabase credentials | Platform keystore | Secure storage plugin |
 | Custom provider keys | Platform keystore | Secure storage plugin |
 | DEK (data encryption key) | App storage (encrypted by KEK) | Decrypted at runtime |
 | KEK (key encryption key) | Hardware keystore (TEE/SE) | Platform key management API |

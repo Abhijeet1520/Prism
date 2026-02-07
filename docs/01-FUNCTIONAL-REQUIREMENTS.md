@@ -86,10 +86,12 @@ The core interaction paradigm. Users converse with the AI assistant in a multi-t
 |----|-------------|----------|--------|
 | FR-01.5.1 | User can regenerate the last AI response | Must | Draft |
 | FR-01.5.2 | User can edit a previously sent message and get a new response from that point | Should | Draft |
-| FR-01.5.3 | User can branch a conversation from any message (creating a fork) | Could | Draft |
-| FR-01.5.4 | User can export a conversation as Markdown or PDF | Should | Draft |
-| FR-01.5.5 | User can share a conversation via platform sharing | Could | Draft |
-| FR-01.5.6 | User can switch the AI model mid-conversation (response uses new model from that point) | Must | Draft |
+| FR-01.5.3 | User can branch a conversation from any message (creating a fork) — tree structure with parent/child navigation (proven in Maid reference app) | Should | Draft |
+| FR-01.5.4 | Branching UI shows the conversation tree and allows navigating between branches | Should | Draft |
+| FR-01.5.5 | User can switch between sibling branches at any fork point | Should | Draft |
+| FR-01.5.6 | User can export a conversation as Markdown or PDF | Should | Draft |
+| FR-01.5.7 | User can share a conversation via platform sharing | Could | Draft |
+| FR-01.5.8 | User can switch the AI model mid-conversation (response uses new model from that point) | Must | Draft |
 
 ### Acceptance Criteria
 
@@ -178,7 +180,7 @@ Users can connect to cloud AI providers as an alternative or supplement to local
 | ID | Requirement | Priority | Status |
 |----|-------------|----------|--------|
 | FR-03.1.1 | User can add, configure, and remove AI providers | Must | Draft |
-| FR-03.1.2 | Supported providers at launch: OpenAI, Google Gemini, Anthropic Claude, HuggingFace Inference, OpenRouter | Must | Draft |
+| FR-03.1.2 | Supported providers at launch: OpenAI, Google Gemini, Anthropic Claude, HuggingFace Inference, OpenRouter, Ollama, Mistral AI — all via LangChain.dart adapter packages | Must | Draft |
 | FR-03.1.3 | Each provider requires an API key (securely stored — see FR-05) | Must | Draft |
 | FR-03.1.4 | Provider connection is validated on setup (test API call) | Should | Draft |
 | FR-03.1.5 | User can set a default provider and model for new conversations | Must | Draft |
@@ -214,6 +216,17 @@ Users can connect to cloud AI providers as an alternative or supplement to local
 | FR-03.4.2 | User can browse available models through OpenRouter's model list | Should | Draft |
 | FR-03.4.3 | System supports adding future routers (not hardcoded to OpenRouter) | Should | Draft |
 
+#### FR-03.5: Ollama Integration (Self-Hosted / LAN)
+
+| ID | Requirement | Priority | Status |
+|----|-------------|----------|--------|
+| FR-03.5.1 | User can add an Ollama server by hostname/IP and port (default: 11434) | Must | Draft |
+| FR-03.5.2 | App auto-discovers Ollama instances on the local network via LAN scanning (port 11434 probe) | Should | Draft |
+| FR-03.5.3 | Discovered Ollama servers display in a picker with hostname and available models | Should | Draft |
+| FR-03.5.4 | User can pull (download) new models onto a connected Ollama server | Should | Draft |
+| FR-03.5.5 | Ollama provider supports streaming chat, model listing, and health checks | Must | Draft |
+| FR-03.5.6 | Ollama connections do not require an API key (no-auth by default) | Must | Draft |
+
 ### Acceptance Criteria
 
 - [ ] User can configure at least 3 different providers and switch between them in chat
@@ -221,6 +234,7 @@ Users can connect to cloud AI providers as an alternative or supplement to local
 - [ ] API key validation prevents saving invalid credentials
 - [ ] Token usage is accurately tracked and displayed per conversation
 - [ ] Rate limit errors are retried automatically without user intervention
+- [ ] Ollama LAN discovery finds a running Ollama instance on the same network
 
 ---
 
@@ -783,7 +797,7 @@ Optional cloud backup and synchronization with end-to-end encryption. Users choo
 |----|-------------|----------|--------|
 | FR-12.1.1 | Cloud sync is off by default — explicitly opt-in | Must | Draft |
 | FR-12.1.2 | User can select which folders/files to sync | Must | Draft |
-| FR-12.1.3 | Sync provider options: Firebase, Supabase, or custom (TBD) | Should | Draft |
+| FR-12.1.3 | Sync provider: Supabase (chosen — proven in Maid reference app; RLS policies, storage, auth) | Should | Draft |
 | FR-12.1.4 | Sync requires user authentication (app-level account) | Must | Draft |
 | FR-12.1.5 | Sync status indicator: Synced / Syncing / Pending / Error / Offline | Must | Draft |
 

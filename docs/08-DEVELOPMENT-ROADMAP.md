@@ -63,7 +63,7 @@ Week 13-16 ── Phase 6: Advanced Features
 
 | ID | Task | Effort | Output |
 |----|------|--------|--------|
-| 0.1 | Create Flutter project (`flutter create gennie`) | 1h | Project skeleton |
+| 0.1 | Create Flutter project (`flutter create gemmie`) | 1h | Project skeleton |
 | 0.2 | Configure project structure per 03-ARCHITECTURE.md | 4h | Clean Architecture folders |
 | 0.3 | Set up Riverpod 2.x with code generation | 2h | Providers configured |
 | 0.4 | Set up GoRouter navigation skeleton | 2h | Route definitions |
@@ -120,25 +120,29 @@ Week 13-16 ── Phase 6: Advanced Features
 
 | ID | Task | Effort | Output |
 |----|------|--------|--------|
-| 2.1 | Provider abstraction layer (`AIProvider` interface) | 8h | Core interface + registry |
-| 2.2 | OpenAI provider implementation | 12h | Chat + streaming + tool calling |
-| 2.3 | Google Gemini provider implementation | 12h | Chat + streaming + tool calling |
-| 2.4 | Anthropic Claude provider implementation | 12h | Chat + streaming + tool calling |
-| 2.5 | HuggingFace Inference API provider | 8h | Chat completion via API |
-| 2.6 | OpenRouter provider (meta-router) | 8h | OpenAI-compatible wrapper |
-| 2.7 | Custom provider support (user-configured) | 8h | Configurable endpoint |
-| 2.8 | HuggingFace model download (OAuth) | 16h | Browse, download, manage |
-| 2.9 | Local model inference (LiteRT FFI) | 24h | On-device inference pipeline |
-| 2.10 | Token counting & cost estimation | 8h | Per-provider tokenizer |
-| 2.11 | Rate limiting & retry logic | 8h | Exponential backoff, queue |
-| 2.12 | Model selector bottom sheet in chat | 8h | Model switching mid-conversation |
-| 2.13 | Provider health checks & status indicators | 4h | Green/yellow/red badges |
+| 2.1 | Integrate LangChain.dart core (`langchain_core`, `langchain`) | 4h | Base abstractions + GemmieProvider wrapper |
+| 2.2 | OpenAI provider (`langchain_openai`) | 8h | Chat + streaming + tool calling |
+| 2.3 | Google Gemini provider (`langchain_google`) | 8h | Chat + streaming + tool calling |
+| 2.4 | Anthropic Claude provider (`langchain_anthropic`) | 8h | Chat + streaming + tool calling |
+| 2.5 | Ollama provider (`langchain_ollama`) + LAN discovery | 12h | Local/LAN Ollama + auto-scan |
+| 2.6 | Mistral AI provider (`langchain_mistralai`) | 6h | Chat + streaming |
+| 2.7 | HuggingFace Inference API (`langchain_huggingface`) | 6h | Chat completion via API |
+| 2.8 | OpenRouter provider (via `langchain_openai` compatible) | 4h | Meta-router with custom headers |
+| 2.9 | Custom provider support (user-configured baseUrl) | 6h | Configurable endpoint |
+| 2.10 | HuggingFace model download (OAuth + Dio) | 16h | Browse, download, manage .gguf files |
+| 2.11 | Local model inference (`llama_sdk` FFI) | 16h | On-device GGUF inference pipeline |
+| 2.12 | LiteRT inference (platform channels) | 16h | On-device TFLite inference (from Gallery) |
+| 2.13 | Token counting & cost estimation | 8h | Per-provider tokenizer |
+| 2.14 | Rate limiting & retry logic | 8h | Exponential backoff, queue |
+| 2.15 | Model selector bottom sheet in chat | 8h | Model switching mid-conversation |
+| 2.16 | Provider health checks & status indicators | 4h | Green/yellow/red badges |
 
 ### Exit Criteria
 
-- All 7 provider types functional with at least one model each
-- Streaming works for OpenAI, Gemini, Claude
-- Local model can be downloaded and run inference
+- All 9 provider types functional with at least one model each
+- Streaming works for OpenAI, Gemini, Claude, Ollama, Mistral
+- Local model can be downloaded and run inference via llama_sdk
+- Ollama LAN discovery finds servers on local network
 - Token usage tracked and displayed to user
 
 ---
@@ -296,7 +300,7 @@ The AI Edge Gallery (Kotlin/Compose) contains modules worth porting to Flutter. 
 |-----------|--------|------------------|
 | M0: Skeleton | End of Week 1 | Flutter app builds on all platforms; CI green; architecture in place |
 | M1: Chat Works | End of Week 4 | User can chat with encrypted message persistence |
-| M2: AI Connected | End of Week 8 | All 7 providers functional; local model runs inference |
+| M2: AI Connected | End of Week 8 | All 9 providers functional; local model runs inference; Ollama LAN discovery works |
 | M3: Tools Ready | End of Week 12 | Tool calling works; code execution in 3 languages |
 | M4: Files Ready | End of Week 12 | Virtual filesystem with versioning and permissions |
 | M5: Persona Ready | End of Week 12 | Agent persona system functional |
@@ -310,7 +314,8 @@ The AI Edge Gallery (Kotlin/Compose) contains modules worth porting to Flutter. 
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| LiteRT Flutter FFI complexity | High | High | Start early (Phase 2); fallback to platform channels |
+| LiteRT Flutter FFI complexity | Medium | High | Use llama_sdk (proven in Maid) as primary; LiteRT as secondary via platform channels |
+| llama_sdk web platform | Medium | Medium | Conditional import with web stub; fall back to Ollama/cloud on web |
 | Python CPython FFI on iOS restrictions | Medium | High | Fallback to remote execution; JS as primary local lang |
 | Cloud sync conflict resolution complexity | Medium | Medium | Start with simple LWW; upgrade to CRDT if needed |
 | Cross-platform sandbox inconsistencies | Medium | Medium | Abstract sandbox interface; platform-specific impls |

@@ -105,7 +105,8 @@ lib/
 │   │
 │   ├── providers/                     #   FR-03: Cloud AI API Integration
 │   │   ├── data/
-│   │   │   └── adapters/              #     OpenAI, Gemini, Claude, HF, OpenRouter adapters
+│   │   │   └── adapters/              #     LangChain.dart adapters: OpenAI, Gemini, Claude,
+│   │   │                              #     Ollama, Mistral, HF, OpenRouter, local
 │   │   ├── domain/
 │   │   └── presentation/
 │   │
@@ -175,8 +176,8 @@ lib/
 | Module | Domain Entities | External Dependencies | Cross-Module Dependencies |
 |--------|----------------|----------------------|--------------------------|
 | **chat** | Conversation, Message, Attachment | None | providers, tools, persona, permissions |
-| **models** | AIModel, ModelConfig, DownloadState | LiteRT (via FFI), HuggingFace API | settings (tokens) |
-| **providers** | Provider, ProviderConfig, TokenUsage | OpenAI/Gemini/Claude/HF/OpenRouter APIs | settings (API keys) |
+| **models** | AIModel, ModelConfig, DownloadState | llama_sdk (FFI), LiteRT (platform channels), Ollama (via `ollama_dart`), HuggingFace API | settings (tokens) |
+| **providers** | Provider, ProviderConfig, TokenUsage | LangChain.dart (`langchain_openai`, `langchain_google`, `langchain_anthropic`, `langchain_ollama`, `langchain_mistralai`) | settings (API keys) |
 | **tools** | Tool, ToolInvocation, ToolResult | Per-tool external deps | permissions, executor, storage |
 | **settings** | UserProfile, AppPreferences, CredentialEntry | Platform Keystore | None (dependency of others) |
 | **storage** | GemmieFile, GemmieFolder, FileMetadata | Isar DB | permissions, versioning |
@@ -191,49 +192,56 @@ lib/
 
 ## 4. Provider Abstraction Layer
 
-The AI provider system uses the **Strategy Pattern** with a registry, allowing pluggable addition of new providers.
+Gemmie uses **LangChain.dart** (`langchain_core`) as its provider abstraction layer instead of a custom interface. This gives us battle-tested abstractions, 10+ pre-built provider integrations, and the `Runnable` composability pattern.
 
-### Interface
+### Core Abstraction: BaseChatModel
+
+LangChain.dart's `BaseChatModel` serves as the unified provider interface:
 
 ```dart
-/// Core interface all AI providers must implement.
-abstract class AIProvider {
-  /// Unique provider identifier (e.g., "openai", "gemini", "claude")
-  String get id;
+/// LangChain.dart provides this — we wrap it for Gemmie-specific concerns.
+/// See: langchain_core/lib/src/chat_models/base.dart
+///
+/// Key methods:
+///   invoke(PromptValue) → ChatResult
+///   stream(PromptValue) → Stream<ChatResult>
+///   bind(ChatModelOptions) → BaseChatModel (with options baked in)
+///
+/// Runnable composability:
+///   final chain = promptTemplate | chatModel | outputParser;
+///   final result = await chain.invoke('user query');
+```
 
-  /// Human-readable provider name
-  String get displayName;
+### Gemmie Provider Wrapper
 
-  /// Provider capabilities (streaming, vision, function calling, etc.)
-  ProviderCapabilities get capabilities;
+```dart
+/// Wraps a LangChain BaseChatModel with Gemmie-specific concerns:
+/// credential management, rate limiting, cost tracking, health checks.
+class GemmieProvider {
+  final String id;
+  final String displayName;
+  final BaseChatModel chatModel;
+  final ProviderCapabilities capabilities;
+  final ProviderConfig config;
 
-  /// Available models from this provider
-  Future<List<ProviderModel>> getAvailableModels();
+  /// All providers use LangChain.dart under the hood
+  factory GemmieProvider.openai(ProviderConfig config) =>
+    GemmieProvider._(
+      id: 'openai',
+      displayName: 'OpenAI',
+      chatModel: ChatOpenAI(apiKey: config.apiKey),
+      // ...
+    );
 
-  /// Send a chat message and receive a complete response
-  Future<ChatResponse> sendMessage(ChatRequest request);
+  factory GemmieProvider.ollama(ProviderConfig config) =>
+    GemmieProvider._(
+      id: 'ollama',
+      displayName: 'Ollama',
+      chatModel: ChatOllama(baseUrl: config.baseUrl),
+      // ...
+    );
 
-  /// Send a chat message and stream tokens
-  Stream<ChatStreamEvent> streamMessage(ChatRequest request);
-
-  /// Cancel an in-progress request
-  Future<void> cancel();
-
-  /// Validate credentials
-  Future<bool> validateCredentials(ProviderCredentials credentials);
-
-  /// Estimate token count for a message
-  int estimateTokens(String text);
-}
-
-/// What the provider supports
-class ProviderCapabilities {
-  final bool streaming;
-  final bool vision;
-  final bool functionCalling;
-  final bool systemMessage;
-  final int maxContextTokens;
-  final List<String> supportedMediaTypes;
+  // ... factories for each provider
 }
 ```
 
@@ -242,36 +250,52 @@ class ProviderCapabilities {
 ```dart
 /// Registry for dynamically adding/removing providers
 class ProviderRegistry {
-  final Map<String, AIProvider> _providers = {};
+  final Map<String, GemmieProvider> _providers = {};
 
-  void register(AIProvider provider);
+  void register(GemmieProvider provider);
   void unregister(String providerId);
-  AIProvider? getProvider(String providerId);
-  List<AIProvider> get allProviders;
-  List<AIProvider> getProvidersWithCapability(Capability cap);
+  GemmieProvider? getProvider(String providerId);
+  List<GemmieProvider> get allProviders;
+  List<GemmieProvider> getProvidersWithCapability(Capability cap);
 }
 ```
 
-### Provider Adapter Pattern
+### Provider Adapter Map
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    AIProvider (interface)                │
-├─────────┬──────────┬──────────┬──────────┬──────────────┤
-│ OpenAI  │  Gemini  │  Claude  │    HF    │  OpenRouter  │
-│ Adapter │ Adapter  │ Adapter  │ Adapter  │   Adapter    │
-├─────────┴──────────┴──────────┴──────────┴──────────────┤
-│              HTTP Client (dio) + Auth Layer              │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                   GemmieProvider (wrapper)                           │
+├──────────┬──────────┬──────────┬──────────┬──────────┬──────────────┤
+│ ChatOpenAI│ChatGoogle│ChatAnthr.│ChatOllama│ChatMistr.│  llama_sdk   │
+│ (langchain│(langchain│(langchain│(langchain│(langchain│  (FFI)       │
+│ _openai)  │_google)  │_anthropic│_ollama)  │_mistralai│              │
+├──────────┴──────────┴──────────┴──────────┴──────────┴──────────────┤
+│    openai_dart  googleai_dart  anthropic_sdk  ollama_dart           │
+│                       (low-level API clients)                       │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+### LangChain.dart Packages to Use
+
+| Package | Purpose | Pub.dev |
+|---------|---------|--------|
+| `langchain_core` | Base abstractions, Runnable, ChatMessage, PromptTemplate | [![pub](https://img.shields.io/pub/v/langchain_core.svg)](https://pub.dev/packages/langchain_core) |
+| `langchain` | Chains, agents, retrievers | [![pub](https://img.shields.io/pub/v/langchain.svg)](https://pub.dev/packages/langchain) |
+| `langchain_openai` | OpenAI + compatible (OpenRouter, vLLM, LM Studio) | [![pub](https://img.shields.io/pub/v/langchain_openai.svg)](https://pub.dev/packages/langchain_openai) |
+| `langchain_google` | Google AI / Gemini | [![pub](https://img.shields.io/pub/v/langchain_google.svg)](https://pub.dev/packages/langchain_google) |
+| `langchain_anthropic` | Anthropic Claude | [![pub](https://img.shields.io/pub/v/langchain_anthropic.svg)](https://pub.dev/packages/langchain_anthropic) |
+| `langchain_ollama` | Ollama (local/LAN) | [![pub](https://img.shields.io/pub/v/langchain_ollama.svg)](https://pub.dev/packages/langchain_ollama) |
+| `langchain_mistralai` | Mistral AI | [![pub](https://img.shields.io/pub/v/langchain_mistralai.svg)](https://pub.dev/packages/langchain_mistralai) |
+| `langchain_firebase` | Firebase Vertex AI | [![pub](https://img.shields.io/pub/v/langchain_firebase.svg)](https://pub.dev/packages/langchain_firebase) |
 
 ### Adding a New Provider
 
-1. Create `lib/features/providers/data/adapters/new_provider_adapter.dart`
-2. Implement `AIProvider` interface
-3. Register in `ProviderRegistry` during app initialization
-4. Add credentials schema to settings
-5. **Zero changes to core code required**
+1. Check if LangChain.dart already has a package for it (likely yes)
+2. If yes: add `langchain_<provider>` dependency, create `GemmieProvider.<provider>()` factory
+3. If no (custom/self-hosted): use `langchain_openai` with custom `baseUrl` (most self-hosted solutions are OpenAI-compatible)
+4. Register in `ProviderRegistry` during app initialization
+5. Add credentials schema to settings
+6. **Zero changes to core code required**
 
 ---
 
