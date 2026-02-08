@@ -1,360 +1,441 @@
-# 08 — Development Roadmap
+# Prism — Development Roadmap
 
-> Phased delivery plan for Gemmie, including milestones, dependencies, Gallery module porting timeline, and effort estimates.
+## Overview
 
----
+Prism is developed in 4 phases, progressing from core AI chat to a full Second Brain with advanced integrations. Each phase builds on the previous, ensuring a functional app at every milestone.
 
-## Table of Contents
-
-- [1. Phasing Strategy](#1-phasing-strategy)
-- [2. Phase 0 — Project Bootstrap](#2-phase-0--project-bootstrap)
-- [3. Phase 1 — Core Shell](#3-phase-1--core-shell)
-- [4. Phase 2 — AI Integration](#4-phase-2--ai-integration)
-- [5. Phase 3 — Tools & Code Execution](#5-phase-3--tools--code-execution)
-- [6. Phase 4 — Files, Versioning & Permissions](#6-phase-4--files-versioning--permissions)
-- [7. Phase 5 — Agent Persona](#7-phase-5--agent-persona)
-- [8. Phase 6 — Advanced Features](#8-phase-6--advanced-features)
-- [9. Gallery Module Porting](#9-gallery-module-porting)
-- [10. Milestones & Success Criteria](#10-milestones--success-criteria)
-- [11. Risk Register](#11-risk-register)
-- [12. Dependency Graph](#12-dependency-graph)
+**Primary Platform**: Android
+**Secondary**: Desktop (Windows, Linux, macOS)
+**Tertiary**: Web
+**CI/CD**: GitHub Actions
+**Distribution**: GitHub Releases, F-Droid
 
 ---
 
-## 1. Phasing Strategy
+## Phase 1 — Foundation (Weeks 1–8)
 
-Although the user wants the full feature set (no MVP phasing at launch), the build sequence is ordered for maximum value-per-phase and minimal rework.
+> **Goal**: Working AI chat app with local + cloud providers, basic file management, and Second Brain skeleton.
 
-| Phase | Name | Duration | Dependencies |
-|-------|------|----------|--------------|
-| 0 | Project Bootstrap | 1 week | — |
-| 1 | Core Shell | 3 weeks | Phase 0 |
-| 2 | AI Integration | 4 weeks | Phase 1 |
-| 3 | Tools & Code Execution | 3 weeks | Phase 2 |
-| 4 | Files, Versioning & Permissions | 4 weeks | Phase 1 |
-| 5 | Agent Persona | 2 weeks | Phase 2 |
-| 6 | Advanced Features | 4 weeks | Phase 3, 4, 5 |
-| — | **Total** | **~21 weeks** | |
+### P1.1 Project Setup (Week 1)
 
-### Parallel Tracks
+- [ ] Initialize Flutter project with `moon_design` and `Riverpod`
+- [ ] Set up project directory structure (feature-first modules)
+- [ ] Configure Drift database with initial schema (conversations, messages, providers, personas)
+- [ ] Set up GoRouter with shell route (app scaffold + navigation)
+- [ ] Configure GitHub Actions CI pipeline (lint → test → build)
+- [ ] Set up Moon Design theming (MoonTokens dark, indigo accent)
 
-Phases 3, 4, and 5 can proceed in parallel after Phase 2 completes, since they have no mutual dependencies. This could condense the timeline to ~16 weeks.
+### P1.2 AI Engine Core (Weeks 2–3)
 
-```
-Timeline (compressed):
+- [ ] Implement `AiEngine` and `ProviderManager` abstractions
+- [ ] LangChain.dart adapter for OpenAI (`langchain_openai`)
+- [ ] LangChain.dart adapter for Ollama (`langchain_ollama`)
+- [ ] Local inference service with `llama_cpp_dart` (GGUF loading, generation)
+- [ ] dart_openai integration for custom OpenAI-compatible endpoints
+- [ ] Streaming token output (SSE for cloud, callback for local)
+- [ ] Provider configuration CRUD (Drift persistence)
+- [ ] Connection testing per provider
 
-Week  1 ──── Phase 0: Bootstrap
-Week  2-4 ── Phase 1: Core Shell
-Week  5-8 ── Phase 2: AI Integration
-Week  9-12 ─┬─ Phase 3: Tools & Code Execution
-             ├─ Phase 4: Files, Versioning & Permissions
-             └─ Phase 5: Agent Persona
-Week 13-16 ── Phase 6: Advanced Features
-```
+### P1.3 Chat Module (Weeks 3–5)
 
----
+- [ ] Conversation list UI (`TreeView`, search, context menu)
+- [ ] Chat view UI (`ChatGroup`, `ChatBubble`, streaming display)
+- [ ] Chat input bar (`TextField`, model selector `Select`, send button)
+- [ ] Message persistence (Drift, branching with `parentMessageId`)
+- [ ] Branch navigation UI (← 1/3 → buttons)
+- [ ] Conversation create/rename/delete/pin/archive
+- [ ] Persona system (CRUD, assignment to conversations)
+- [ ] Token count display and cost estimation
+- [ ] Copy message, export conversation as Markdown
 
-## 2. Phase 0 — Project Bootstrap
+### P1.4 File Management (Weeks 5–6)
 
-**Duration**: 1 week
-**Goal**: Project structure, CI/CD, dev environment
+- [ ] File explorer with `TreeView` (hierarchical folders/files)
+- [ ] File/folder CRUD operations
+- [ ] Rich text editor integration (`appflowy_editor` for Markdown)
+- [ ] Code editor integration (`re_editor` for code files)
+- [ ] File metadata tracking in Drift
+- [ ] File locking system (advisory locks)
+- [ ] File search by name and content
 
-### Tasks
+### P1.5 Tools Foundation (Weeks 6–7)
 
-| ID | Task | Effort | Output |
-|----|------|--------|--------|
-| 0.1 | Create Flutter project (`flutter create gemmie`) | 1h | Project skeleton |
-| 0.2 | Configure project structure per 03-ARCHITECTURE.md | 4h | Clean Architecture folders |
-| 0.3 | Set up Riverpod 2.x with code generation | 2h | Providers configured |
-| 0.4 | Set up GoRouter navigation skeleton | 2h | Route definitions |
-| 0.5 | Add linting rules (`very_good_analysis` or custom) | 1h | `analysis_options.yaml` |
-| 0.6 | Set up Isar database with initial schemas | 4h | DB layer |
-| 0.7 | Configure platform-specific keystore wrappers | 4h | Secure storage |
-| 0.8 | Set up CI pipeline (GitHub Actions) | 4h | Build + test on push |
-| 0.9 | Create shared design tokens / theme | 4h | `AppTheme`, `AppColors`, `AppTypography` |
-| 0.10 | README, LICENSE, CONTRIBUTING.md in `gennie/` | 2h | Repo docs |
+- [ ] Tool definition schema and registry
+- [ ] Built-in tools: calculator, date/time
+- [ ] Tool call detection from model output
+- [ ] Tool execution pipeline with result injection
+- [ ] Tools grid UI (`Card` grid with enable/disable `Switch`)
 
-### Deliverable
+### P1.6 Second Brain Skeleton (Weeks 7–8)
 
-- **Buildable app** with empty screens, correct architecture, and CI passing
-- Theme system renders placeholder home screen
+- [ ] PARA data model (Drift tables: ParaItems, ParaNotes, NoteLinks)
+- [ ] PARA dashboard UI with `Tabs` (Projects, Areas, Resources, Archives)
+- [ ] Note creation with `appflowy_editor`
+- [ ] Basic task creation (title, description, due date, status)
+- [ ] Task list view (`Table` with sort/filter)
+- [ ] Link tasks to PARA projects
 
----
+### P1.7 Settings (Week 8)
 
-## 3. Phase 1 — Core Shell
+- [ ] Settings screen with `NavigationSidebar` sections
+- [ ] Provider configuration UI (`Accordion` per provider)
+- [ ] Inference settings (temperature, top-p, max tokens sliders)
+- [ ] Appearance settings (theme mode, accent color)
+- [ ] Privacy settings (data retention, export)
+- [ ] About screen with version info
 
-**Duration**: 3 weeks
-**Goal**: Chat UI, conversation management, settings, navigation
+### P1 Deliverable
 
-### Tasks
-
-| ID | Task | Effort | Output |
-|----|------|--------|--------|
-| 1.1 | Implement bottom navigation (4 tabs) | 4h | TabBar scaffold |
-| 1.2 | Conversation list screen | 12h | List with create/delete/rename |
-| 1.3 | Chat screen — message bubbles | 16h | User + AI messages, markdown rendering |
-| 1.4 | Chat screen — input bar (text, attachments) | 8h | Multi-line input, send button |
-| 1.5 | Chat screen — streaming token display | 8h | Animated token-by-token rendering |
-| 1.6 | Message persistence (Isar) | 8h | Conversations & messages CRUD |
-| 1.7 | Encryption layer for DB | 12h | AES-256-GCM encrypt/decrypt |
-| 1.8 | Settings screen — profile, preferences | 8h | Theme toggle, storage info |
-| 1.9 | Settings screen — API key management | 12h | Add/edit/delete keys, masked display |
-| 1.10 | Adaptive layout (phone/tablet/desktop) | 12h | Responsive breakpoints |
-| 1.11 | Error handling & loading states | 8h | Shimmer, error banners, retry |
-
-### Exit Criteria
-
-- User can create conversations, type messages, see them persisted across restarts
-- All data encrypted at rest
-- Settings screen shows API key management (keys stored in keystore)
-- App works on Android, iOS, and one desktop target
+- Android APK via GitHub Releases
+- Functional AI chat with OpenAI, Ollama, and local llama.cpp
+- File management with Markdown and code editing
+- Basic Second Brain with PARA + tasks
+- 5 built-in personas
+- Command palette (Ctrl+K)
 
 ---
 
-## 4. Phase 2 — AI Integration
+## Phase 2 — Intelligence (Weeks 9–16)
 
-**Duration**: 4 weeks
-**Goal**: All AI providers working, model management, chat completions
+> **Goal**: Full Second Brain, financial tracker, MCP support, AI Gateway, cloud sync, and smart notifications.
 
-### Tasks
+### P2.1 MCP Integration (Weeks 9–10)
 
-| ID | Task | Effort | Output |
-|----|------|--------|--------|
-| 2.1 | Integrate LangChain.dart core (`langchain_core`, `langchain`) | 4h | Base abstractions + GemmieProvider wrapper |
-| 2.2 | OpenAI provider (`langchain_openai`) | 8h | Chat + streaming + tool calling |
-| 2.3 | Google Gemini provider (`langchain_google`) | 8h | Chat + streaming + tool calling |
-| 2.4 | Anthropic Claude provider (`langchain_anthropic`) | 8h | Chat + streaming + tool calling |
-| 2.5 | Ollama provider (`langchain_ollama`) + LAN discovery | 12h | Local/LAN Ollama + auto-scan |
-| 2.6 | Mistral AI provider (`langchain_mistralai`) | 6h | Chat + streaming |
-| 2.7 | HuggingFace Inference API (`langchain_huggingface`) | 6h | Chat completion via API |
-| 2.8 | OpenRouter provider (via `langchain_openai` compatible) | 4h | Meta-router with custom headers |
-| 2.9 | Custom provider support (user-configured baseUrl) | 6h | Configurable endpoint |
-| 2.10 | HuggingFace model download (OAuth + Dio) | 16h | Browse, download, manage .gguf files |
-| 2.11 | Local model inference (`llama_sdk` FFI) | 16h | On-device GGUF inference pipeline |
-| 2.12 | LiteRT inference (platform channels) | 16h | On-device TFLite inference (from Gallery) |
-| 2.13 | Token counting & cost estimation | 8h | Per-provider tokenizer |
-| 2.14 | Rate limiting & retry logic | 8h | Exponential backoff, queue |
-| 2.15 | Model selector bottom sheet in chat | 8h | Model switching mid-conversation |
-| 2.16 | Provider health checks & status indicators | 4h | Green/yellow/red badges |
+- [ ] MCP host service (`mcp_dart` — connect to external servers)
+- [ ] MCP server management UI (add/edit/remove, transport config)
+- [ ] Tool discovery from connected MCP servers
+- [ ] Tool invocation with parameter marshalling
+- [ ] MCP tool display in Tools grid with `Badge` source indicator
+- [ ] MCP client service (expose Prism tools to other hosts)
 
-### Exit Criteria
+### P2.2 Second Brain — Full (Weeks 10–12)
 
-- All 9 provider types functional with at least one model each
-- Streaming works for OpenAI, Gemini, Claude, Ollama, Mistral
-- Local model can be downloaded and run inference via llama_sdk
-- Ollama LAN discovery finds servers on local network
-- Token usage tracked and displayed to user
+- [ ] AI-assisted PARA categorization (suggest placement for new notes)
+- [ ] Bi-directional note linking with link picker UI
+- [ ] Quick capture (text → note with auto-tagging)
+- [ ] Daily notes / journal view
+- [ ] Task management: Kanban view with drag-and-drop (`SortableLayer`)
+- [ ] Task management: Calendar view with `Calendar` component
+- [ ] Recurring tasks (daily/weekly/monthly/cron)
+- [ ] AI task prioritization scoring
+- [ ] Task dependency chains
+- [ ] Skillset system (import, enable/disable, marketplace placeholder)
+- [ ] Global search (FTS5 across conversations, files, notes, tasks)
 
----
+### P2.3 Financial Tracker (Weeks 12–14)
 
-## 5. Phase 3 — Tools & Code Execution
+- [ ] Notification listener service integration (Android)
+- [ ] Transaction parsing (regex patterns for banking apps)
+- [ ] App allowlist configuration UI
+- [ ] Manual transaction entry (`Dialog` form)
+- [ ] AI categorization (auto-categorize by merchant)
+- [ ] Category management (built-in + custom)
+- [ ] Finance dashboard (`NumberTicker`, `Progress` bars, `Tracker` heatmap)
+- [ ] Budget management per category
+- [ ] Transaction list with filters and search
+- [ ] AI spending insights
+- [ ] Export transactions as CSV
 
-**Duration**: 3 weeks
-**Goal**: Tool system, built-in tools, code execution in 3 languages
+### P2.4 AI Gateway (Weeks 14–15)
 
-### Tasks
+- [ ] shelf HTTP server with OpenAI-compatible endpoints
+- [ ] `GET /v1/models` — list available models
+- [ ] `POST /v1/chat/completions` — chat with streaming SSE
+- [ ] Token-based authentication middleware
+- [ ] Rate limiting middleware
+- [ ] Request logging to Drift
+- [ ] Gateway dashboard UI (start/stop, status, stats)
+- [ ] API token management UI (create, revoke, view usage)
+- [ ] Model routing / aliasing
+- [ ] Request logs viewer with pagination
 
-| ID | Task | Effort | Output |
-|----|------|--------|--------|
-| 3.1 | Tool registry & invocation framework | 12h | `GemmieTool` interface, registry |
-| 3.2 | Built-in tools: web search, calculator, unit converter | 16h | 3 tools working |
-| 3.3 | Built-in tools: date/time, text transform, JSON formatter | 8h | 3 tools working |
-| 3.4 | Tool result rendering in chat (tables, code blocks) | 8h | Rich tool output |
-| 3.5 | Python execution sandbox (CPython FFI) | 20h | Isolated Python runner |
-| 3.6 | JavaScript execution sandbox (QuickJS) | 16h | Isolated JS runner |
-| 3.7 | Dart execution sandbox (dart_eval) | 12h | In-process Dart evaluator |
-| 3.8 | Code editor UI (syntax highlighting, output panel) | 16h | Full code editor screen |
-| 3.9 | Script management (save, load, parameters) | 12h | Script library |
-| 3.10 | Remote execution connector (Modal, Daytona, SSH) | 16h | Remote code runner |
-| 3.11 | Tools tab UI (grid, categories, search) | 8h | Tools discovery screen |
-| 3.12 | AI tool calling integration (function calling) | 12h | AI invokes tools via function call API |
+### P2.5 Cloud Sync — Supabase (Week 15)
 
-### Exit Criteria
+- [ ] Supabase authentication (email/password, OAuth)
+- [ ] Bidirectional sync for conversations, messages, files, notes, tasks
+- [ ] Conflict resolution (last-write-wins)
+- [ ] Selective sync (choose categories)
+- [ ] Sync status UI indicator
+- [ ] Offline queue with background sync
 
-- AI can call built-in tools during conversation
-- User can write and execute Python, JS, Dart in the code editor
-- Remote execution connects to at least one provider
-- Tool results rendered inline in chat
+### P2.6 Smart Notifications (Week 16)
 
----
+- [ ] Procrastination detection (task inactivity monitoring)
+- [ ] Motivational nudges (configurable tone and frequency)
+- [ ] Daily checklist generation (AI-based, morning/evening)
+- [ ] Break reminders for long work sessions
+- [ ] Notification settings UI (`Accordion` with toggles and sliders)
+- [ ] Quiet hours configuration
 
-## 6. Phase 4 — Files, Versioning & Permissions
+### P2 Deliverable
 
-**Duration**: 4 weeks
-**Goal**: Virtual filesystem, version history, diff viewer, permission engine
-
-### Tasks
-
-| ID | Task | Effort | Output |
-|----|------|--------|--------|
-| 4.1 | Virtual filesystem core (GemmieFile, GemmieFolder) | 16h | CRUD on files/folders |
-| 4.2 | File explorer UI (tree view, context menu) | 16h | Browse, create, rename, delete |
-| 4.3 | Markdown editor with live preview | 16h | Full MD editing experience |
-| 4.4 | Spreadsheet/grid editor | 20h | Cell editing, formulas, CSV |
-| 4.5 | Version tracking engine | 12h | Auto-version on save/AI edit |
-| 4.6 | Myers diff algorithm + word-level refinement | 16h | Compute diffs between versions |
-| 4.7 | Diff viewer UI (side-by-side, inline) | 12h | Visual diff display |
-| 4.8 | File history timeline | 8h | Version list with restore |
-| 4.9 | Permission engine (Locked/Gated/Open) | 12h | Evaluation + grants |
-| 4.10 | Permission UI (dialogs, indicators, audit) | 12h | User-facing permission controls |
-| 4.11 | File encryption layer | 8h | Transparent encrypt/decrypt |
-| 4.12 | File info panel (metadata, permissions, versions) | 8h | Info sheet |
-| 4.13 | Audit log storage and dashboard | 8h | Security audit screen |
-
-### Exit Criteria
-
-- User can create, edit, organize files in virtual filesystem
-- AI file edits create versions with diffs
-- Locked files inaccessible to AI; Gated files require approval
-- Audit dashboard shows all AI file access
+- Full Second Brain with PARA, tasks, notes
+- Financial tracker with auto-capture (Android)
+- MCP host + client
+- AI Gateway (localhost HTTP server)
+- Cloud sync via Supabase
+- Smart notifications
+- Skillset system
+- GitHub Release: APK + Windows installer
 
 ---
 
-## 7. Phase 5 — Agent Persona
+## Phase 3 — Expansion (Weeks 17–24)
 
-**Duration**: 2 weeks
-**Goal**: Persona system with soul files, personality, memory, evolution
+> **Goal**: Desktop polish, code execution, GitHub integration, browser automation, advanced ML.
 
-### Tasks
+### P3.1 Desktop Platform Support (Weeks 17–18)
 
-| ID | Task | Effort | Output |
-|----|------|--------|--------|
-| 5.1 | Persona data model and storage | 8h | Persona CRUD |
-| 5.2 | Soul file editor | 8h | Identity / directive editing |
-| 5.3 | Personality editor (visual sliders) | 8h | Trait adjustment UI |
-| 5.4 | Memory system (persistent context) | 12h | Memory entries CRUD |
-| 5.5 | Rules engine (behavioral constraints) | 8h | Rule definitions |
-| 5.6 | Knowledge file management | 8h | Attach reference documents |
-| 5.7 | System prompt assembly from persona | 8h | Prompt builder pipeline |
-| 5.8 | Multi-persona switching | 4h | Active persona selector |
-| 5.9 | Persona evolution tracking | 8h | Change history for persona files |
+- [ ] Windows build optimization and testing
+- [ ] macOS build and notarization
+- [ ] Linux AppImage packaging
+- [ ] Desktop-specific UI adaptations (window management, tray icon)
+- [ ] Keyboard-first UX refinement
+- [ ] System tray with quick actions
 
-### Exit Criteria
+### P3.2 Code Execution (Weeks 18–19)
 
-- User can create and switch between multiple personas
-- AI behavior visibly changes with persona settings
-- Memory persists across conversations
-- Persona changes are version-tracked
+- [ ] Remote execution service integration
+- [ ] QuickJS executor for mobile (JavaScript)
+- [ ] Docker executor for desktop (Python, Node.js, Dart)
+- [ ] Code runner UI sheet in code editor
+- [ ] Output streaming display
+- [ ] Execution history
 
----
+### P3.3 GitHub Integration (Weeks 19–20)
 
-## 8. Phase 6 — Advanced Features
+- [ ] GitHub authentication (personal access token)
+- [ ] Repository browser UI
+- [ ] Issue list and detail view
+- [ ] Create/edit issues
+- [ ] Pull request list and detail
+- [ ] File browser for repo contents
+- [ ] AI-assisted issue creation from conversation context
 
-**Duration**: 4 weeks
-**Goal**: Cloud sync, polish, advanced integrations, testing
+### P3.4 Browser Automation (Weeks 20–21)
 
-### Tasks
+- [ ] Firecrawl REST API integration (scrape, crawl)
+- [ ] URL fetcher tool enhancement with Firecrawl
+- [ ] Puppeteer integration for desktop (headless Chrome)
+- [ ] Screenshot capture
+- [ ] Web content → Markdown conversion
+- [ ] "Research" tool combining search + scrape + summarize
 
-| ID | Task | Effort | Output |
-|----|------|--------|--------|
-| 6.1 | Cloud sync — E2E encrypted upload/download | 20h | Sync engine |
-| 6.2 | Cloud sync — conflict resolution UI | 12h | Conflict dialogs |
-| 6.3 | Cloud sync — multi-device state reconciliation | 16h | CRDT or LWW merge |
-| 6.4 | Onboarding flow (3-step wizard) | 8h | First-launch experience |
-| 6.5 | Notifications (permission requests, downloads) | 8h | In-app + system notifications |
-| 6.6 | Performance optimization pass | 16h | Cold start < 2s, 60 FPS |
-| 6.7 | Accessibility audit (WCAG AA) | 12h | Screen reader, contrast fixes |
-| 6.8 | Integration test suite (>80% coverage) | 24h | Automated tests |
-| 6.9 | Security penetration testing | 16h | Vulnerability assessment |
-| 6.10 | Documentation (user guide, API docs) | 12h | End-user docs |
-| 6.11 | App store preparation (playstore, appstore, web) | 8h | Store listings, screenshots |
+### P3.5 On-Device ML (Week 21)
 
-### Exit Criteria
+- [ ] google_mlkit_genai_summarization integration (Android)
+- [ ] Conversation summarization for context management
+- [ ] File preview generation via on-device summarization
+- [ ] Cloud fallback for non-Android platforms
 
-- Cloud sync works with E2E encryption
-- All features accessible via screen reader
-- 80% test coverage
-- Security audit complete with no critical findings
+### P3.6 Advanced Features (Weeks 22–24)
 
----
+- [ ] Ollama LAN discovery (mDNS/DNS-SD scanning)
+- [ ] Google Gemini adapter (`langchain_google`)
+- [ ] Mistral adapter (`langchain_mistralai`)
+- [ ] Anthropic Claude REST adapter
+- [ ] RAG prototype (embed files → vector search → context injection)
+- [ ] Sheets/documents: CSV import, table view, AI analysis
+- [ ] Advanced search: search suggestions, result ranking, saved searches
 
-## 9. Gallery Module Porting
+### P3 Deliverable
 
-The AI Edge Gallery (Kotlin/Compose) contains modules worth porting to Flutter. These are scheduled as enhancements after the initial build.
-
-### Porting Priority
-
-| Priority | Gallery Module | Target Phase | Effort | Notes |
-|----------|---------------|-------------|--------|-------|
-| P1 | HuggingFace OAuth flow | Phase 2 | 12h | Port auth flow + token management |
-| P1 | Model download manager | Phase 2 | 16h | Port download queue + progress UI |
-| P2 | LiteRT inference engine | Phase 2 | 20h | Port via FFI, not direct Kotlin port |
-| P2 | Model config parsing | Phase 2 | 4h | Port JSON schema for model configs |
-| P3 | Task plugin system | Phase 3 | 8h | Adapt plugin interface to Flutter tools |
-| P3 | Benchmark runner | Phase 3 | 8h | Port performance benchmarking |
-| P4 | UI patterns (chat bubbles, etc.) | Phase 1 | 4h | Adapt Compose patterns to Flutter |
-
-### Porting Approach
-
-1. **Study** the Kotlin source in `gallery/Android/src/`
-2. **Extract** the interface contracts and data models
-3. **Rewrite** in Dart following Gemmie's architecture (NOT a 1:1 port)
-4. **Test** against the same inputs/outputs as the Gallery version
-5. **Document** differences and improvements
+- Full desktop support (Windows, macOS, Linux)
+- Code execution (remote + local)
+- GitHub integration
+- Browser automation
+- On-device ML (Android)
+- 6 AI providers fully supported
+- Distribution: GitHub Releases (all platforms), F-Droid (Android)
 
 ---
 
-## 10. Milestones & Success Criteria
+## Phase 4 — Polish & Scale (Weeks 25–32)
 
-| Milestone | Target | Success Criteria |
-|-----------|--------|------------------|
-| M0: Skeleton | End of Week 1 | Flutter app builds on all platforms; CI green; architecture in place |
-| M1: Chat Works | End of Week 4 | User can chat with encrypted message persistence |
-| M2: AI Connected | End of Week 8 | All 9 providers functional; local model runs inference; Ollama LAN discovery works |
-| M3: Tools Ready | End of Week 12 | Tool calling works; code execution in 3 languages |
-| M4: Files Ready | End of Week 12 | Virtual filesystem with versioning and permissions |
-| M5: Persona Ready | End of Week 12 | Agent persona system functional |
-| M6: Feature Complete | End of Week 16 | All features working; cloud sync, onboarding |
-| M7: Release Candidate | End of Week 18 | Testing, security audit, accessibility audit complete |
-| M8: Launch | End of Week 20 | App published to stores / web deployment |
+> **Goal**: Web support, accessibility, i18n, optimization, community features.
+
+### P4.1 Web Platform (Weeks 25–26)
+
+- [ ] Web build with Drift (sql.js backend)
+- [ ] Web-specific UI adaptations
+- [ ] Disable local inference features (no FFI on web)
+- [ ] AI Gateway not available on web
+- [ ] PWA configuration
+
+### P4.2 Accessibility (Weeks 26–27)
+
+- [ ] Screen reader audit and Semantics widget coverage
+- [ ] Keyboard navigation audit (all screens)
+- [ ] High contrast mode testing
+- [ ] Font scaling edge cases
+- [ ] Reduced motion implementation
+- [ ] WCAG 2.1 AA compliance verification
+
+### P4.3 Internationalization (Weeks 27–28)
+
+- [ ] ARB file setup for all user-facing strings
+- [ ] English (en) complete translation
+- [ ] RTL layout testing and fixes
+- [ ] Community translation infrastructure
+- [ ] Date/number/currency formatting per locale
+
+### P4.4 Performance Optimization (Weeks 28–29)
+
+- [ ] Database query optimization and index review
+- [ ] Memory profiling and leak detection
+- [ ] Cold start time optimization
+- [ ] Lazy loading for all feature modules
+- [ ] Image/asset caching optimization
+- [ ] Battery usage profiling on Android
+
+### P4.5 Community & Ecosystem (Weeks 30–32)
+
+- [ ] Skillset registry / marketplace
+- [ ] Public MCP server directory
+- [ ] Plugin documentation and developer guide
+- [ ] Contribution guidelines (CONTRIBUTING.md)
+- [ ] F-Droid submission
+- [ ] User feedback system (GitHub Issues templates)
+- [ ] Documentation site
+
+### P4 Deliverable
+
+- Web support (progressive)
+- Full accessibility (WCAG 2.1 AA)
+- i18n infrastructure with English complete
+- Performance-optimized across all platforms
+- Skillset marketplace (basic)
+- F-Droid listing
 
 ---
 
-## 11. Risk Register
+## Dependency Installation Timeline
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| LiteRT Flutter FFI complexity | Medium | High | Use llama_sdk (proven in Maid) as primary; LiteRT as secondary via platform channels |
-| llama_sdk web platform | Medium | Medium | Conditional import with web stub; fall back to Ollama/cloud on web |
-| Python CPython FFI on iOS restrictions | Medium | High | Fallback to remote execution; JS as primary local lang |
-| Cloud sync conflict resolution complexity | Medium | Medium | Start with simple LWW; upgrade to CRDT if needed |
-| Cross-platform sandbox inconsistencies | Medium | Medium | Abstract sandbox interface; platform-specific impls |
-| Provider API breaking changes | Medium | Low | Version-pin API clients; adapter pattern absorbs changes |
-| Performance on low-end devices | Low | High | Profile early; lazy loading; progressive feature enablement |
-| Scope creep from full-feature mandate | High | Medium | Strict phase boundaries; feature freeze at M6 |
-| Key dependency deprecation (Isar, etc.) | Low | High | Abstractions over all deps; swap-ready interfaces |
+### Phase 1 Packages
 
----
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  moon_design: ^1.1.0
+  flutter_riverpod: ^2.0.0
+  riverpod_annotation: ^2.0.0
+  go_router: ^14.0.0
+  drift: ^2.31.0
+  sqlite3_flutter_libs: latest
+  langchain: latest
+  langchain_openai: latest
+  langchain_ollama: latest
+  dart_openai: ^6.1.1
+  llama_cpp_dart: ^0.2.2
+  flutter_secure_storage: latest
+  re_editor: ^0.8.0
+  appflowy_editor: ^6.2.0
+  path_provider: latest
+  uuid: latest
 
-## 12. Dependency Graph
-
-```
-Phase 0 (Bootstrap)
-    │
-    ▼
-Phase 1 (Core Shell)
-    │
-    ├──────────────────────┬──────────────────────┐
-    ▼                      ▼                      ▼
-Phase 2 (AI Integration)  Phase 4 (Files)         │
-    │                      │                      │
-    ├──────────┐           │                      │
-    ▼          ▼           │                      │
-Phase 3      Phase 5      │                      │
-(Tools)      (Persona)     │                      │
-    │          │           │                      │
-    └──────────┴───────────┘                      │
-               │                                  │
-               ▼                                  │
-         Phase 6 (Advanced)  ◄────────────────────┘
+dev_dependencies:
+  riverpod_generator: ^2.0.0
+  build_runner: latest
+  drift_dev: latest
 ```
 
-### Key Dependencies
+### Phase 2 Packages (Added)
 
-| Dependent | Depends On | Reason |
-|-----------|-----------|--------|
-| Phase 2 | Phase 1 | Needs chat UI + DB + encryption |
-| Phase 3 | Phase 2 | Tools invoked by AI; needs provider layer |
-| Phase 4 | Phase 1 | Needs DB + encryption layer |
-| Phase 5 | Phase 2 | Persona modifies AI behavior; needs provider layer |
-| Phase 6 | Phase 3, 4, 5 | Sync needs all data types; testing needs all features |
+```yaml
+dependencies:
+  mcp_dart: ^1.2.2
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  notification_listener_service: ^0.3.5
+  supabase_flutter: latest
+```
+
+### Phase 3 Packages (Added)
+
+```yaml
+dependencies:
+  github: ^9.25.0
+  puppeteer: ^3.20.0
+  flutter_js: latest
+  google_mlkit_genai_summarization: ^0.1.0
+  langchain_google: latest
+  langchain_mistralai: latest
+```
+
+---
+
+## CI/CD Pipeline (GitHub Actions)
+
+```yaml
+name: Prism CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+      - run: flutter pub get
+      - run: dart run build_runner build
+      - run: flutter analyze
+      - run: flutter test
+
+  build-android:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-windows:
+    needs: analyze
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+      - run: flutter build windows --release
+
+  build-linux:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build libgtk-3-dev
+      - run: flutter build linux --release
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-android, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android-apk/app-release.apk
+```
+
+---
+
+## Milestone Summary
+
+| Phase | Duration | Key Deliverables | Status |
+|---|---|---|---|
+| **Phase 1** | Weeks 1–8 | AI Chat, Files, Second Brain skeleton, Settings | Not started |
+| **Phase 2** | Weeks 9–16 | MCP, Full Brain, Finance, Gateway, Sync, Notifications | Not started |
+| **Phase 3** | Weeks 17–24 | Desktop, Code Exec, GitHub, Browser, ML | Not started |
+| **Phase 4** | Weeks 25–32 | Web, A11y, i18n, Performance, Community | Not started |

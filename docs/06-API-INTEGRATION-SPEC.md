@@ -1,802 +1,776 @@
-# 06 — API Integration Specification
+# Prism — API Integration Specification
 
-> This document details the integration contracts, request/response formats, authentication mechanisms, error handling, and provider-specific implementation notes for each supported AI API provider. It also defines the unified provider interface and strategies for adding future providers.
+## 1 Provider Integration Layer
+
+### 1.1 LangChain.dart Adapter
+
+All AI providers are accessed through a unified LangChain.dart adapter:
+
+```dart
+abstract class PrismAiProvider {
+  String get providerId;
+  String get displayName;
+  bool get supportsStreaming;
+  bool get supportsToolCalling;
+
+  Future<BaseChatModel> getChatModel(ModelConfig config);
+  Future<List<ModelInfo>> listModels();
+  Future<bool> testConnection();
+}
+```
+
+### 1.2 Provider Packages
+
+| Provider | Package | Version | Notes |
+|---|---|---|---|
+| OpenAI | `langchain_openai` + `dart_openai` | latest | GPT-4o, GPT-4, GPT-3.5 |
+| Google Gemini | `langchain_google` | latest | Gemini Pro, Flash |
+| Ollama | `langchain_ollama` | latest | Local/LAN server |
+| Mistral | `langchain_mistralai` | latest | Mistral Large/Medium/Small |
+| Anthropic | REST via `http` | — | Claude 3.x (no langchain_anthropic yet) |
+| Custom OpenAI | `dart_openai` | 6.1.1 | Any OpenAI-compatible endpoint |
+| Local (llama.cpp) | `llama_cpp_dart` | 0.2.2 | GGUF via FFI |
 
 ---
 
-## Table of Contents
+## 2 OpenAI Integration
 
-- [1. Unified Provider Interface](#1-unified-provider-interface)
-- [2. Request & Response Contracts](#2-request--response-contracts)
-- [3. OpenAI Integration](#3-openai-integration)
-- [4. Google Gemini Integration](#4-google-gemini-integration)
-- [5. Anthropic Claude Integration](#5-anthropic-claude-integration)
-- [6. HuggingFace Integration](#6-huggingface-integration)
-- [7. OpenRouter Integration](#7-openrouter-integration)
-- [8. Ollama Integration](#8-ollama-integration)
-- [9. Mistral AI Integration](#9-mistral-ai-integration)
-- [10. Local Model Integration (llama_sdk)](#10-local-model-integration-llama_sdk)
-- [11. Custom Provider Integration](#11-custom-provider-integration)
-- [12. Error Handling & Retry Strategy](#12-error-handling--retry-strategy)
-- [13. Rate Limiting & Quotas](#13-rate-limiting--quotas)
-- [14. Token Counting & Cost Estimation](#14-token-counting--cost-estimation)
-- [15. Adding a New Provider Guide](#15-adding-a-new-provider-guide)
+### 2.1 Configuration
 
----
+```dart
+// Via dart_openai for flexible base URL support
+OpenAI.apiKey = apiKey;
+OpenAI.baseUrl = baseUrl; // Custom endpoints (LM Studio, vLLM, etc.)
 
-## 1. Unified Provider Interface
-
-All AI provider adapters are built on **LangChain.dart** (`langchain_core`). Each provider uses the corresponding `langchain_<provider>` package, wrapped by `GemmieProvider` to add credential management, rate limiting, cost tracking, and health checks. See [Architecture § Provider Abstraction](./03-ARCHITECTURE.md#4-provider-abstraction-layer). The interface ensures:
-
-- **Consistent API** for the chat module regardless of backend
-- **Hot-swappable** providers mid-conversation
-- **Capability-aware** feature toggling (vision, streaming, function calling)
-
-### Key Interface Methods
-
-| Method | Purpose | Return |
-|--------|---------|--------|
-| `chatModel.invoke(prompt)` | Send chat and get complete response | `ChatResult` |
-| `chatModel.stream(prompt)` | Send chat and stream tokens | `Stream<ChatResult>` |
-| `chatModel.bind(options)` | Configure model options (temp, tools) | `BaseChatModel` |
-| `provider.validateCredentials()` | Test if API key is valid | `bool` |
-| `provider.getAvailableModels()` | List models offered by this provider | `List<ProviderModel>` |
-| `provider.estimateTokens(text)` | Approximate token count | `int` |
-
----
-
-## 2. Request & Response Contracts
-
-### ChatRequest
-
-```yaml
-ChatRequest:
-  messages:          List<ChatMessage>         # Conversation history
-  model:             String                    # Model ID (e.g., "gpt-4o")
-  systemPrompt:      String?                   # System message (from persona)
-  temperature:       double?                   # 0.0 - 2.0
-  topP:              double?                   # 0.0 - 1.0
-  maxTokens:         int?                      # Maximum response tokens
-  stopSequences:     List<String>?             # Custom stop tokens
-  tools:             List<ToolDefinition>?      # Available tools for function calling
-  toolChoice:        String?                   # "auto", "none", or specific tool
-  responseFormat:    String?                   # "text" or "json_object"
-  stream:            bool                      # Whether to stream response
-  metadata:          Map<String, dynamic>?     # Provider-specific options
+// Via langchain_openai for LangChain integration
+final model = ChatOpenAI(
+  apiKey: apiKey,
+  baseUrl: baseUrl,
+  defaultOptions: ChatOpenAIOptions(
+    model: 'gpt-4o',
+    temperature: 0.7,
+    maxTokens: 4096,
+  ),
+);
 ```
 
-### ChatMessage
+### 2.2 Endpoints Used
 
-```yaml
-ChatMessage:
-  role:              String                    # "system", "user", "assistant", "tool"
-  content:           dynamic                   # String or List<ContentPart>
-  toolCalls:         List<ToolCall>?           # Function calls in this message
-  toolCallId:        String?                   # For tool result messages
-  name:              String?                   # Optional name for multi-party
-```
+| Endpoint | Use |
+|---|---|
+| `POST /v1/chat/completions` | Chat with streaming |
+| `GET /v1/models` | List available models |
+| `POST /v1/embeddings` | (Future) RAG embeddings |
 
-### ContentPart (for multi-modal messages)
+### 2.3 Function Calling
 
-```yaml
-ContentPart:
-  type:              String                    # "text" or "image_url"
-  text:              String?                   # If type == "text"
-  imageUrl:          ImageUrl?                 # If type == "image_url"
+```dart
+// LangChain.dart tool binding
+final tools = [
+  ToolSpec(
+    name: 'web_search',
+    description: 'Search the web for information',
+    inputJsonSchema: {
+      'type': 'object',
+      'properties': {
+        'query': {'type': 'string', 'description': 'Search query'},
+      },
+      'required': ['query'],
+    },
+  ),
+];
 
-ImageUrl:
-  url:               String                    # Data URL (base64) or HTTP URL
-  detail:            String?                   # "low", "high", "auto"
-```
-
-### ChatResponse
-
-```yaml
-ChatResponse:
-  id:                String                    # Provider-assigned response ID
-  content:           String                    # Response text
-  model:             String                    # Model that generated response
-  finishReason:      String                    # "stop", "length", "tool_calls", "error"
-  toolCalls:         List<ToolCall>?           # Requested function calls
-  usage:             TokenUsage                # Token counts
-  latencyMs:         int                       # Total response time
-```
-
-### ChatStreamEvent
-
-```yaml
-ChatStreamEvent:
-  type:              StreamEventType           # token | toolCall | done | error
-  token:             String?                   # New token (if type == token)
-  toolCall:          ToolCall?                 # Tool call chunk (if type == toolCall)
-  usage:             TokenUsage?               # Final usage (if type == done)
-  error:             String?                   # Error message (if type == error)
-  finishReason:      String?                   # Set on final event
-```
-
-### ToolDefinition (for function calling)
-
-```yaml
-ToolDefinition:
-  type:              String                    # Always "function"
-  function:
-    name:            String                    # Tool ID (e.g., "code_execute")
-    description:     String                    # What the tool does
-    parameters:      Map<String, dynamic>      # JSON Schema for parameters
-```
-
-### ToolCall
-
-```yaml
-ToolCall:
-  id:                String                    # Unique call ID
-  type:              String                    # Always "function"
-  function:
-    name:            String                    # Tool name
-    arguments:       String                    # JSON string of arguments
+final response = await model.invoke(
+  PromptValue.chat(messages),
+  options: ChatOpenAIOptions(tools: tools),
+);
 ```
 
 ---
 
-## 3. OpenAI Integration
+## 3 Ollama Integration
 
-### Provider Details
+### 3.1 Discovery
 
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `openai` |
-| **Base URL** | `https://api.openai.com/v1` |
-| **Auth** | Bearer token (`Authorization: Bearer sk-...`) |
-| **Streaming** | SSE via `POST /chat/completions` with `stream: true` |
-| **Function Calling** | ✅ Full support via `tools` parameter |
-| **Vision** | ✅ Models with vision capability (gpt-4o, gpt-4-turbo) |
-| **JSON Mode** | ✅ `response_format: {"type": "json_object"}` |
+```dart
+// mDNS/DNS-SD scan for Ollama instances
+class OllamaDiscovery {
+  /// Scan LAN for Ollama services
+  Future<List<OllamaInstance>> scanNetwork({
+    Duration timeout = const Duration(seconds: 5),
+  });
 
-### Endpoints Used
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/chat/completions` | POST | Chat completion (streaming and non-streaming) |
-| `/v1/models` | GET | List available models |
-
-### Request Mapping
-
-```
-ChatRequest → OpenAI API
-─────────────────────────
-messages       → messages (direct map)
-model          → model
-systemPrompt   → Prepended as messages[0] with role: "system"
-temperature    → temperature
-topP           → top_p
-maxTokens      → max_tokens
-stopSequences  → stop
-tools          → tools (direct map — OpenAI's schema matches our contract)
-toolChoice     → tool_choice
-responseFormat → response_format
-stream         → stream
+  /// Check if Ollama is running at a specific host
+  Future<bool> checkHost(String host, int port);
+}
 ```
 
-### Supported Models
+### 3.2 API Endpoints
 
-| Model | Context | Vision | Function Calling | Notes |
-|-------|---------|--------|-----------------|-------|
-| gpt-4o | 128K | ✅ | ✅ | Flagship |
-| gpt-4o-mini | 128K | ✅ | ✅ | Cost-effective |
-| gpt-4-turbo | 128K | ✅ | ✅ | Previous generation |
-| o1 | 200K | ✅ | ✅ | Reasoning model |
-| o1-mini | 128K | ❌ | ✅ | Lightweight reasoning |
-| o3-mini | 200K | ❌ | ✅ | Fast reasoning |
+| Endpoint | Use |
+|---|---|
+| `GET /api/tags` | List local models |
+| `POST /api/pull` | Download model |
+| `DELETE /api/delete` | Remove model |
+| `POST /api/chat` | Chat completion (streaming) |
+| `POST /api/generate` | Text completion |
+| `GET /api/ps` | Running models |
 
-> Model list is fetched dynamically via `/v1/models` and filtered against known-compatible models.
+### 3.3 LangChain Integration
 
-### Error Mapping
-
-| OpenAI Error | HTTP Code | Gemmie Handling |
-|-------------|-----------|-----------------|
-| `invalid_api_key` | 401 | Prompt user to update API key |
-| `rate_limit_exceeded` | 429 | Auto-retry with backoff |
-| `model_not_found` | 404 | Remove from model list, notify user |
-| `context_length_exceeded` | 400 | Truncate messages, retry |
-| `server_error` | 500 | Retry up to 3 times |
-
----
-
-## 4. Google Gemini Integration
-
-### Provider Details
-
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `gemini` |
-| **Base URL** | `https://generativelanguage.googleapis.com/v1beta` |
-| **Auth** | API key as query parameter (`?key=AI...`) |
-| **Streaming** | SSE via `POST /models/{model}:streamGenerateContent` |
-| **Function Calling** | ✅ Via `tools` in request body |
-| **Vision** | ✅ Inline data with `inlineData` parts |
-
-### Endpoints Used
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/models/{model}:generateContent` | POST | Non-streaming completion |
-| `/models/{model}:streamGenerateContent` | POST | Streaming completion |
-| `/models` | GET | List available models |
-
-### Request Mapping
-
-```
-ChatRequest → Gemini API
-─────────────────────────
-messages       → contents[] (role mapping: "user"→"user", "assistant"→"model")
-systemPrompt   → systemInstruction.parts[0].text
-temperature    → generationConfig.temperature
-topP           → generationConfig.topP
-maxTokens      → generationConfig.maxOutputTokens
-tools          → tools[].functionDeclarations (schema conversion required)
-```
-
-### Key Differences from OpenAI
-
-| Aspect | OpenAI | Gemini |
-|--------|--------|--------|
-| Auth | Header bearer token | Query parameter |
-| Role names | assistant | model |
-| System prompt | First message with role: system | Separate `systemInstruction` field |
-| Image format | URL or base64 data URL | `inlineData` with mimeType + base64 |
-| Tool schema | JSON Schema | Subset of JSON Schema (no `$ref`) |
-| Streaming format | SSE with `data: ` prefix | SSE with JSON chunks |
-
-### Supported Models
-
-| Model | Context | Vision | Function Calling |
-|-------|---------|--------|-----------------|
-| gemini-2.0-flash | 1M | ✅ | ✅ |
-| gemini-2.0-pro | 1M | ✅ | ✅ |
-| gemini-1.5-flash | 1M | ✅ | ✅ |
-| gemini-1.5-pro | 2M | ✅ | ✅ |
-
----
-
-## 5. Anthropic Claude Integration
-
-### Provider Details
-
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `claude` |
-| **Base URL** | `https://api.anthropic.com/v1` |
-| **Auth** | `x-api-key` header + `anthropic-version` header |
-| **Streaming** | SSE via `POST /messages` with `stream: true` |
-| **Function Calling** | ✅ Via `tools` in request body |
-| **Vision** | ✅ Via `image` content blocks |
-
-### Endpoints Used
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/messages` | POST | Chat completion (streaming and non-streaming) |
-
-### Request Mapping
-
-```
-ChatRequest → Claude API
-─────────────────────────
-messages       → messages (role mapping mostly compatible)
-systemPrompt   → system (top-level field, not in messages)
-model          → model
-temperature    → temperature
-maxTokens      → max_tokens (REQUIRED in Claude API)
-tools          → tools (input_schema instead of parameters)
-stream         → stream
-```
-
-### Key Differences
-
-| Aspect | OpenAI | Claude |
-|--------|--------|--------|
-| System prompt | In messages array | Top-level `system` field |
-| Max tokens | Optional | Required |
-| Streaming events | `data: {"choices": [...]}` | Multiple event types: `message_start`, `content_block_delta`, `message_stop` |
-| Tool schema field | `parameters` | `input_schema` |
-| API version | Implicit | `anthropic-version: 2024-01-01` header required |
-| Image format | URL | base64 with `source.type: "base64"` |
-
-### Supported Models
-
-| Model | Context | Vision | Function Calling |
-|-------|---------|--------|-----------------|
-| claude-sonnet-4-20250514 | 200K | ✅ | ✅ |
-| claude-3-5-haiku-20241022 | 200K | ✅ | ✅ |
-| claude-3-opus-20240229 | 200K | ✅ | ✅ |
-
-### Streaming Event Types
-
-```
-event: message_start     → Initialize response
-event: content_block_start → New content block
-event: content_block_delta → Token or tool input delta
-event: content_block_stop  → Block complete
-event: message_delta      → Usage, stop reason
-event: message_stop       → Stream complete
+```dart
+final ollama = ChatOllama(
+  baseUrl: 'http://192.168.1.100:11434',
+  defaultOptions: ChatOllamaOptions(
+    model: 'gemma2:9b',
+    temperature: 0.7,
+  ),
+);
 ```
 
 ---
 
-## 6. HuggingFace Integration
+## 4 Local Inference (llama_cpp_dart)
 
-HuggingFace serves **two purposes** in Gemmie:
+### 4.1 Model Loading
 
-### 6A. Model Downloads
+```dart
+import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 
-| Field | Value |
-|-------|-------|
-| **Purpose** | Download local models for on-device inference |
-| **Auth** | OAuth 2.0 (via AppAuth) or Bearer token |
-| **Base URL** | `https://huggingface.co` |
+class LocalInferenceService {
+  LlamaModel? _model;
 
-#### OAuth Flow
+  Future<void> loadModel(String ggufPath, {
+    int nCtx = 4096,
+    int nGpuLayers = 35,
+    bool useMmap = true,
+  }) async {
+    _model = await LlamaModel.load(
+      ggufPath,
+      params: ModelParams(
+        nCtx: nCtx,
+        nGpuLayers: nGpuLayers,
+        useMmap: useMmap,
+      ),
+    );
+  }
 
+  Stream<String> generate(String prompt, {
+    double temperature = 0.7,
+    int maxTokens = 2048,
+  }) async* {
+    // Runs in isolate to prevent UI jank
+    yield* _model!.generate(prompt,
+      samplingParams: SamplingParams(
+        temperature: temperature,
+        maxTokens: maxTokens,
+      ),
+    );
+  }
+}
 ```
-1. User taps "Login with HuggingFace"
-2. App opens browser to HF authorization endpoint:
-   GET https://huggingface.co/oauth/authorize
-   ?client_id={PROJECT_CONFIG_CLIENT_ID}
-   &redirect_uri={PROJECT_CONFIG_REDIRECT_URI}
-   &response_type=code
-   &scope=openid%20profile%20read-repos
-3. User authorizes in browser
-4. Browser redirects to app with authorization code
-5. App exchanges code for access token:
-   POST https://huggingface.co/oauth/token
-6. Token stored in secure keystore
+
+### 4.2 Supported Model Formats
+
+| Format | Extension | Notes |
+|---|---|---|
+| GGUF | `.gguf` | Primary format, all quantizations |
+| Quantizations | Q4_0, Q4_K_M, Q5_K_M, Q8_0 | Smaller = faster, larger = better quality |
+
+### 4.3 Platform Support
+
+| Platform | GPU Acceleration |
+|---|---|
+| Android | Vulkan (where available) |
+| Windows | CUDA, Vulkan |
+| macOS | Metal |
+| Linux | CUDA, Vulkan |
+| Web | Not supported (requires FFI) |
+
+---
+
+## 5 Google Gemini Integration
+
+### 5.1 Configuration
+
+```dart
+final gemini = ChatGoogleGenerativeAI(
+  apiKey: apiKey,
+  defaultOptions: ChatGoogleGenerativeAIOptions(
+    model: 'gemini-1.5-flash',
+    temperature: 0.7,
+    maxOutputTokens: 8192,
+  ),
+);
 ```
 
-#### Download Endpoints
+### 5.2 Endpoints
 
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/models/{model_id}` | Fetch model metadata |
-| `GET /{model_id}/resolve/{commit}/{filename}` | Download model file |
-| `GET /api/models/{model_id}/tree/{commit}` | List model files |
+- Google AI Studio API: `https://generativelanguage.googleapis.com/v1beta/`
+- Vertex AI (self-hosted): configurable base URL.
 
-### 6B. HuggingFace Inference API
+---
 
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `huggingface` |
-| **Base URL** | `https://api-inference.huggingface.co` |
-| **Auth** | Bearer token (`Authorization: Bearer hf_...`) |
-| **Streaming** | SSE support for text generation models |
+## 6 Mistral Integration
 
-#### Endpoints
+### 6.1 Configuration
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /models/{model_id}` | Run inference on hosted model |
-| `GET /models/{model_id}` | Check model status |
+```dart
+final mistral = ChatMistralAI(
+  apiKey: apiKey,
+  defaultOptions: ChatMistralAIOptions(
+    model: 'mistral-large-latest',
+    temperature: 0.7,
+    maxTokens: 4096,
+  ),
+);
+```
 
-#### Request Format
+---
+
+## 7 Anthropic Claude Integration
+
+### 7.1 REST API (No LangChain adapter yet)
+
+```dart
+class AnthropicProvider extends PrismAiProvider {
+  final _client = http.Client();
+
+  Future<ChatResponse> chat(List<ChatMessage> messages, {
+    String model = 'claude-3-5-sonnet-20241022',
+    double temperature = 0.7,
+    int maxTokens = 4096,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('https://api.anthropic.com/v1/messages'),
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': model,
+        'max_tokens': maxTokens,
+        'temperature': temperature,
+        'messages': messages.map((m) => m.toJson()).toList(),
+      }),
+    );
+    // Parse response...
+  }
+}
+```
+
+---
+
+## 8 Model Context Protocol (MCP)
+
+### 8.1 MCP Host (Connecting to External Servers)
+
+```dart
+import 'package:mcp_dart/mcp_dart.dart';
+
+class McpHostService {
+  final Map<String, McpClient> _clients = {};
+
+  /// Connect to an MCP server via stdio
+  Future<void> connectStdio(McpServerConfig config) async {
+    final transport = StdioTransport(
+      command: config.command,
+      args: config.args,
+    );
+    final client = McpClient(transport);
+    await client.connect();
+    _clients[config.id] = client;
+  }
+
+  /// Connect to an MCP server via SSE
+  Future<void> connectSse(McpServerConfig config) async {
+    final transport = SseTransport(url: config.url);
+    final client = McpClient(transport);
+    await client.connect();
+    _clients[config.id] = client;
+  }
+
+  /// List tools from a connected server
+  Future<List<ToolInfo>> listTools(String serverId) async {
+    return await _clients[serverId]!.listTools();
+  }
+
+  /// Invoke a tool on a connected server
+  Future<ToolResult> invokeTool(String serverId, String toolName, Map<String, dynamic> args) async {
+    return await _clients[serverId]!.callTool(toolName, args);
+  }
+}
+```
+
+### 8.2 MCP Client (Exposing Prism's Tools)
+
+```dart
+class McpClientService {
+  late McpServer _server;
+
+  Future<void> startServer({int port = 3000}) async {
+    _server = McpServer(
+      name: 'prism',
+      version: '1.0.0',
+      tools: _getExposedTools(),
+    );
+
+    final transport = SseServerTransport(port: port);
+    await _server.serve(transport);
+  }
+
+  List<ToolDefinition> _getExposedTools() {
+    return [
+      ToolDefinition(
+        name: 'prism_search',
+        description: 'Search across Prism conversations, files, and notes',
+        inputSchema: {/*...*/},
+        handler: (args) => _handleSearch(args),
+      ),
+      ToolDefinition(
+        name: 'prism_create_note',
+        description: 'Create a new note in Prism Second Brain',
+        inputSchema: {/*...*/},
+        handler: (args) => _handleCreateNote(args),
+      ),
+    ];
+  }
+}
+```
+
+### 8.3 MCP Protocol Details
+
+| Transport | Use Case |
+|---|---|
+| stdio | Local MCP servers (CLI tools, scripts) |
+| SSE | Remote MCP servers (networked services) |
+
+| MCP Method | Direction | Purpose |
+|---|---|---|
+| `tools/list` | Host → Server | Discover available tools |
+| `tools/call` | Host → Server | Invoke a tool |
+| `resources/list` | Host → Server | List available resources |
+| `resources/read` | Host → Server | Read a resource |
+| `prompts/list` | Host → Server | List prompt templates |
+| `prompts/get` | Host → Server | Get a prompt template |
+
+---
+
+## 9 AI Gateway — shelf HTTP Server
+
+### 9.1 Server Setup
+
+```dart
+import 'package:shelf/shelf.dart';
+import 'package:shelf/shelf_io.dart' as io;
+import 'package:shelf_router/shelf_router.dart';
+
+class GatewayServer {
+  HttpServer? _server;
+
+  Future<void> start({int port = 8080}) async {
+    final router = Router();
+
+    // OpenAI-compatible endpoints
+    router.get('/v1/models', _handleListModels);
+    router.post('/v1/chat/completions', _handleChatCompletion);
+
+    // Health check
+    router.get('/health', (req) => Response.ok('{"status":"ok"}'));
+
+    final handler = Pipeline()
+        .addMiddleware(logRequests())
+        .addMiddleware(_authMiddleware())
+        .addMiddleware(_rateLimitMiddleware())
+        .addHandler(router.call);
+
+    _server = await io.serve(handler, 'localhost', port);
+  }
+
+  Future<void> stop() async {
+    await _server?.close(force: true);
+    _server = null;
+  }
+}
+```
+
+### 9.2 OpenAI-Compatible API Surface
+
+#### `GET /v1/models`
 
 ```json
 {
-  "inputs": "Complete conversation as formatted text",
-  "parameters": {
-    "max_new_tokens": 2048,
-    "temperature": 0.7,
-    "top_p": 0.95,
-    "return_full_text": false
-  },
+  "object": "list",
+  "data": [
+    {
+      "id": "local-gemma-2-9b",
+      "object": "model",
+      "created": 1700000000,
+      "owned_by": "prism-local"
+    },
+    {
+      "id": "ollama-llama3.1",
+      "object": "model",
+      "created": 1700000000,
+      "owned_by": "prism-ollama"
+    }
+  ]
+}
+```
+
+#### `POST /v1/chat/completions`
+
+Request:
+```json
+{
+  "model": "local-gemma-2-9b",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Hello!"}
+  ],
+  "temperature": 0.7,
+  "max_tokens": 2048,
   "stream": true
 }
 ```
 
-> Note: HF Inference API uses a different request format than chat-based providers. The adapter must convert `ChatRequest` messages into the appropriate prompt format for the specific model.
-
----
-
-## 7. OpenRouter Integration
-
-### Provider Details
-
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `openrouter` |
-| **Base URL** | `https://openrouter.ai/api/v1` |
-| **Auth** | Bearer token (`Authorization: Bearer sk-or-...`) |
-| **Streaming** | SSE (OpenAI-compatible format) |
-| **Function Calling** | ✅ Via selected models |
-
-### Key Advantage
-
-OpenRouter acts as a **meta-provider**, routing to 200+ models across multiple providers. This lets users access models from OpenAI, Anthropic, Google, Meta, Mistral, and others through a single API key.
-
-### Endpoints Used
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/v1/chat/completions` | POST | Chat completion (OpenAI-compatible) |
-| `/api/v1/models` | GET | List all available models |
-| `/api/v1/auth/key` | GET | Validate API key and check credits |
-
-### Request Mapping
-
-OpenRouter uses the **OpenAI-compatible format** with additional headers:
-
+Response (streaming SSE):
 ```
-Additional headers:
-  HTTP-Referer: https://gemmie.app (or app identifer)
-  X-Title: Gemmie
-
-Additional body fields:
-  transforms: ["middle-out"]    # Optional: context compression
-  route: "fallback"             # Optional: automatic fallback routing
+data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"delta":{"content":"Hi"},"index":0}]}
+data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"delta":{"content":" there!"},"index":0}]}
+data: [DONE]
 ```
 
-### Model Selection
-
-```json
-{
-  "model": "anthropic/claude-sonnet-4-20250514",
-  "messages": [...]
-}
-```
-
-Models are namespaced by provider: `openai/gpt-4o`, `anthropic/claude-sonnet-4-20250514`, `google/gemini-2.0-flash`, etc.
-
----
-
-## 8. Ollama Integration
-
-### Provider Details
-
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `ollama` |
-| **Package** | `langchain_ollama` / `ollama_dart` |
-| **Base URL** | `http://localhost:11434` (default, configurable) |
-| **Auth** | None required (self-hosted) |
-| **Streaming** | ✅ Via `POST /api/chat` with `stream: true` |
-| **Function Calling** | ✅ Supported on select models |
-| **Vision** | ✅ Multi-modal models (LLaVA, etc.) |
-
-### Why Ollama Is a First-Class Provider
-
-Ollama wraps llama.cpp with an easy-to-use API and model management system. It's the recommended way to run models locally on desktop and connect to them from mobile devices over LAN.
-
-### Endpoints Used
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `POST /api/chat` | POST | Chat completion (streaming and non-streaming) |
-| `GET /api/tags` | GET | List locally available models |
-| `POST /api/pull` | POST | Download a model |
-| `POST /api/show` | POST | Show model details |
-| `DELETE /api/delete` | DELETE | Remove a model |
-| `POST /api/generate` | POST | Raw text generation |
-
-### LAN Discovery (from Maid)
-
-Gemmie can automatically discover Ollama instances running on the local network:
-
-```
-1. Get device's local IP and subnet mask via network_info_plus
-2. Scan subnet using lan_scanner package
-3. For each responsive IP, probe port 11434 (Ollama default)
-4. If /api/tags responds → register as discovered Ollama server
-5. Display discovered servers in provider setup UI
-```
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Auto-scan LAN | Off | Scan for Ollama on app launch |
-| Custom Ollama URL | `http://localhost:11434` | Override for non-standard setups |
-| Preferred models | — | Pin favorite models for quick access |
-
-### Supported Models (Dynamic)
-
-Models are fetched via `/api/tags`. Commonly used:
-
-| Model | Parameters | Context | Vision | Notes |
-|-------|-----------|---------|--------|-------|
-| llama3.2 | 3B/1B | 128K | ❌ | Meta's latest compact model |
-| gemma3 | 4B/12B/27B | 128K | ✅ (4B+) | Google's Gemma 3 |
-| phi4 | 14B | 16K | ❌ | Microsoft Phi-4 |
-| mistral | 7B | 32K | ❌ | Mistral 7B |
-| qwen3 | 0.6B-235B | 40K+ | ❌ | Alibaba Qwen 3 |
-| deepseek-coder-v2 | 16B | 128K | ❌ | Code-specialized |
-| llava | 7B/13B | 4K | ✅ | Vision model |
-
-### LangChain.dart Usage
+### 9.3 Authentication Middleware
 
 ```dart
-final chatModel = ChatOllama(
-  defaultOptions: ChatOllamaOptions(
-    model: 'llama3.2',
-    temperature: 0.7,
-  ),
-  baseUrl: 'http://192.168.1.100:11434/api', // LAN or localhost
-);
-
-// Streaming
-final stream = chatModel.stream(PromptValue.string('Hello!'));
-await for (final chunk in stream) {
-  print(chunk.output.content);
+Middleware _authMiddleware() {
+  return (Handler innerHandler) {
+    return (Request request) async {
+      final auth = request.headers['authorization'];
+      if (auth == null || !auth.startsWith('Bearer ')) {
+        return Response(401, body: '{"error":"Missing API key"}');
+      }
+      final token = auth.substring(7);
+      final isValid = await _validateToken(token);
+      if (!isValid) {
+        return Response(403, body: '{"error":"Invalid API key"}');
+      }
+      return innerHandler(request);
+    };
+  };
 }
 ```
 
 ---
 
-## 9. Mistral AI Integration
+## 10 Supabase Cloud Sync
 
-### Provider Details
-
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `mistral` |
-| **Package** | `langchain_mistralai` / `mistralai_dart` |
-| **Base URL** | `https://api.mistral.ai/v1` |
-| **Auth** | Bearer token (`Authorization: Bearer ...`) |
-| **Streaming** | ✅ SSE via `POST /chat/completions` |
-| **Function Calling** | ✅ Supported |
-| **Vision** | ❌ Text-only |
-
-### Endpoints Used
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/chat/completions` | POST | Chat completion |
-| `/v1/models` | GET | List available models |
-| `/v1/embeddings` | POST | Generate embeddings |
-
-### Supported Models
-
-| Model | Context | Function Calling | Notes |
-|-------|---------|-----------------|-------|
-| mistral-large-latest | 128K | ✅ | Flagship model |
-| mistral-medium-latest | 32K | ✅ | Balanced |
-| mistral-small-latest | 32K | ✅ | Cost-effective |
-| codestral-latest | 32K | ✅ | Code-specialized |
-| open-mistral-nemo | 128K | ✅ | Open-weight |
-
-### LangChain.dart Usage
+### 10.1 Authentication
 
 ```dart
-final chatModel = ChatMistralAI(
-  apiKey: config.apiKey,
-  defaultOptions: ChatMistralAIOptions(
-    model: 'mistral-large-latest',
-    temperature: 0.7,
-  ),
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// Initialize
+await Supabase.initialize(
+  url: supabaseUrl,
+  anonKey: supabaseAnonKey,
 );
+
+// Auth
+final response = await supabase.auth.signInWithPassword(
+  email: email,
+  password: password,
+);
+
+// OAuth
+await supabase.auth.signInWithOAuth(OAuthProvider.google);
+```
+
+### 10.2 Sync Strategy
+
+```dart
+class SyncService {
+  /// Bidirectional sync with last-write-wins conflict resolution
+  Future<SyncResult> sync() async {
+    final lastSyncTime = await _getLastSyncTime();
+
+    // 1. Push local changes since last sync
+    final localChanges = await _getLocalChangesSince(lastSyncTime);
+    await _pushToSupabase(localChanges);
+
+    // 2. Pull remote changes since last sync
+    final remoteChanges = await _pullFromSupabase(lastSyncTime);
+    await _applyLocally(remoteChanges);
+
+    // 3. Resolve conflicts (last-write-wins)
+    await _resolveConflicts();
+
+    await _updateLastSyncTime();
+    return SyncResult(pushed: localChanges.length, pulled: remoteChanges.length);
+  }
+}
+```
+
+### 10.3 Supabase Tables
+
+| Local (Drift) | Remote (Supabase) | Sync | Notes |
+|---|---|---|---|
+| Conversations | conversations | Yes | |
+| Messages | messages | Yes | |
+| Personas | personas | Yes | |
+| PrismFiles (metadata) | files | Yes | Content synced via Storage |
+| ParaItems | para_items | Yes | |
+| ParaNotes | para_notes | Yes | |
+| Tasks | tasks | Yes | |
+| Transactions | transactions | Optional | Excluded by default (privacy) |
+| AppSettings | settings | Yes | |
+| Providers | — | No | Contains API keys |
+| GatewayTokens | — | No | Local-only |
+| McpServers | — | No | Local configuration |
+
+---
+
+## 11 GitHub Integration
+
+### 11.1 Configuration
+
+```dart
+import 'package:github/github.dart';
+
+class GitHubService {
+  late GitHub _github;
+
+  void configure(String token) {
+    _github = GitHub(auth: Authentication.withToken(token));
+  }
+
+  Future<List<Repository>> listRepos() async {
+    return await _github.repositories.listRepositories().toList();
+  }
+
+  Future<List<Issue>> listIssues(RepositorySlug slug) async {
+    return await _github.issues.listByRepo(slug).toList();
+  }
+
+  Future<Issue> createIssue(RepositorySlug slug, IssueRequest request) async {
+    return await _github.issues.create(slug, request);
+  }
+
+  Future<PullRequest> createPR(RepositorySlug slug, CreatePullRequest request) async {
+    return await _github.pullRequests.create(slug, request);
+  }
+}
+```
+
+### 11.2 Capabilities
+
+| Feature | API | Method |
+|---|---|---|
+| List repos | `GET /user/repos` | `repositories.listRepositories()` |
+| Browse files | `GET /repos/:owner/:repo/contents/:path` | `repositories.getContents()` |
+| List issues | `GET /repos/:owner/:repo/issues` | `issues.listByRepo()` |
+| Create issue | `POST /repos/:owner/:repo/issues` | `issues.create()` |
+| List PRs | `GET /repos/:owner/:repo/pulls` | `pullRequests.list()` |
+| Create PR | `POST /repos/:owner/:repo/pulls` | `pullRequests.create()` |
+| Gists | `GET /gists` | `gists.listGists()` |
+
+---
+
+## 12 Browser Automation
+
+### 12.1 Firecrawl (All Platforms)
+
+```dart
+// REST API — no Dart package, direct HTTP calls
+class FirecrawlService {
+  final String apiKey;
+  final String baseUrl;
+
+  FirecrawlService({
+    required this.apiKey,
+    this.baseUrl = 'https://api.firecrawl.dev',
+  });
+
+  /// Scrape a single URL
+  Future<ScrapedPage> scrape(String url) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/v1/scrape'),
+      headers: {
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'url': url, 'formats': ['markdown']}),
+    );
+    return ScrapedPage.fromJson(jsonDecode(response.body));
+  }
+
+  /// Crawl a website
+  Future<String> crawl(String url, {int maxPages = 10}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/v1/crawl'),
+      headers: {
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'url': url, 'limit': maxPages}),
+    );
+    return jsonDecode(response.body)['id'];  // Job ID for status polling
+  }
+}
+```
+
+### 12.2 Puppeteer (Desktop Only)
+
+```dart
+import 'package:puppeteer/puppeteer.dart';
+
+class BrowserAutomationService {
+  /// Available only on desktop platforms
+  Future<String> getPageContent(String url) async {
+    final browser = await puppeteer.launch(headless: true);
+    final page = await browser.newPage();
+    await page.goto(url, wait: Until.networkIdle);
+    final content = await page.content;
+    await browser.close();
+    return content;
+  }
+
+  /// Take screenshot of a page
+  Future<Uint8List> screenshot(String url) async {
+    final browser = await puppeteer.launch(headless: true);
+    final page = await browser.newPage();
+    await page.goto(url, wait: Until.networkIdle);
+    final bytes = await page.screenshot();
+    await browser.close();
+    return bytes;
+  }
+}
 ```
 
 ---
 
-## 10. Local Model Integration (llama_sdk)
+## 13 On-Device ML (Android)
 
-### Provider Details
+### 13.1 Summarization
 
-| Field | Value |
-|-------|-------|
-| **Provider ID** | `local` |
-| **Runtime** | `llama_sdk` (wraps llama.cpp via FFI) + LiteRT (via platform channels) |
-| **Auth** | None (on-device) |
-| **Streaming** | Token-by-token via callback / Stream |
+```dart
+import 'package:google_mlkit_genai_summarization/google_mlkit_genai_summarization.dart';
 
-### Architecture (Dual Runtime)
+class OnDeviceSummarizer {
+  final _summarizer = GenAiSummarization();
 
-```
-Dart (GemmieProvider.local)
-    │
-    ├── GGUF Models (llama.cpp path):
-    │   └── llama_sdk package
-    │       ├── Conditional import: native vs web stub
-    │       ├── Llama.fromController(model_path, params)
-    │       ├── llama.prompt(messages) → Stream<String>
-    │       └── Supports: Gemma, Llama, Mistral, Phi, Qwen, 100+ architectures
-    │
-    └── TFLite Models (LiteRT path):
-        └── Platform Channel / FFI
-            ├── EngineConfig (model path, GPU delegation)
-            ├── ConversationConfig (system prompt, history)
-            └── SamplerConfig (temperature, topK, topP)
-```
+  /// Summarize text on-device (Android only)
+  Future<String> summarize(String text) async {
+    final result = await _summarizer.summarize(text);
+    return result.summary;
+  }
 
-### Alternative: Ollama as Local Runtime
-
-Instead of embedding llama.cpp directly, users can run Ollama locally and connect via `langchain_ollama`. This is often simpler:
-
-- No FFI complexity
-- Easy model management (`ollama pull gemma3`)
-- GPU acceleration handled by Ollama
-- Same API as LAN Ollama
-
-### Local-Specific Considerations
-
-| Consideration | Handling |
-|--------------|---------|
-| Model not loaded | Trigger model load on first request; show loading state |
-| OOM during inference | Catch native exception, unload model, notify user |
-| GPU delegation | Enable by default on supported devices; fallback to CPU |
-| Battery impact | Throttle inference speed on low battery |
-| Concurrent requests | Queue requests — only one inference at a time |
-| Function calling | Not natively supported by most local models; parse output for tool call patterns |
-| Web platform | Conditional import switches to stub; fall back to cloud/Ollama |
-
----
-
-## 11. Custom Provider Integration
-
-For self-hosted or non-standard providers:
-
-### Configuration Schema
-
-```yaml
-CustomProvider:
-  displayName:     String                     # User-defined name
-  baseUrl:         String                     # API endpoint
-  apiKeyHeader:    String                     # Header name for API key (default: "Authorization")
-  apiKeyPrefix:    String                     # Prefix before key (default: "Bearer ")
-  chatEndpoint:    String                     # Path for chat (default: "/chat/completions")
-  modelsEndpoint:  String?                    # Path for model list (optional)
-  format:          String                     # "openai" | "anthropic" | "raw"
-  models:          List<ManualModel>          # Manually configured models
-  extraHeaders:    Map<String, String>?       # Custom headers
-```
-
-### Usage
-
-Custom providers that follow OpenAI's API format (many self-hosted solutions like vLLM, Ollama, LM Studio) can be configured by simply changing the `baseUrl` and providing the model list.
-
----
-
-## 12. Error Handling & Retry Strategy
-
-### Error Categories
-
-| Category | Examples | Handling |
-|----------|----------|---------|
-| **Auth Error** (401/403) | Invalid API key, expired token | Prompt user to update credentials; do NOT retry |
-| **Rate Limit** (429) | Requests per minute exceeded | Auto-retry with exponential backoff |
-| **Server Error** (500/502/503) | Provider outage | Retry up to 3 times; then offer fallback provider |
-| **Client Error** (400) | Invalid request, context too long | Parse error, apply fix (truncate), retry once |
-| **Network Error** | No connectivity, timeout, DNS failure | Check connectivity; retry with backoff if intermittent |
-| **Stream Error** | Connection dropped during streaming | Preserve partial response; offer to retry from last token |
-
-### Retry Configuration
-
-```yaml
-RetryConfig:
-  maxRetries:        3
-  initialDelay:      1000ms
-  maxDelay:          30000ms
-  backoffMultiplier: 2.0
-  retryableStatuses: [429, 500, 502, 503, 504]
-  nonRetryableStatuses: [400, 401, 403, 404]
-```
-
-### Error Response Contract
-
-```yaml
-ProviderError:
-  code:              String                   # "auth_error", "rate_limit", "server_error", etc.
-  message:           String                   # Human-readable error message
-  provider:          String                   # Which provider
-  httpStatus:        int?                     # HTTP status code
-  retryable:         bool                     # Whether this can be retried
-  retryAfterMs:      int?                     # Suggested retry delay
-  suggestion:        String                   # User-facing suggestion ("Check your API key", etc.)
+  /// Used for:
+  /// - Conversation summary when exceeding context window
+  /// - File preview generation
+  /// - Notification digest
+  /// - Daily briefing content
+}
 ```
 
 ---
 
-## 13. Rate Limiting & Quotas
+## 14 Notification Listener (Android)
 
-### Per-Provider Rate Limiting
+### 14.1 Service Setup
 
-| Provider | Default RPM | Default TPM | Configurable |
-|----------|------------|------------|--------------|
-| OpenAI | Follows API tier | Follows API tier | No (server-enforced) |
-| Gemini | 60 RPM (free), higher on paid | 1M TPM | No |
-| Claude | Follows API tier | Follows API tier | No |
-| HuggingFace | 300 RPM (free) | — | No |
-| OpenRouter | Follows model limits | Follows model limits | No |
-| Ollama | Unlimited (local) | N/A | N/A |
-| Mistral | Follows API tier | Follows API tier | No |
-| Local | Unlimited | N/A | N/A |
+```dart
+import 'package:notification_listener_service/notification_listener_service.dart';
 
-### Client-Side Rate Limiting
+class NotificationBridge {
+  StreamSubscription? _subscription;
 
-Gemmie implements client-side rate limiting as a politeness layer:
+  Future<void> startListening({
+    required List<String> allowedPackages,
+    required Function(TransactionData) onTransaction,
+  }) async {
+    // Check permission
+    final hasPermission = await NotificationListenerService.isPermissionGranted();
+    if (!hasPermission) {
+      await NotificationListenerService.requestPermission();
+    }
 
-```yaml
-ClientRateLimit:
-  minRequestIntervalMs:  500                  # Minimum gap between requests
-  maxConcurrentRequests: 1                    # One request at a time per provider
-  burstLimit:            5                    # Max requests in a 10-second window
-```
+    _subscription = NotificationListenerService.notificationsStream.listen(
+      (event) {
+        if (allowedPackages.contains(event.packageName)) {
+          final transaction = _parseTransaction(event);
+          if (transaction != null) {
+            onTransaction(transaction);
+          }
+        }
+      },
+    );
+  }
 
-### Budget Management
-
-```
-User sets monthly budget ($10/mo for OpenAI)
-    │
-    ▼
-Each request → estimate cost from token usage
-    │
-    ▼
-Running total tracked in ProviderConfig.rateLimits.currentMonthSpend
-    │
-    ├── < 80% budget → Normal operation
-    ├── 80-99% budget → Warning notification
-    └── ≥ 100% budget → Block requests, offer to increase limit
+  TransactionData? _parseTransaction(ServiceNotificationEvent event) {
+    final text = event.content ?? '';
+    // Regex patterns for common banking apps
+    // e.g., "Debited INR 500.00 from A/c XX1234 to Merchant Name"
+    final patterns = [
+      RegExp(r'(?:debited|spent|paid)\s*(?:INR|Rs\.?|₹)\s*([\d,.]+)', caseSensitive: false),
+      RegExp(r'(?:credited|received)\s*(?:INR|Rs\.?|₹)\s*([\d,.]+)', caseSensitive: false),
+    ];
+    // Parse and return TransactionData...
+  }
+}
 ```
 
 ---
 
-## 14. Token Counting & Cost Estimation
+## 15 Code Execution
 
-### Token Estimation
+### 15.1 Remote Execution API
 
-Since exact token counting requires provider-specific tokenizers:
+```dart
+class RemoteExecutor {
+  final String serverUrl;
 
-| Provider | Estimation Method |
-|----------|------------------|
-| OpenAI | `tiktoken` (if available) or approximation: chars / 4 |
-| Gemini | Approximation: chars / 4 |
-| Claude | Approximation: chars / 4 (Anthropic doesn't publish tokenizer) |
-| Ollama | Ollama returns token counts in response | Free (local) |
-| Mistral | Approximation: chars / 4 | Mistral pricing |
-| Local | Model-specific tokenizer via llama_sdk / LiteRT | Free (local) |
+  Future<ExecutionResult> execute(String code, String language) async {
+    final response = await http.post(
+      Uri.parse('$serverUrl/execute'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'code': code,
+        'language': language,
+        'timeout': 30000,  // 30 seconds
+      }),
+    );
+    return ExecutionResult.fromJson(jsonDecode(response.body));
+  }
 
-### Cost Calculation
-
+  /// WebSocket for streaming output
+  Stream<String> executeStreaming(String code, String language) async* {
+    final ws = await WebSocket.connect('$serverUrl/execute/stream');
+    ws.add(jsonEncode({'code': code, 'language': language}));
+    await for (final message in ws) {
+      yield message;
+    }
+    ws.close();
+  }
+}
 ```
-cost = (inputTokens / 1_000_000) * inputPricePerMT
-     + (outputTokens / 1_000_000) * outputPricePerMT
+
+### 15.2 Local Execution (QuickJS)
+
+```dart
+import 'package:flutter_js/flutter_js.dart';
+
+class QuickJsExecutor {
+  final _runtime = getJavascriptRuntime();
+
+  Future<String> executeJs(String code) async {
+    final result = _runtime.evaluate(code);
+    if (result.isError) {
+      throw ExecutionError(result.stringResult);
+    }
+    return result.stringResult;
+  }
+}
 ```
-
-Prices are stored per-model in `ProviderModel.inputPricePerMT` / `outputPricePerMT` and user-configurable.
-
----
-
-## 15. Adding a New Provider Guide
-
-### Step-by-Step
-
-1. **Check LangChain.dart packages:**
-   Many providers are already supported. Check [pub.dev langchain packages](https://pub.dev/packages?q=langchain).
-
-2. **If LangChain.dart has the package:**
-   ```
-   dart pub add langchain_<provider>
-   ```
-   Create `GemmieProvider.<provider>()` factory — done in ~50 lines.
-
-3. **If OpenAI-compatible:**
-   Use `langchain_openai` with custom `baseUrl` — most self-hosted solutions (vLLM, LM Studio, GPT4All, llama-server) work this way.
-
-4. **If truly custom:**
-   Create adapter file:
-   ```
-   lib/features/providers/data/adapters/new_provider_adapter.dart
-   ```
-
-### Estimated Effort
-
-| Task | Lines of Code | Time Estimate |
-|------|--------------|---------------|
-| Adapter implementation | 100-200 | 1-2 days |
-| UI configuration | 50-100 | 0.5 days |
-| Tests | 100-150 | 0.5-1 day |
-| **Total** | **250-450** | **2-3.5 days** |
-
-### Zero Core Changes Required
-
-The adapter pattern ensures that adding `NewProviderAdapter` requires:
-- ✅ New files only (adapter, tests, UI card)
-- ❌ No changes to chat module
-- ❌ No changes to streaming logic
-- ❌ No changes to tool invocation
-- ❌ No changes to conversation persistence

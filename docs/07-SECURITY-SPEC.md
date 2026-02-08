@@ -1,654 +1,325 @@
-# 07 — Security Specification
+# Prism — Security Specification
 
-> This document provides a comprehensive security design for Gemmie, covering encryption, credential management, code execution sandboxing, the permission model, data flow security, and threat mitigation strategies.
+## 1 Threat Model
 
----
+### 1.1 Assets
 
-## Table of Contents
+| Asset | Sensitivity | Storage |
+|---|---|---|
+| AI provider API keys | Critical | flutter_secure_storage (OS Keystore/Keychain) |
+| Conversation data | High | Drift/SQLite (local), Supabase (optional sync) |
+| Financial transaction data | Critical | Drift/SQLite (local), excluded from sync by default |
+| PARA notes & files | High | Local file system + Drift metadata |
+| Supabase credentials | Critical | flutter_secure_storage |
+| GitHub token | Critical | flutter_secure_storage |
+| AI Gateway tokens | High | Drift (hashed with SHA-256) |
+| MCP server auth tokens | High | flutter_secure_storage |
+| Notification content | High | Processed in-memory, parsed data stored in Drift |
 
-- [1. Security Principles](#1-security-principles)
-- [2. Encryption at Rest](#2-encryption-at-rest)
-- [3. Encryption in Transit](#3-encryption-in-transit)
-- [4. Credential Management](#4-credential-management)
-- [5. Code Execution Sandboxing](#5-code-execution-sandboxing)
-- [6. Permission Model Specification](#6-permission-model-specification)
-- [7. Data Flow Security](#7-data-flow-security)
-- [8. Authentication & Authorization](#8-authentication--authorization)
-- [9. Cloud Sync Security](#9-cloud-sync-security)
-- [10. Threat Model](#10-threat-model)
-- [11. Security Audit & Logging](#11-security-audit--logging)
-- [12. Incident Response](#12-incident-response)
-- [13. Security Checklist](#13-security-checklist)
+### 1.2 Threat Vectors
 
----
-
-## 1. Security Principles
-
-| Principle | Implementation |
-|-----------|---------------|
-| **Defense in Depth** | Multiple layers: encryption, sandboxing, permissions, audit logging |
-| **Least Privilege** | AI gets minimum access needed; default is Gated, not Open |
-| **Zero Trust for AI** | Every AI access request is verified; no implicit trust |
-| **Data Minimization** | Only necessary data sent to cloud APIs; no extra metadata |
-| **Secure by Default** | All security features enabled by default; user opts out, not in |
-| **Transparency** | All AI actions auditable; user can inspect every access |
-| **Fail Secure** | On error, deny access rather than allow |
+| Threat | Mitigation |
+|---|---|
+| API key leakage | Encrypted storage, never logged, never synced to cloud |
+| Data exfiltration via malicious MCP server | Tool execution sandboxing, user approval for sensitive ops |
+| Man-in-the-middle on API calls | TLS 1.2+ enforced, certificate pinning for critical APIs |
+| AI Gateway unauthorized access | Token auth, rate limiting, localhost-only by default |
+| Malicious code execution | Sandboxed environments (QuickJS, Docker, remote) |
+| Notification data privacy | Local processing only, opt-in per app, no cloud transmission |
+| Database theft (physical device) | Optional SQLCipher encryption |
+| Supply chain attack (dependencies) | Dependabot alerts, dependency audit, minimal dependency surface |
 
 ---
 
-## 2. Encryption at Rest
+## 2 Credential Management
 
-### Overview
+### 2.1 flutter_secure_storage
 
-All user data stored on the device is encrypted using AES-256-GCM. The encryption key is managed by the platform's hardware-backed keystore.
+```dart
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-### Key Hierarchy
+class CredentialStore {
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+  );
 
-```
-┌──────────────────────────────────────────────────────┐
-│                 Platform Keystore                     │
-│        (Android Keystore / iOS Keychain)              │
-│                                                      │
-│  ┌──────────────────────────────────────────────────┐│
-│  │         Master Key (KEK)                          ││
-│  │   Generated on first launch                       ││
-│  │   Hardware-backed (TEE/Secure Enclave)            ││
-│  │   Never leaves the keystore                       ││
-│  └───────────────────┬──────────────────────────────┘│
-└──────────────────────┼───────────────────────────────┘
-                       │ encrypts
-                       ▼
-          ┌───────────────────────────┐
-          │    Data Encryption Key    │
-          │         (DEK)             │
-          │   AES-256 key             │
-          │   Encrypted by KEK        │
-          │   Stored in app storage   │
-          └───────────┬───────────────┘
-                      │ encrypts
-                      ▼
-     ┌────────────────────────────────────┐
-     │          Isar Database             │
-     │   Files, conversations, versions   │
-     │   All fields encrypted with DEK    │
-     └────────────────────────────────────┘
+  Future<void> storeApiKey(String provider, String key) async {
+    await _storage.write(key: 'api_key_$provider', value: key);
+  }
+
+  Future<String?> getApiKey(String provider) async {
+    return await _storage.read(key: 'api_key_$provider');
+  }
+
+  Future<void> deleteApiKey(String provider) async {
+    await _storage.delete(key: 'api_key_$provider');
+  }
+}
 ```
 
-### Encryption Process
+### 2.2 Stored Credentials
 
-```
-Write Path:
-  plaintext → serialize to bytes → AES-256-GCM encrypt(DEK, nonce) → store ciphertext + nonce + tag
-
-Read Path:
-  load ciphertext + nonce + tag → AES-256-GCM decrypt(DEK, nonce, tag) → deserialize → plaintext
-```
-
-### AES-256-GCM Parameters
-
-| Parameter | Value |
-|-----------|-------|
-| Algorithm | AES-256-GCM |
-| Key size | 256 bits |
-| Nonce size | 96 bits (12 bytes) |
-| Tag size | 128 bits (16 bytes) |
-| Nonce generation | Cryptographically secure random (per encryption) |
-
-### What Is Encrypted
-
-| Data | Encrypted | Key |
-|------|-----------|-----|
-| File content (Isar) | ✅ | DEK |
-| File metadata (name, tags) | ✅ | DEK |
-| Conversation messages | ✅ | DEK |
-| Persona files | ✅ | DEK |
-| Version history / diffs | ✅ | DEK |
-| API keys / tokens | ✅ | Platform keystore directly |
-| Audit logs | ✅ | DEK |
-| App preferences (theme, etc.) | ❌ | Not sensitive |
-| Model files (downloaded) | ❌ | Large binary, performance concern |
-| Cache / temp files | ❌ | Ephemeral, auto-cleared |
-
-### Key Lifecycle
-
-| Event | Action |
-|-------|--------|
-| First launch | Generate KEK in platform keystore; generate DEK; encrypt DEK with KEK |
-| App start | Load encrypted DEK; decrypt with KEK; hold DEK in memory |
-| App background | Clear DEK from memory (configurable) |
-| App foreground | Re-decrypt DEK from storage using KEK |
-| Biometric unlock | Gate KEK access behind biometric authentication |
-| Data wipe | Delete KEK (makes all encrypted data irrecoverable) |
-| Key rotation | Generate new DEK; re-encrypt all data; replace encrypted DEK |
+| Credential | Storage Key | Platform Support |
+|---|---|---|
+| OpenAI API key | `api_key_openai` | All |
+| Gemini API key | `api_key_gemini` | All |
+| Anthropic API key | `api_key_anthropic` | All |
+| Mistral API key | `api_key_mistral` | All |
+| Custom provider keys | `api_key_custom_<id>` | All |
+| Supabase URL | `supabase_url` | All |
+| Supabase anon key | `supabase_anon_key` | All |
+| GitHub token | `github_token` | All |
+| Firecrawl API key | `firecrawl_api_key` | All |
+| MCP server tokens | `mcp_token_<server_id>` | All |
 
 ---
 
-## 3. Encryption in Transit
+## 3 Data Protection
 
-| Requirement | Implementation |
-|-------------|---------------|
-| All API calls use HTTPS | TLS 1.3 minimum; TLS 1.2 with strong cipher suites as fallback |
-| Certificate pinning | Pin CA certificates for primary providers (optional, configurable) |
-| No plaintext HTTP | HTTP URLs are rejected at the network layer |
-| WebSocket security | WSS only for streaming connections |
-| Model downloads | HTTPS from HuggingFace; verify file integrity via SHA-256 checksum |
+### 3.1 Data at Rest
 
-### Recommended TLS Cipher Suites
+| Layer | Protection |
+|---|---|
+| Drift/SQLite database | Optional SQLCipher encryption (AES-256-CBC) |
+| Local files | OS file system permissions (app-scoped on Android) |
+| Secure credentials | OS Keystore (Android) / Keychain (iOS/macOS) |
+| Downloaded models | App-scoped storage, no encryption (large files) |
 
-```
-TLS_AES_256_GCM_SHA384
-TLS_CHACHA20_POLY1305_SHA256
-TLS_AES_128_GCM_SHA256
-```
+### 3.2 Data in Transit
 
----
+| Channel | Protection |
+|---|---|
+| Cloud AI API calls | TLS 1.2+ (HTTPS) |
+| Supabase sync | TLS 1.2+ (HTTPS) |
+| Ollama (local/LAN) | HTTP (trusted network) or HTTPS (user-configured) |
+| AI Gateway (localhost) | HTTP (localhost only, no external access) |
+| MCP (stdio) | Process-level isolation |
+| MCP (SSE) | TLS recommended for remote servers |
 
-## 4. Credential Management
+### 3.3 Data Classification
 
-### Storage Strategy
-
-| Credential | Storage Location | Access Method |
-|-----------|-----------------|---------------|
-| HuggingFace OAuth token | Platform keystore | `flutter_secure_storage` / `Keychain` / `Keystore` |
-| OpenAI API key | Platform keystore | Secure storage plugin |
-| Gemini API key | Platform keystore | Secure storage plugin |
-| Claude API key | Platform keystore | Secure storage plugin |
-| OpenRouter API key | Platform keystore | Secure storage plugin |
-| Ollama server config | App storage (unencrypted — no secret) | Direct access (host/port only, no API key) |
-| Mistral AI API key | Platform keystore | Secure storage plugin |
-| Supabase credentials | Platform keystore | Secure storage plugin |
-| Custom provider keys | Platform keystore | Secure storage plugin |
-| DEK (data encryption key) | App storage (encrypted by KEK) | Decrypted at runtime |
-| KEK (key encryption key) | Hardware keystore (TEE/SE) | Platform key management API |
-
-### Credential Security Rules
-
-| Rule | Description |
-|------|-------------|
-| Never log credentials | API keys, tokens never appear in log output at any level |
-| Mask in UI | Keys displayed as `sk-●●●●●●●●●●7x2` (first 3 + last 3 chars) |
-| Memory security | Clear credential strings from memory after use (where Dart allows) |
-| Clipboard protection | If user copies a key, clear clipboard after 30 seconds |
-| No hardcoding | Zero credentials in source code; not even for testing |
-| Rotation support | UI for updating credentials; old key deleted immediately |
-| Validation before save | Test credential validity via API call before storing |
-
-### Platform-Specific Keystore
-
-#### Android
-
-```
-AndroidKeyStore
-├── StrongBox (if available) — hardware security module
-├── TEE (Trusted Engine) — hardware-backed
-└── Software — fallback (still encrypted)
-
-Configuration:
-  - setUserAuthenticationRequired(true)  — for biometric-gated keys
-  - setKeySize(256)
-  - setBlockModes(GCM)
-  - setEncryptionPaddings(NoPadding)
-```
-
-#### iOS
-
-```
-Keychain Services
-├── kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-├── kSecAttrAccessControl with biometricCurrentSet (for biometric)
-└── kSecAttrSynchronizable(false) — no iCloud Keychain sync for secrets
-
-Configuration:
-  - Accessibility: afterFirstUnlockThisDeviceOnly
-  - No iCloud backup of secrets
-```
-
-#### Web
-
-```
-Web Crypto API
-├── SubtleCrypto for key generation
-├── IndexedDB (encrypted) for key storage
-└── Warning: less secure than native platforms
-
-Mitigations:
-  - Keys encrypted with user-derived key (PBKDF2)
-  - Clear on browser session end (configurable)
-  - Display security warning to user
-```
+| Category | Examples | Sync | Encryption |
+|---|---|---|---|
+| **Critical** | API keys, tokens | Never synced | OS Keystore |
+| **Sensitive** | Financial data, notifications | Opt-in only | SQLCipher (optional) |
+| **Personal** | Conversations, notes, tasks | Default sync | TLS in transit |
+| **Public** | Model metadata, tool schemas | Always sync | None needed |
 
 ---
 
-## 5. Code Execution Sandboxing
+## 4 AI Gateway Security
 
-### Sandbox Architecture
+### 4.1 Access Control
 
-```
-┌───── Host App (Gemmie) ─────────────────────────┐
-│                                                  │
-│  ┌──── Sandbox Boundary ──────────────────────┐  │
-│  │                                            │  │
-│  │  ┌── Isolated Process ──────────────────┐  │  │
-│  │  │  Temp directory: /sandbox/{exec_id}/ │  │  │
-│  │  │  No access to: app dir, user home,   │  │  │
-│  │  │    system dirs, device APIs           │  │  │
-│  │  │  Network: BLOCKED (default)           │  │  │
-│  │  │  Filesystem: temp dir only            │  │  │
-│  │  │  Memory: capped at limit              │  │  │
-│  │  │  CPU time: capped at timeout          │  │  │
-│  │  └──────────────────────────────────────┘  │  │
-│  │                                            │  │
-│  │  Communication: stdout/stderr pipe only    │  │
-│  │  Cleanup: temp dir deleted after execution │  │
-│  └────────────────────────────────────────────┘  │
-│                                                  │
-└──────────────────────────────────────────────────┘
-```
+```dart
+// Token-based auth with SHA-256 hashing
+class GatewayAuth {
+  /// Generate a new API token (shown once to user)
+  Future<String> generateToken(String name, {
+    int rateLimitPerMinute = 60,
+    DateTime? expiresAt,
+  }) async {
+    final token = _generateSecureToken(32);
+    final hash = sha256.convert(utf8.encode(token)).toString();
 
-### Sandbox Controls
+    await _db.gatewayTokenDao.insert(GatewayTokensCompanion(
+      name: Value(name),
+      tokenHash: Value(hash),
+      rateLimitPerMinute: Value(rateLimitPerMinute),
+      expiresAt: Value(expiresAt),
+    ));
 
-| Control | Default | User-Configurable |
-|---------|---------|-------------------|
-| Filesystem access | Temp dir only | No — always sandboxed |
-| Network access | Blocked | Yes — per-script toggle |
-| System commands | Blocked | No — always blocked locally |
-| Max execution time | 30 seconds | Yes — 1 to 300 seconds |
-| Max memory | 256 MB | Yes — 64 to 1024 MB |
-| Max output size | 1 MB stdout + 1 MB stderr | Yes |
-| Child process creation | Blocked | No — always blocked locally |
+    return token;  // Return plaintext only once
+  }
 
-### Platform-Specific Sandboxing
-
-#### Android
-```
-- Use isolated process (android:isolatedProcess=true) for execution
-- SELinux policy restricts filesystem access
-- Memory limits via cgroups
-- Network namespace isolation
+  /// Validate incoming request token
+  Future<bool> validateToken(String token) async {
+    final hash = sha256.convert(utf8.encode(token)).toString();
+    final record = await _db.gatewayTokenDao.findByHash(hash);
+    if (record == null) return false;
+    if (!record.isActive) return false;
+    if (record.expiresAt != null && record.expiresAt!.isBefore(DateTime.now())) return false;
+    return true;
+  }
+}
 ```
 
-#### iOS
-```
-- App Sandbox already provides isolation
-- Use NSOperationQueue with separate queue
-- WKWebView for JS execution (already sandboxed)
-- Memory limits via os_proc_set_limit
+### 4.2 Rate Limiting
+
+```dart
+class RateLimiter {
+  final Map<String, List<DateTime>> _requestLog = {};
+
+  bool isAllowed(String tokenHash, int maxPerMinute) {
+    final now = DateTime.now();
+    final cutoff = now.subtract(const Duration(minutes: 1));
+
+    _requestLog[tokenHash] = (_requestLog[tokenHash] ?? [])
+        .where((t) => t.isAfter(cutoff))
+        .toList();
+
+    if (_requestLog[tokenHash]!.length >= maxPerMinute) return false;
+
+    _requestLog[tokenHash]!.add(now);
+    return true;
+  }
+}
 ```
 
-#### Remote Execution
-```
-- Code runs in user's own infrastructure (Modal, Daytona, SSH)
-- Gemmie's responsibility: encrypt code in transit, validate responses
-- Sandbox security is the user's remote environment's responsibility
-- Connection: HTTPS / WSS only
-```
+### 4.3 Network Binding
 
-### Malicious Code Detection
-
-| Threat | Detection | Mitigation |
-|--------|-----------|------------|
-| Infinite loop | Timeout monitoring | Kill after timeout |
-| Memory bomb | Memory monitoring | Kill on limit exceeded |
-| Fork bomb | Process creation blocked | Sandbox restriction |
-| File system attack | Chroot-like isolation | No access outside temp |
-| Network exfiltration | Network disabled by default | User must explicitly enable |
-| Path traversal | Input sanitization + sandbox | Restricted filesystem view |
+- Default: `localhost` only (127.0.0.1).
+- User can optionally bind to `0.0.0.0` for LAN access (with warning dialog).
+- No UPnP or port forwarding — explicit user action required.
 
 ---
 
-## 6. Permission Model Specification
+## 5 Code Execution Sandboxing
 
-### Formal Definition
+### 5.1 Sandbox Levels
 
-```
-Permission = (Subject, Object, Operation, Decision)
+| Environment | Isolation | Capabilities |
+|---|---|---|
+| **QuickJS (mobile)** | No file system, no network, no process spawning | Pure computation only |
+| **Docker (desktop)** | Container-level: filesystem, network, process isolation | Configurable per container |
+| **Remote (cloud)** | Full server-side isolation | Stateless, time-limited |
 
-Subject:    "user" | "ai:{model-id}"
-Object:     GemmieFile | GemmieFolder
-Operation:  read | write | delete | execute
-Decision:   allow | deny | askUser
-```
+### 5.2 Docker Configuration
 
-### Evaluation Algorithm
-
-```python
-def evaluate(subject, object, operation):
-    # Rule 1: User always has full access
-    if subject == "user":
-        return ALLOW
-
-    # Rule 2: Get effective permission tier
-    tier = get_effective_tier(object)
-
-    # Rule 3: Locked = always deny for AI
-    if tier == LOCKED:
-        audit_log(subject, object, operation, DENIED)
-        return DENY
-
-    # Rule 4: Open = always allow for AI (but log)
-    if tier == OPEN:
-        audit_log(subject, object, operation, ALLOWED)
-        return ALLOW
-
-    # Rule 5: Gated = check grants
-    if tier == GATED:
-        grant = find_active_grant(subject, object, operation)
-        if grant and not grant.expired:
-            audit_log(subject, object, operation, ALLOWED)
-            return ALLOW
-        else:
-            audit_log(subject, object, operation, ASK_USER)
-            return ASK_USER
-
-def get_effective_tier(object):
-    # File-level override > folder-level > default
-    if object.permissionTier is not None:
-        return object.permissionTier
-    return get_effective_tier(object.parent)
+```yaml
+# Default sandbox container
+security_opt:
+  - no-new-privileges:true
+read_only: true
+tmpfs:
+  - /tmp:size=100M
+network_mode: none
+mem_limit: 256M
+cpus: 1.0
+pids_limit: 100
 ```
 
-### Permission Inheritance
+### 5.3 Execution Limits
 
-```
-Root Folder (gated by default)
-├── Documents/ (gated — inherits)
-│   ├── spec.md (gated — inherits)
-│   └── secret.md (LOCKED — override)
-├── Agent/ (gated)
-│   ├── soul.md (gated — inherits)
-│   └── temp_notes.md (OPEN — override)
-├── Scripts/ (gated)
-│   └── analyzer.py (gated — inherits)
-└── Trash/ (LOCKED — system)
-    └── * (LOCKED — inherits, no AI access to trash)
-```
-
-### Grant Expiration
-
-| Scope | Expiration |
-|-------|------------|
-| This time only | Immediately after the granted operation completes |
-| This session | On conversation end OR app restart (whichever comes first) |
-| Always | Never (until user explicitly revokes) |
-
-### Emergency Lockdown
-
-If the user suspects unauthorized AI access:
-
-1. **Settings > Permissions > Emergency Lockdown** button
-2. All grants immediately revoked
-3. All files set to Gated (minimum)
-4. All pending AI operations cancelled
-5. Audit log snapshot exported
-6. Confirmation shown to user
+| Limit | Value |
+|---|---|
+| Execution timeout | 30 seconds (configurable) |
+| Memory | 256 MB (Docker), sandboxed (QuickJS) |
+| Network | Disabled by default |
+| File system | /tmp only (Docker), none (QuickJS) |
+| Output size | 1 MB max |
 
 ---
 
-## 7. Data Flow Security
+## 6 MCP Security
 
-### Chat Data Flow
+### 6.1 Server Trust Model
 
-```
-User types message
-    │
-    ▼
-Message stored encrypted in local DB
-    │
-    ├── Local Model Path:
-    │   Message → plaintext to LiteRT engine (on-device, no network)
-    │   Response → stored encrypted in local DB
-    │   ✅ Data never leaves device
-    │
-    └── Cloud API Path:
-        Message → TLS-encrypted → Provider API
-        Conversation history included in API request
-        ⚠️  Data leaves device (user explicitly chose cloud provider)
-        Response → stored encrypted in local DB
-```
+| Trust Level | Description | Permissions |
+|---|---|---|
+| **Trusted** | User-installed, local servers | All tools, auto-approve |
+| **Semi-trusted** | Remote servers with auth | Tools approved per-use |
+| **Untrusted** | New/unknown servers | Manual tool approval each time |
 
-### File Access Data Flow
+### 6.2 Tool Execution Approval
 
-```
-AI requests file access
-    │
-    ▼
-Permission Engine evaluates (see §6)
-    │
-    ├── DENIED → AI informed, operation blocked, audit logged
-    │
-    ├── ASK_USER → Permission dialog shown
-    │   └── User decides → grant or deny
-    │
-    └── ALLOWED →
-        File content decrypted in memory
-        Content provided to AI context
-        Content cleared from memory after use
-        Audit entry created
-```
+- First invocation of any MCP tool requires user approval.
+- User can "always allow" specific tools from trusted servers.
+- Sensitive operations (file write, network access) always prompt.
+- Tool execution logged in `ToolExecutionLogs`.
 
-### Sensitive Data Boundaries
+---
 
-```
-┌─── Never Leaves Device ────────────────────────────┐
-│  • Encryption keys (KEK, DEK)                      │
-│  • Platform keystore contents                       │
-│  • API keys (never sent to other providers)         │
-│  • Audit logs                                       │
-│  • Permission grants                                │
-│  • File version history                             │
-│  • Local model weights                              │
-└────────────────────────────────────────────────────┘
+## 7 Notification Privacy
 
-┌─── Leaves Device (Encrypted + User-Consented) ─────┐
-│  • Chat messages → to selected cloud AI provider    │
-│  • File content → only if AI tool reads it for API  │
-│  • Sync data → to cloud sync provider (E2E enc.)    │
-└────────────────────────────────────────────────────┘
+### 7.1 Data Handling Policy
 
-┌─── Never Collected ────────────────────────────────┐
-│  • Usage analytics (unless opted in)                │
-│  • Device identifiers                               │
-│  • Location data                                    │
-│  • Contact lists                                    │
-│  • Call logs                                        │
-│  • Browsing history                                 │
-└────────────────────────────────────────────────────┘
+1. Notification content is processed **in-memory** by regex parsers.
+2. Only structured transaction data (amount, merchant, type) is persisted.
+3. Raw notification text stored only for verification purposes; auto-deleted after 30 days.
+4. Notification listening is **opt-in** and requires explicit Android permission.
+5. App allowlist controls which apps' notifications are processed.
+6. Financial data is **excluded from Supabase sync by default**.
+
+### 7.2 Permission Model
+
+```dart
+// Android Notification Listener permission
+// Requires explicit user grant in Settings > Notification access
+// Cannot be programmatically granted
+// User can revoke at any time
 ```
 
 ---
 
-## 8. Authentication & Authorization
+## 8 Privacy Controls
 
-### Authentication Methods
+### 8.1 User-Facing Privacy Settings
 
-| Method | Use Case | Implementation |
-|--------|----------|---------------|
-| HuggingFace OAuth | Model downloads (gated models) | AppAuth library, PKCE flow |
-| API Key | Cloud AI providers | Stored in keystore, sent in headers |
-| Biometric | App unlock, sensitive operations | Platform biometric API |
-| Cloud Sync Account | Optional sync | TBD (Firebase Auth / Supabase Auth) |
-| PIN / Password | Fallback for biometric | Hashed with PBKDF2, never stored plaintext |
+| Setting | Default | Description |
+|---|---|---|
+| Crash reporting | Off | Sentry opt-in |
+| Analytics | Off | No analytics by default |
+| Data retention | Forever | Auto-delete conversations after N days |
+| Sync financial data | Off | Exclude from Supabase sync |
+| Sync conversations | On | Include in Supabase sync |
+| Notification capture | Off | Enable per-app notification listening |
+| AI Gateway scope | Localhost | Bind to localhost only |
 
-### OAuth 2.0 (HuggingFace) Security
+### 8.2 Data Export & Deletion
 
-| Measure | Implementation |
-|---------|---------------|
-| PKCE | Required (code_challenge_method: S256) |
-| State parameter | Random nonce, verified on callback |
-| Token storage | Access token in keystore; refresh token in keystore |
-| Token refresh | Automatic before expiry |
-| Token revocation | On user logout from HuggingFace |
-| Redirect URI validation | Exact match only (no wildcards) |
+- **Export**: All user data as ZIP (Drift dump + files + settings JSON).
+- **Selective delete**: Delete specific conversations, files, or date ranges.
+- **Nuclear delete**: Wipe all data including Drift database, files, secure storage, and Supabase remote data.
 
 ---
 
-## 9. Cloud Sync Security
+## 9 Dependency Security
 
-### End-to-End Encryption for Sync
+### 9.1 Audit Process
 
-```
-User Data → Encrypt(DEK_sync, data) → Upload ciphertext to cloud
+1. All dependencies reviewed for:
+   - Maintainer reputation and activity.
+   - Known vulnerabilities (pub.dev advisories).
+   - Permission scope (especially native permissions).
+2. Minimal dependency surface — prefer few, well-maintained packages.
+3. Pin major versions in `pubspec.yaml`.
+4. Automated vulnerability scanning via GitHub Dependabot.
 
-DEK_sync derived from:
-  - User passphrase (entered once, not stored on server)
-  - PBKDF2 with 600,000 iterations
-  - Salt stored alongside encrypted data (not secret)
+### 9.2 Key Dependency Trust Assessment
 
-Server sees: ciphertext + salt + nonce + tag
-Server CANNOT see: plaintext data (no access to passphrase or derived key)
-```
-
-### Key Derivation for Sync
-
-```
-passphrase → PBKDF2(passphrase, salt, iterations=600000, keyLength=256) → DEK_sync
-```
-
-| Parameter | Value |
-|-----------|-------|
-| KDF | PBKDF2-HMAC-SHA256 |
-| Iterations | 600,000 (OWASP recommendation) |
-| Salt | 128-bit cryptographically random (per-user) |
-| Key length | 256 bits |
-
-### Recovery Key
-
-On sync setup, a 24-word recovery key is generated (BIP39 mnemonic):
-
-```
-1. User sets passphrase for sync
-2. DEK_sync derived from passphrase
-3. Recovery key generated (random 256-bit entropy → 24 words)
-4. DEK_sync encrypted with recovery key → stored on server as backup
-5. User MUST write down recovery key (shown once!)
-6. If passphrase forgotten → recovery key → decrypt DEK_sync backup → re-derive
-```
+| Package | Publisher | Trust Level | Notes |
+|---|---|---|---|
+| drift | Simon Binder | High | Flutter Favorite, 2300+ likes |
+| moon_design | yolo.com | Medium | v1 maintained, v2 in progress |
+| langchain_dart | David Miguel | Medium | Active, well-documented |
+| llama_cpp_dart | netdur | Medium | Active, FFI bindings |
+| mcp_dart | Community | Medium | Most mature Dart MCP SDK |
+| shelf | Dart team | High | Official package |
+| dart_openai | Mouaz M. Al-Shahmeh | Medium | 6.1.1, stable |
+| flutter_secure_storage | Julian Steenbakker | High | Widely used, 2400+ likes |
+| supabase_flutter | Supabase team | High | Official |
+| notification_listener_service | Mostafa Morsy | Low | Small package, review source |
 
 ---
 
-## 10. Threat Model
+## 10 AGPL Compliance
 
-### STRIDE Analysis
+### 10.1 License Obligations
 
-| Threat | Category | Risk | Mitigation |
-|--------|----------|------|------------|
-| AI accesses locked files | Tampering | High | Permission engine enforced at data layer; no bypass possible from AI context |
-| API key stolen from device | Info Disclosure | High | Hardware keystore; biometric gate; app-level encryption |
-| Malicious code execution | Elevation of Privilege | High | Sandbox isolation; no filesystem/network access; timeout |
-| Man-in-the-middle on API calls | Info Disclosure | Medium | TLS 1.3; optional certificate pinning |
-| Local DB extracted from device | Info Disclosure | Medium | AES-256-GCM encryption; key in hardware keystore |
-| AI manipulates persona to bypass rules | Tampering | Medium | Soul file immutable constraints; permission-gated changes; user review |
-| Cloud sync data intercepted | Info Disclosure | Medium | E2E encryption; server never sees plaintext |
-| Prompt injection via file content | Spoofing | Medium | Warn user when file content used as AI context; sanitize where possible |
-| Denial of service (OOM from model) | Denial of Service | Low | Memory monitoring; graceful unload; user notification |
-| User tricked into granting permissions | Social Engineering | Low | Clear permission dialogs; show exact file/operation; audit log |
+- All source code publicly available.
+- Modifications to Prism must be shared under AGPL.
+- Network use (AI Gateway serving other apps) triggers AGPL copyleft.
+- Third-party AGPL-compatible licenses accepted for dependencies.
 
-### Attack Surface
+### 10.2 Dependency License Compatibility
 
-| Surface | Exposure | Controls |
-|---------|----------|----------|
-| Cloud AI API endpoints | Internet | TLS, API key auth, rate limiting |
-| HuggingFace download | Internet | TLS, OAuth, file hash verification |
-| Local model inference | App process | Memory isolation, OOM handling |
-| Code execution sandbox | App process | Process isolation, resource limits |
-| File storage (Isar DB) | Device storage | AES-256-GCM encryption |
-| Cloud sync storage | Cloud | E2E encryption (client-side) |
-| User input (chat) | User interface | Input validation, prompt injection awareness |
-
----
-
-## 11. Security Audit & Logging
-
-### Audit Log Entries
-
-Every security-relevant event is logged:
-
-| Event Type | Logged Fields | Retention |
-|-----------|---------------|-----------|
-| Permission request | file, operation, requester, decision, timestamp | 90 days |
-| Permission grant/revoke | file, operation, scope, timestamp | 90 days |
-| API key access | provider, operation (create/update/delete), timestamp | 90 days |
-| File read by AI | file, model, conversation, timestamp | 90 days |
-| File write by AI | file, model, conversation, diff summary, timestamp | 90 days |
-| Code execution | language, environment, success/fail, timestamp | 90 days |
-| Login/auth events | provider, success/fail, timestamp | 90 days |
-| Emergency lockdown | trigger, timestamp | Permanent |
-| Data export | scope, timestamp | Permanent |
-| Data deletion | scope, timestamp | Permanent |
-
-### Audit Log Security
-
-- Audit logs are encrypted at rest (same DEK as other data)
-- Audit logs are append-only (modification / deletion by AI is impossible — Locked tier)
-- Audit logs can be exported by user
-- 90-day auto-cleanup to manage storage (configurable)
-
-### Audit Dashboard (Settings > Permissions)
-
-```
-┌──────────────────────────────────────┐
-│  📊 Security Audit                   │
-├──────────────────────────────────────┤
-│                                      │
-│  Last 7 Days                         │
-│  ├── AI file reads:        23        │
-│  ├── AI file writes:        8        │
-│  ├── Permission requests:  12        │
-│  ├── Grants given:          9        │
-│  ├── Requests denied:       3        │
-│  └── Code executions:       5        │
-│                                      │
-│  [View Full Log →]                   │
-│  [Export Audit Log 📤]               │
-│  [🔴 Emergency Lockdown]            │
-│                                      │
-└──────────────────────────────────────┘
-```
-
----
-
-## 12. Incident Response
-
-### User Reports Suspicious Activity
-
-```
-1. User taps "Emergency Lockdown" OR reports issue
-2. Immediately:
-   a. Revoke ALL active permission grants
-   b. Set all files to Gated (minimum)
-   c. Cancel all pending AI operations
-   d. Suspend code executions
-3. Export audit log snapshot
-4. Show user summary:
-   "Last 24h: 35 AI accesses, 12 file writes, 5 code executions"
-5. User reviews and decides next action:
-   a. Revoke specific API keys
-   b. Delete specific conversations
-   c. Change persona files
-   d. Contact support
-6. Lockdown persists until user manually unlocks
-```
-
----
-
-## 13. Security Checklist
-
-### Pre-Release Security Checklist
-
-- [ ] All stored data encrypted with AES-256-GCM — verified by DB inspection
-- [ ] API keys stored in platform keystore — verified by static analysis
-- [ ] No credentials in source code — verified by secret scanning (truffleHog, gitleaks)
-- [ ] No credentials in log output — verified by log audit at DEBUG level
-- [ ] TLS 1.3+ for all network calls — verified by network proxy inspection
-- [ ] Code sandboxing prevents filesystem escape — verified by penetration test
-- [ ] Code sandboxing prevents network access (when disabled) — verified by test
-- [ ] Permission engine blocks AI access to Locked files — verified by automated test
-- [ ] Permission engine requires approval for Gated files — verified by automated test
-- [ ] Key rotation mechanism works correctly — verified by integration test
-- [ ] Data wipe leaves zero recoverable data — verified by forensic analysis
-- [ ] Biometric authentication gates keystore access — verified by manual test
-- [ ] OAuth PKCE flow implemented correctly — verified by auth test
-- [ ] Dependency audit: no known CVEs — verified by `dart pub audit`
-- [ ] Dependency audit: no data-collecting libraries — verified by manual review
-- [ ] Cloud sync E2E encryption verified — server-side contains only ciphertext
-- [ ] Audit log captures all security events — verified by coverage test
+| License | Compatible | Packages |
+|---|---|---|
+| MIT | Yes | Most Flutter packages |
+| BSD | Yes | Drift, shelf |
+| Apache 2.0 | Yes | Flutter SDK |
+| AGPL 3.0 | Yes | Prism itself |
+| GPL 3.0 | Yes | Limited use |
+| Proprietary | No | Must be avoided |

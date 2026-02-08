@@ -1,907 +1,621 @@
-# 04 — Data Models
+# Prism — Data Models (Drift Schemas)
 
-> This document defines all data structures, schemas, and entity relationships used in Gemmie. Each schema maps to a domain entity in the architecture and may have corresponding Isar collections, DTOs, or API request/response models.
+> All schemas use **Drift 2.x** with SQLite. Tables are defined as Dart classes extending `Table`. Generated code provides type-safe companions, DAOs, and reactive `Stream` queries.
 
----
+## 1 Database Definition
 
-## Table of Contents
+```dart
+@DriftDatabase(
+  tables: [
+    Conversations, Messages, MessageAttachments,
+    Providers, ProviderModels,
+    Personas,
+    PrismFiles, PrismFolders, FileLocks,
+    ParaItems, ParaNotes, NoteLinks,
+    Tasks, TaskDependencies,
+    Transactions, Categories, Budgets,
+    ToolDefinitions, ToolExecutionLogs,
+    McpServers, McpTools,
+    Skillsets, SkillsetTools,
+    GatewayTokens, GatewayRequestLogs,
+    NotificationRules,
+    AppSettings,
+  ],
+  daos: [
+    ConversationDao, MessageDao,
+    ProviderDao, PersonaDao,
+    FileDao, ParaDao, TaskDao,
+    TransactionDao, ToolDao, McpDao,
+    SkillsetDao, GatewayDao, SettingsDao,
+  ],
+)
+class PrismDatabase extends _$PrismDatabase {
+  PrismDatabase(QueryExecutor executor) : super(executor);
 
-- [1. User & Profile](#1-user--profile)
-- [2. Conversation & Messages](#2-conversation--messages)
-- [3. AI Models](#3-ai-models)
-- [4. AI Providers](#4-ai-providers)
-- [5. Virtual Filesystem](#5-virtual-filesystem)
-- [6. Versioning & Diff](#6-versioning--diff)
-- [7. Permissions & Locks](#7-permissions--locks)
-- [8. Agent Persona](#8-agent-persona)
-- [9. Tools](#9-tools)
-- [10. Code Execution](#10-code-execution)
-- [11. Sync](#11-sync)
-- [12. Entity Relationship Diagram](#12-entity-relationship-diagram)
+  @override
+  int get schemaVersion => 1;
 
----
-
-## 1. User & Profile
-
-### UserProfile
-
-```yaml
-UserProfile:
-  id:               String (UUID v4)           # Unique identifier
-  displayName:      String                     # User's display name
-  avatarPath:       String?                    # Path to avatar image in storage
-  email:            String?                    # Optional email (for sync)
-  createdAt:        DateTime                   # Profile creation time
-  updatedAt:        DateTime                   # Last modification time
-  preferences:      UserPreferences            # App-wide preferences
-  activePersonaId:  String?                    # Currently active persona profile
-```
-
-### UserPreferences
-
-```yaml
-UserPreferences:
-  theme:                ThemeMode              # light | dark | system
-  accentColor:          int                    # Material color seed value
-  locale:               String                 # e.g., "en_US", "es_ES"
-  defaultProviderId:    String?                # Default AI provider for new chats
-  defaultModelId:       String?                # Default model within provider
-  autoSaveIntervalSec:  int                    # Default: 5
-  downloadOnWifiOnly:   bool                   # Default: true
-  analyticsOptIn:       bool                   # Default: false
-  crashReportingOptIn:  bool                   # Default: false
-  dataSaverMode:        bool                   # Default: false
-  fontSize:             double                 # Text scale factor (1.0 = default)
-  reducedMotion:        bool                   # Follow system or override
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: stepByStep(/* version migrations */),
+  );
+}
 ```
 
 ---
 
-## 2. Conversation & Messages
+## 2 Conversations & Messages
 
-### Conversation
+### 2.1 Conversations
 
-```yaml
-Conversation:
-  id:              String (UUID v4)
-  title:           String                     # User-set or auto-generated from first message
-  createdAt:       DateTime
-  updatedAt:       DateTime                   # Last message timestamp
-  providerId:      String                     # AI provider used ("local", "openai", etc.)
-  modelId:         String                     # Specific model used
-  personaId:       String?                    # Associated persona profile
-  folderId:        String?                    # Optional folder grouping
-  isPinned:        bool                       # Pinned to top
-  isArchived:      bool                       # Archived (hidden from main list)
-  messageCount:    int                        # Cached count for display
-  tokenUsage:      TokenUsage                 # Cumulative token tracking
-  metadata:        Map<String, dynamic>       # Extensible metadata
+```dart
+class Conversations extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text().withLength(min: 1, max: 500)();
+  TextColumn get summary => text().nullable()();
+  IntColumn get personaId => integer().nullable().references(Personas, #id)();
+  IntColumn get providerId => integer().nullable().references(Providers, #id)();
+  TextColumn get modelId => text().nullable()();
+  BoolColumn get isPinned => boolean().withDefault(const Constant(false))();
+  BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();  // Supabase sync ID
+}
 ```
 
-### Message
+### 2.2 Messages
 
-```yaml
-Message:
-  id:              String (UUID v4)
-  conversationId:  String                     # FK to Conversation
-  role:            MessageRole                # user | assistant | system | tool
-  content:         String                     # Message text (Markdown)
-  createdAt:       DateTime
-  attachments:     List<Attachment>           # Images, files, etc.
-  toolInvocations: List<ToolInvocation>       # Tools called during this message
-  modelId:         String?                    # Model that generated this (for assistant)
-  parentId:        String?                    # For branching conversations (FK to parent Message)
-  childrenIds:     List<String>               # Child branch message IDs (tree structure)
-  currentChildId:  String?                    # Active branch child (for navigation)
-  isEdited:        bool                       # Whether user edited after sending
-  tokenCount:      int?                       # Token count for this message
-  status:          MessageStatus              # sending | streaming | complete | error | cancelled
-  errorMessage:    String?                    # Error details if status == error
+```dart
+class Messages extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get conversationId => integer().references(Conversations, #id,
+      onDelete: KeyAction.cascade)();
+  IntColumn get parentMessageId => integer().nullable()
+      .references(Messages, #id)();  // Branching support
+  TextColumn get role => text()();  // 'user' | 'assistant' | 'system' | 'tool'
+  TextColumn get content => text()();
+  TextColumn get toolCalls => text().nullable()();  // JSON array of tool calls
+  TextColumn get toolCallId => text().nullable()();  // For tool response messages
+  IntColumn get promptTokens => integer().withDefault(const Constant(0))();
+  IntColumn get completionTokens => integer().withDefault(const Constant(0))();
+  RealColumn get costEstimate => real().nullable()();
+  TextColumn get modelId => text().nullable()();
+  IntColumn get providerId => integer().nullable()();
+  BoolColumn get isError => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  IntColumn get branchIndex => integer().withDefault(const Constant(0))();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
-### MessageRole (Enum)
+### 2.3 Message Attachments
 
-```yaml
-MessageRole:
-  - user          # User-sent message
-  - assistant     # AI response
-  - system        # System prompt (not displayed to user)
-  - tool          # Tool invocation result
-```
-
-### MessageStatus (Enum)
-
-```yaml
-MessageStatus:
-  - sending       # User message being sent to provider
-  - streaming     # AI response being streamed
-  - complete      # Fully received/sent
-  - error         # Failed to send or generate
-  - cancelled     # User cancelled during streaming
-```
-
-### Attachment
-
-```yaml
-Attachment:
-  id:              String (UUID v4)
-  messageId:       String                     # FK to Message
-  type:            AttachmentType             # image | file | audio
-  fileName:        String                     # Original file name
-  mimeType:        String                     # e.g., "image/png", "text/csv"
-  sizeBytes:       int
-  storagePath:     String                     # Path in Gemmie's storage
-  thumbnailPath:   String?                    # Thumbnail for images
-```
-
-### TokenUsage
-
-```yaml
-TokenUsage:
-  inputTokens:     int                        # Total input/prompt tokens
-  outputTokens:    int                        # Total output/completion tokens
-  totalTokens:     int                        # inputTokens + outputTokens
-  estimatedCost:   double?                    # In USD, based on provider rates
+```dart
+class MessageAttachments extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get messageId => integer().references(Messages, #id,
+      onDelete: KeyAction.cascade)();
+  TextColumn get type => text()();  // 'image' | 'file' | 'code' | 'audio'
+  TextColumn get fileName => text()();
+  TextColumn get filePath => text()();
+  TextColumn get mimeType => text().nullable()();
+  IntColumn get sizeBytes => integer().nullable()();
+}
 ```
 
 ---
 
-## 3. AI Models
+## 3 Providers & Models
 
-### AIModel
+### 3.1 Providers
 
-```yaml
-AIModel:
-  id:              String                     # Unique identifier (e.g., "gemma-3b-it")
-  source:          ModelSource                # local | huggingface | provider
-  name:            String                     # Display name
-  description:     String                     # Model description
-  publisher:       String                     # Model publisher (e.g., "Google")
-  category:        ModelCategory              # llm | vision | code | multimodal
-  sizeBytes:       int                        # Model file size
-  parameterCount:  String?                    # e.g., "3B", "7B", "70B"
-  quantization:    String?                    # e.g., "Q4_0", "F16"
-  commitHash:      String?                    # HuggingFace commit hash
-  modelFile:       String                     # Primary model filename
-  extraFiles:      List<String>               # Additional required files
-  taskTypes:       List<String>               # Compatible task types
-  gated:           bool                       # Requires HF authentication
-  downloadState:   DownloadState              # Current download status
-  config:          ModelConfig                # Inference configuration
-  localPath:       String?                    # Path on device (when downloaded)
-  downloadedAt:    DateTime?                  # When download completed
-  lastUsedAt:      DateTime?                  # Last inference time
+```dart
+class Providers extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();  // Display name
+  TextColumn get type => text()();
+  // 'openai' | 'gemini' | 'anthropic' | 'ollama' | 'mistral'
+  // | 'local_llama' | 'custom_openai'
+  TextColumn get baseUrl => text().nullable()();
+  TextColumn get apiKeyRef => text().nullable()();  // Reference to secure storage key
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+  IntColumn get priority => integer().withDefault(const Constant(0))();  // For fallback ordering
+  TextColumn get extraConfig => text().nullable()();  // JSON for provider-specific settings
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUsedAt => dateTime().nullable()();
+}
 ```
 
-### ModelConfig
+### 3.2 Provider Models
 
-```yaml
-ModelConfig:
-  temperature:     double                     # 0.0 - 2.0, default: 0.7
-  topK:            int                        # Default: 40
-  topP:            double                     # 0.0 - 1.0, default: 0.95
-  maxTokens:       int                        # Default: 2048
-  repeatPenalty:   double                     # Default: 1.1
-  systemPrompt:    String?                    # Override (usually from persona)
-  stopSequences:   List<String>               # Custom stop tokens
-```
-
-### DownloadState
-
-```yaml
-DownloadState:
-  status:          DownloadStatus             # notStarted | queued | downloading | paused | completed | error
-  progress:        double                     # 0.0 - 1.0
-  downloadedBytes: int                        # Bytes received
-  totalBytes:      int                        # Total file size
-  speedBps:        int?                       # Current download speed
-  eta:             Duration?                  # Estimated time remaining
-  errorMessage:    String?                    # Error details
-  resumeToken:     String?                    # For resuming interrupted downloads
-```
-
-### ModelCategory (Enum)
-
-```yaml
-ModelCategory:
-  - llm           # Text generation / chat
-  - vision        # Image understanding
-  - code          # Code generation / completion
-  - multimodal    # Multiple input/output modalities
-  - embedding     # Text embeddings
+```dart
+class ProviderModels extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get providerId => integer().references(Providers, #id,
+      onDelete: KeyAction.cascade)();
+  TextColumn get modelId => text()();  // e.g., 'gpt-4o', 'gemma-2-9b'
+  TextColumn get displayName => text()();
+  IntColumn get contextLength => integer().nullable()();
+  BoolColumn get supportsTools => boolean().withDefault(const Constant(false))();
+  BoolColumn get supportsVision => boolean().withDefault(const Constant(false))();
+  BoolColumn get supportsStreaming => boolean().withDefault(const Constant(true))();
+  RealColumn get inputCostPer1kTokens => real().nullable()();
+  RealColumn get outputCostPer1kTokens => real().nullable()();
+  IntColumn get minRamMb => integer().nullable()();
+  TextColumn get quantization => text().nullable()();  // For local models
+  TextColumn get filePath => text().nullable()();  // For local GGUF models
+  IntColumn get fileSizeBytes => integer().nullable()();
+  BoolColumn get isDownloaded => boolean().withDefault(const Constant(false))();
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastUsedAt => dateTime().nullable()();
+}
 ```
 
 ---
 
-## 4. AI Providers
+## 4 Personas
 
-### ProviderConfig
-
-```yaml
-ProviderConfig:
-  id:              String (UUID v4)
-  type:            ProviderType               # openai | gemini | claude | huggingface | openrouter | custom
-  displayName:     String                     # User-facing name (can be customized)
-  isEnabled:       bool                       # Whether provider is active
-  baseUrl:         String                     # API base URL
-  apiKeyRef:       String                     # Reference to key in secure storage
-  defaultModelId:  String?                    # Default model for this provider
-  models:          List<ProviderModel>        # Available models
-  capabilities:    ProviderCapabilities       # What this provider supports
-  rateLimits:      RateLimitConfig?           # Rate limit settings
-  createdAt:       DateTime
-  updatedAt:       DateTime
-```
-
-### ProviderModel
-
-```yaml
-ProviderModel:
-  id:              String                     # Model identifier (e.g., "gpt-4o")
-  name:            String                     # Display name
-  contextWindow:   int                        # Max context tokens
-  maxOutputTokens: int                        # Max completion tokens
-  inputPricePerMT: double?                    # Price per million input tokens (USD)
-  outputPricePerMT: double?                   # Price per million output tokens (USD)
-  capabilities:    ModelCapabilities          # vision, function_calling, etc.
-  isDefault:       bool                       # Default model for provider
-```
-
-### ProviderCapabilities
-
-```yaml
-ProviderCapabilities:
-  streaming:         bool
-  vision:            bool
-  functionCalling:   bool
-  systemMessage:     bool
-  jsonMode:          bool
-  maxContextTokens:  int
-  supportedMediaTypes: List<String>           # ["image/png", "image/jpeg", ...]
-```
-
-### ProviderType (Enum)
-
-```yaml
-ProviderType:
-  - openai         # OpenAI API (GPT models) — via langchain_openai
-  - gemini         # Google Gemini API — via langchain_google
-  - claude         # Anthropic Claude API — via langchain_anthropic
-  - huggingface    # HuggingFace Inference API — via langchain_huggingface
-  - openrouter     # OpenRouter (meta-provider) — via langchain_openai (custom baseUrl)
-  - ollama         # Ollama (local/LAN, no API key) — via langchain_ollama
-  - mistral        # Mistral AI — via langchain_mistralai
-  - local          # Local on-device model via llama_sdk / LiteRT
-  - custom         # User-configured custom endpoint
-```
-
-### RateLimitConfig
-
-```yaml
-RateLimitConfig:
-  requestsPerMinute:  int?
-  tokensPerMinute:    int?
-  monthlyBudgetUSD:   double?                 # User-set spending limit
-  currentMonthSpend:  double                  # Tracked spending
-  alertThreshold:     double?                 # Alert at this % of budget
-```
-
-### OllamaServerConfig
-
-```yaml
-OllamaServerConfig:
-  id:              String (UUID v4)
-  host:            String                     # Hostname or IP address
-  port:            int                        # Default: 11434
-  displayName:     String                     # User-friendly name (e.g., "Desktop PC")
-  isDiscovered:    bool                       # Found via LAN scan vs manually added
-  lastSeen:        DateTime?                  # Last successful health check
-  isOnline:        bool                       # Current reachability status
-  models:          List<String>               # Cached list of available model tags
-  createdAt:       DateTime
-  updatedAt:       DateTime
+```dart
+class Personas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 100)();
+  TextColumn get description => text().nullable()();
+  TextColumn get systemPrompt => text()();
+  TextColumn get avatarEmoji => text().nullable()();  // Emoji or icon identifier
+  TextColumn get defaultModelId => text().nullable()();
+  IntColumn get defaultProviderId => integer().nullable()
+      .references(Providers, #id)();
+  RealColumn get temperature => real().withDefault(const Constant(0.7))();
+  RealColumn get topP => real().withDefault(const Constant(0.9))();
+  BoolColumn get isBuiltIn => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
 ---
 
-## 5. Virtual Filesystem
+## 5 Files & Folders
 
-### GemmieFile
+### 5.1 Files
 
-```yaml
-GemmieFile:
-  id:              String (UUID v4)
-  folderId:        String                     # FK to GemmieFolder (parent)
-  name:            String                     # File name with extension
-  type:            FileType                   # document | sheet | script | persona | note | image | binary
-  content:         Uint8List                  # Encrypted content blob
-  mimeType:        String                     # "text/markdown", "text/csv", etc.
-  sizeBytes:       int                        # Decrypted content size
-  createdAt:       DateTime
-  updatedAt:       DateTime
-  createdBy:       String                     # "user" or "ai:model-name"
-  updatedBy:       String                     # Who last modified
-  permissionTier:  PermissionTier             # locked | gated | open
-  tags:            List<String>               # User-defined tags
-  isTrashed:       bool                       # Soft-deleted (in trash)
-  trashedAt:       DateTime?                  # When trashed
-  isBookmarked:    bool                       # Quick-access bookmark
-  versionCount:    int                        # Cached count of versions
-  checksum:        String                     # SHA-256 of decrypted content (for sync)
+```dart
+class PrismFiles extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get path => text().unique()();
+  TextColumn get extension => text()();
+  IntColumn get folderId => integer().nullable()
+      .references(PrismFolders, #id, onDelete: KeyAction.setNull)();
+  IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
+  TextColumn get mimeType => text().nullable()();
+  TextColumn get tags => text().nullable()();  // JSON array
+  TextColumn get contentPreview => text().nullable()();  // First 200 chars for search
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get modifiedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
-### GemmieFolder
+### 5.2 Folders
 
-```yaml
-GemmieFolder:
-  id:              String (UUID v4)
-  parentId:        String?                    # FK to parent GemmieFolder (null = root)
-  name:            String                     # Folder name
-  createdAt:       DateTime
-  updatedAt:       DateTime
-  permissionTier:  PermissionTier             # Inherited by children unless overridden
-  isSystem:        bool                       # System folder (can't be deleted)
-  icon:            String?                    # Optional custom icon
-  sortOrder:       int                        # Position within parent
-  fileCount:       int                        # Cached count (files only, not recursive)
+```dart
+class PrismFolders extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get path => text().unique()();
+  IntColumn get parentId => integer().nullable()
+      .references(PrismFolders, #id, onDelete: KeyAction.cascade)();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
-### FileType (Enum)
+### 5.3 File Locks
 
-```yaml
-FileType:
-  - note           # Simple text note
-  - document       # Rich document with headings, etc.
-  - sheet          # Spreadsheet/CSV data
-  - script         # Code file (Python, JS, TS, Dart)
-  - persona        # Agent persona file
-  - image          # Image file (stored as blob)
-  - binary         # Other binary file
-  - template       # Reusable template
-```
-
-### Default Folder Structure
-
-```yaml
-RootFolders:
-  - name: "Documents"
-    isSystem: true
-    permissionTier: gated
-    icon: "📄"
-
-  - name: "Notes"
-    isSystem: true
-    permissionTier: gated
-    icon: "📝"
-
-  - name: "Scripts"
-    isSystem: true
-    permissionTier: gated
-    icon: "💻"
-
-  - name: "Templates"
-    isSystem: true
-    permissionTier: open
-    icon: "📋"
-
-  - name: "Agent"
-    isSystem: true
-    permissionTier: gated
-    icon: "🤖"
-    children:
-      - name: "Personas"
-        permissionTier: gated
-    files:
-      - soul.md
-      - personality.md
-      - memory.md
-      - rules.md
-      - knowledge.md
-
-  - name: "Trash"
-    isSystem: true
-    permissionTier: locked
-    icon: "🗑️"
+```dart
+class FileLocks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get fileId => integer().unique().references(PrismFiles, #id,
+      onDelete: KeyAction.cascade)();
+  TextColumn get lockedBy => text()();  // 'user' | 'ai_agent' | 'tool:<name>'
+  TextColumn get reason => text().nullable()();
+  DateTimeColumn get lockedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get expiresAt => dateTime().nullable()();
+}
 ```
 
 ---
 
-## 6. Versioning & Diff
+## 6 Second Brain (PARA)
 
-### FileVersion
+### 6.1 PARA Items
 
-```yaml
-FileVersion:
-  id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
-  versionNumber:   int                        # Sequential (1, 2, 3, ...)
-  content:         Uint8List?                 # Full snapshot (every 10th version) — encrypted
-  delta:           Uint8List?                 # Compressed diff from previous version — encrypted
-  isSnapshot:      bool                       # true if this is a full snapshot
-  author:          String                     # "user" or "ai:model-name"
-  summary:         String?                    # Change summary (auto-generated or user-provided)
-  createdAt:       DateTime
-  parentVersionId: String?                    # FK to previous FileVersion
-  sizeBytes:       int                        # Size of this version's storage
+```dart
+class ParaItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get type => text()();  // 'project' | 'area' | 'resource' | 'archive'
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  // 'active' | 'completed' | 'archived' | 'on_hold'
+  TextColumn get tags => text().nullable()();  // JSON array
+  TextColumn get icon => text().nullable()();  // Emoji or icon identifier
+  TextColumn get color => text().nullable()();  // Hex color
+  IntColumn get parentId => integer().nullable()
+      .references(ParaItems, #id)();  // For nesting within same type
+  DateTimeColumn get deadline => dateTime().nullable()();  // For projects
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
-### DiffResult
+### 6.2 PARA Notes
 
-```yaml
-DiffResult:
-  hunks:           List<DiffHunk>             # Ordered list of change hunks
-  stats:           DiffStats                  # Summary statistics
-  fileId:          String                     # Which file
-  fromVersion:     int                        # Compare from
-  toVersion:       int                        # Compare to
+```dart
+class ParaNotes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get paraItemId => integer().references(ParaItems, #id,
+      onDelete: KeyAction.cascade)();
+  TextColumn get title => text()();
+  TextColumn get content => text()();  // Markdown content
+  TextColumn get tags => text().nullable()();  // JSON array
+  BoolColumn get isPinned => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
-### DiffHunk
+### 6.3 Note Links (Bi-directional)
 
-```yaml
-DiffHunk:
-  type:            DiffType                   # add | delete | modify | unchanged
-  oldStart:        int                        # Start line in old version
-  oldEnd:          int                        # End line in old version
-  newStart:        int                        # Start line in new version
-  newEnd:          int                        # End line in new version
-  oldContent:      String                     # Content in old version
-  newContent:      String                     # Content in new version
-  wordDiffs:       List<WordDiff>?            # Word-level diffs within this hunk
-```
-
-### WordDiff
-
-```yaml
-WordDiff:
-  type:            DiffType                   # add | delete | modify
-  oldText:         String
-  newText:         String
-  oldOffset:       int                        # Character offset in old line
-  newOffset:       int                        # Character offset in new line
-```
-
-### DiffStats
-
-```yaml
-DiffStats:
-  linesAdded:      int
-  linesDeleted:    int
-  linesModified:   int
-  linesUnchanged:  int
-```
-
-### DiffType (Enum)
-
-```yaml
-DiffType:
-  - add            # New content added
-  - delete         # Content removed
-  - modify         # Content changed
-  - unchanged      # Context line (no change)
+```dart
+class NoteLinks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get sourceNoteId => integer().references(ParaNotes, #id,
+      onDelete: KeyAction.cascade)();
+  IntColumn get targetNoteId => integer().references(ParaNotes, #id,
+      onDelete: KeyAction.cascade)();
+  TextColumn get linkType => text().withDefault(const Constant('reference'))();
+  // 'reference' | 'related' | 'depends_on'
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
 ```
 
 ---
 
-## 7. Permissions & Locks
+## 7 Tasks
 
-### PermissionTier (Enum)
+### 7.1 Tasks
 
-```yaml
-PermissionTier:
-  - locked         # Tier 1: AI cannot access under any circumstances
-  - gated          # Tier 2: AI must request, user approves
-  - open           # Tier 3: AI can freely access (still tracked)
+```dart
+class Tasks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('backlog'))();
+  // 'backlog' | 'todo' | 'in_progress' | 'done' | 'cancelled'
+  TextColumn get priority => text().withDefault(const Constant('medium'))();
+  // 'low' | 'medium' | 'high' | 'urgent'
+  IntColumn get paraItemId => integer().nullable()
+      .references(ParaItems, #id)();  // Link to PARA project
+  IntColumn get conversationId => integer().nullable()
+      .references(Conversations, #id)();  // Task created from conversation
+  TextColumn get tags => text().nullable()();  // JSON array
+  DateTimeColumn get dueDate => dateTime().nullable()();
+  TextColumn get recurrence => text().nullable()();
+  // null | 'daily' | 'weekly' | 'monthly' | cron expression
+  DateTimeColumn get completedAt => dateTime().nullable()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  IntColumn get aiPriorityScore => integer().nullable()();  // AI-computed priority
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
-### PermissionGrant
+### 7.2 Task Dependencies
 
-```yaml
-PermissionGrant:
-  id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
-  operation:       OperationType              # read | write | delete | execute
-  scope:           GrantScope                 # thisTime | thisSession | always
-  grantedAt:       DateTime
-  expiresAt:       DateTime?                  # null for "always" scope
-  grantedBy:       String                     # Always "user"
-  requestedBy:     String                     # AI model that requested ("ai:gemma-3b")
-  reason:          String                     # Why access was requested
-  isRevoked:       bool                       # User revoked this grant
-  revokedAt:       DateTime?
-```
-
-### PermissionRequest
-
-```yaml
-PermissionRequest:
-  id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
-  fileName:        String                     # Display name (for UI)
-  filePath:        String                     # Full virtual path
-  operation:       OperationType              # What operation is requested
-  requestedBy:     String                     # AI model ID
-  reason:          String                     # AI-generated explanation of why
-  conversationId:  String                     # Which conversation triggered this
-  createdAt:       DateTime
-  status:          RequestStatus              # pending | approved | denied
-  resolvedAt:      DateTime?
-  grantScope:      GrantScope?                # If approved, what scope was granted
-  userFeedback:    String?                    # Optional feedback if denied
-```
-
-### AuditLogEntry
-
-```yaml
-AuditLogEntry:
-  id:              String (UUID v4)
-  timestamp:       DateTime
-  fileId:          String?                    # Which file (null for non-file operations)
-  operation:       String                     # "read", "write", "permission_change", "key_access", etc.
-  actor:           String                     # "user" or "ai:model-name"
-  decision:        String                     # "allowed", "denied", "asked"
-  details:         Map<String, dynamic>       # Additional context
-  conversationId:  String?                    # Which conversation (if applicable)
-```
-
-### OperationType (Enum)
-
-```yaml
-OperationType:
-  - read           # Read file content
-  - write          # Create or modify file content
-  - delete         # Delete file
-  - execute        # Execute as code
-```
-
-### GrantScope (Enum)
-
-```yaml
-GrantScope:
-  - thisTime       # One-time access, expires immediately after use
-  - thisSession    # Valid until app restart or conversation ends
-  - always         # Permanent until explicitly revoked
+```dart
+class TaskDependencies extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get taskId => integer().references(Tasks, #id,
+      onDelete: KeyAction.cascade)();
+  IntColumn get dependsOnId => integer().references(Tasks, #id,
+      onDelete: KeyAction.cascade)();
+}
 ```
 
 ---
 
-## 8. Agent Persona
+## 8 Financial Tracker
 
-### Persona
+### 8.1 Transactions
 
-```yaml
-Persona:
-  id:              String (UUID v4)
-  name:            String                     # e.g., "Professional", "Creative", "Default"
-  isDefault:       bool                       # Is this the default persona
-  isActive:        bool                       # Currently selected
-  soulFileId:      String                     # FK to GemmieFile (soul.md)
-  personalityFileId: String                   # FK to GemmieFile (personality.md)
-  memoryFileId:    String                     # FK to GemmieFile (memory.md)
-  rulesFileId:     String                     # FK to GemmieFile (rules.md)
-  knowledgeFileId: String?                    # FK to GemmieFile (knowledge.md) — optional
-  createdAt:       DateTime
-  updatedAt:       DateTime
+```dart
+class Transactions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  RealColumn get amount => real()();
+  TextColumn get currency => text().withDefault(const Constant('INR'))();
+  TextColumn get type => text()();  // 'debit' | 'credit'
+  TextColumn get merchant => text().nullable()();
+  TextColumn get description => text().nullable()();
+  IntColumn get categoryId => integer().nullable()
+      .references(Categories, #id)();
+  TextColumn get source => text().withDefault(const Constant('manual'))();
+  // 'manual' | 'notification' | 'import'
+  TextColumn get rawNotification => text().nullable()();  // Original notification text
+  TextColumn get paymentMethod => text().nullable()();
+  // 'upi' | 'credit_card' | 'debit_card' | 'cash' | 'bank_transfer'
+  BoolColumn get isVerified => boolean().withDefault(const Constant(false))();
+  // User confirmed auto-captured transaction
+  DateTimeColumn get transactionDate => dateTime()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get syncId => text().nullable()();
+}
 ```
 
-### SoulConfig (structured content of soul.md)
+### 8.2 Categories
 
-```yaml
-SoulConfig:
-  agentName:       String                     # Default: "Gemmie"
-  coreIdentity:    String                     # Free-text identity statement
-  values:          List<String>               # Core values (helpfulness, honesty, etc.)
-  constraints:     List<String>               # Hard constraints (never share user data, etc.)
-  purpose:         String                     # What this agent is for
+```dart
+class Categories extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().unique()();
+  TextColumn get icon => text().nullable()();  // Emoji
+  TextColumn get color => text().nullable()();  // Hex color
+  BoolColumn get isBuiltIn => boolean().withDefault(const Constant(false))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+}
 ```
 
-### PersonalityConfig (structured content of personality.md)
+### 8.3 Budgets
 
-```yaml
-PersonalityConfig:
-  tone:            double                     # 0.0 (formal) → 1.0 (casual)
-  verbosity:       double                     # 0.0 (concise) → 1.0 (verbose)
-  humor:           double                     # 0.0 (serious) → 1.0 (humorous)
-  empathy:         double                     # 0.0 (neutral) → 1.0 (empathetic)
-  creativity:      double                     # 0.0 (factual) → 1.0 (creative)
-  emojiUsage:      EmojiLevel                 # none | minimal | moderate | frequent
-  codeStyle:       CodeStylePreference        # commented | minimal | verbose
-  responseFormat:  ResponseFormatPreference   # prose | bullets | structured
-  customTraits:    Map<String, String>        # User-defined key-value traits
-```
-
-### MemoryEntry (structured content of memory.md)
-
-```yaml
-MemoryEntry:
-  id:              String (UUID v4)
-  content:         String                     # What to remember
-  category:        MemoryCategory             # preference | fact | context | instruction
-  source:          String                     # "user" or "ai:model-name" (who added it)
-  createdAt:       DateTime
-  confidence:      double                     # 0.0 - 1.0 (how sure is this correct)
-  isActive:        bool                       # Whether to include in system prompt
-```
-
-### MemoryCategory (Enum)
-
-```yaml
-MemoryCategory:
-  - preference     # User prefers X over Y
-  - fact           # User's name is X, works at Y
-  - context        # User is working on project X
-  - instruction    # Always do X when asked about Y
+```dart
+class Budgets extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get categoryId => integer().nullable()
+      .references(Categories, #id)();  // null = total budget
+  RealColumn get amount => real()();
+  TextColumn get period => text().withDefault(const Constant('monthly'))();
+  // 'weekly' | 'monthly' | 'yearly'
+  DateTimeColumn get startDate => dateTime()();
+  DateTimeColumn get endDate => dateTime().nullable()();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+}
 ```
 
 ---
 
-## 9. Tools
+## 9 Tools & MCP
 
-### Tool (Registry Entry)
+### 9.1 Tool Definitions
 
-```yaml
-Tool:
-  id:              String                     # e.g., "code_execute", "file_read"
-  name:            String                     # Display name
-  description:     String                     # For AI and user
-  category:        ToolCategory               # code | file | web | device | productivity | custom
-  requiredPermission: PermissionTier          # Minimum tier for invocation
-  requiresConfirmation: bool                  # User confirmation before execution
-  isEnabled:       bool                       # User toggle
-  inputSchema:     Map<String, dynamic>       # JSON Schema for inputs
-  outputSchema:    Map<String, dynamic>       # JSON Schema for outputs
-  version:         String                     # Tool version
+```dart
+class ToolDefinitions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().unique()();
+  TextColumn get description => text()();
+  TextColumn get inputSchema => text()();  // JSON Schema
+  TextColumn get source => text().withDefault(const Constant('built_in'))();
+  // 'built_in' | 'custom' | 'mcp' | 'skillset'
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+  TextColumn get executionHandler => text().nullable()();
+  // For custom tools: identifier of handler
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
 ```
 
-### ToolInvocation
+### 9.2 Tool Execution Logs
 
-```yaml
-ToolInvocation:
-  id:              String (UUID v4)
-  messageId:       String                     # FK to Message that triggered this
-  toolId:          String                     # FK to Tool
-  input:           Map<String, dynamic>       # Input parameters
-  output:          ToolResult?                # Result (null if pending/cancelled)
-  status:          InvocationStatus           # pending | approved | running | completed | failed | rejected
-  createdAt:       DateTime
-  completedAt:     DateTime?
-  executionTimeMs: int?                       # How long execution took
-  wasAutoApproved: bool                       # true if tool doesn't require confirmation
+```dart
+class ToolExecutionLogs extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get toolId => integer().references(ToolDefinitions, #id)();
+  IntColumn get messageId => integer().nullable()
+      .references(Messages, #id)();
+  TextColumn get input => text()();  // JSON
+  TextColumn get output => text().nullable()();  // JSON
+  BoolColumn get isSuccess => boolean()();
+  IntColumn get durationMs => integer().nullable()();
+  TextColumn get errorMessage => text().nullable()();
+  DateTimeColumn get executedAt => dateTime().withDefault(currentDateAndTime)();
+}
 ```
 
-### ToolResult
+### 9.3 MCP Servers
 
-```yaml
-ToolResult:
-  success:         bool
-  data:            dynamic                    # Output data (string, map, list, etc.)
-  displayType:     ResultDisplayType          # text | code | table | image | error
-  errorMessage:    String?                    # If success == false
-  artifacts:       List<ToolArtifact>?        # Files created, etc.
+```dart
+class McpServers extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get transport => text()();  // 'stdio' | 'sse'
+  TextColumn get command => text().nullable()();  // For stdio transport
+  TextColumn get args => text().nullable()();  // JSON array for stdio
+  TextColumn get url => text().nullable()();  // For SSE transport
+  TextColumn get authToken => text().nullable()();
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get autoConnect => boolean().withDefault(const Constant(false))();
+  TextColumn get status => text().withDefault(const Constant('disconnected'))();
+  // 'connected' | 'disconnected' | 'error'
+  DateTimeColumn get lastConnectedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
 ```
 
-### ToolArtifact
+### 9.4 MCP Tools (discovered from servers)
 
-```yaml
-ToolArtifact:
-  type:            ArtifactType               # file | image | download
-  name:            String
-  path:            String?                    # Path in Gemmie storage
-  mimeType:        String
-  sizeBytes:       int
-```
-
-### ToolCategory (Enum)
-
-```yaml
-ToolCategory:
-  - code           # Code execution tools
-  - file           # File read/write/search tools
-  - web            # Web search, URL fetch tools
-  - device         # Calendar, notifications, etc.
-  - productivity   # Calculator, sheet creation, doc creation
-  - custom         # User/community-added tools
-```
-
----
-
-## 10. Code Execution
-
-### ExecutionRequest
-
-```yaml
-ExecutionRequest:
-  id:              String (UUID v4)
-  code:            String                     # Source code to execute
-  language:        String                     # "python", "javascript", "typescript", "dart"
-  environment:     ExecutionEnvironment       # local | remote
-  remoteEndpointId: String?                   # If remote, which endpoint
-  timeout:         Duration                   # Max execution time
-  memoryLimitMB:   int                        # Max memory
-  networkEnabled:  bool                       # Whether to allow network access
-  inputs:          Map<String, String>?       # Script parameters (if saved script)
-  workingDir:      String?                    # Working directory in sandbox
-```
-
-### ExecutionResult
-
-```yaml
-ExecutionResult:
-  requestId:       String                     # FK to ExecutionRequest
-  status:          ExecutionStatus            # running | completed | error | timeout | killed
-  stdout:          String                     # Standard output
-  stderr:          String                     # Standard error
-  exitCode:        int?                       # Process exit code
-  executionTimeMs: int                        # Wall-clock time
-  memoryUsedMB:    double?                    # Peak memory usage
-  artifacts:       List<ExecutionArtifact>    # Generated files, images, etc.
-  error:           String?                    # Error description
-```
-
-### Script
-
-```yaml
-Script:
-  id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile (stored in Scripts folder)
-  name:            String                     # Script name
-  description:     String?                    # What this script does
-  language:        String                     # Programming language
-  parameters:      List<ScriptParameter>      # User-configurable inputs
-  lastRunAt:       DateTime?
-  runCount:        int                        # How many times executed
-  isTemplate:      bool                       # Whether this is a template
-  tags:            List<String>
-```
-
-### ScriptParameter
-
-```yaml
-ScriptParameter:
-  name:            String                     # Parameter name
-  type:            String                     # "string", "int", "double", "bool", "file"
-  description:     String                     # What this parameter does
-  defaultValue:    String?                    # Default value
-  isRequired:      bool
-  validation:      String?                    # Regex or validation rule
-```
-
-### RemoteEndpoint
-
-```yaml
-RemoteEndpoint:
-  id:              String (UUID v4)
-  name:            String                     # User-defined name
-  type:            RemoteType                 # modal | daytona | ssh | custom
-  url:             String                     # Connection URL
-  authKeyRef:      String                     # Reference to key in secure storage
-  isConnected:     bool                       # Current connection status
-  lastPingMs:      int?                       # Last latency measurement
-  supportedLanguages: List<String>            # What languages this endpoint supports
-  createdAt:       DateTime
-```
-
-### ExecutionEnvironment (Enum)
-
-```yaml
-ExecutionEnvironment:
-  - local          # On-device sandboxed execution
-  - remote         # Remote server execution
+```dart
+class McpTools extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get serverId => integer().references(McpServers, #id,
+      onDelete: KeyAction.cascade)();
+  TextColumn get name => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get inputSchema => text()();  // JSON Schema
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+}
 ```
 
 ---
 
-## 11. Sync
+## 10 Skillsets
 
-### SyncConfig
+```dart
+class Skillsets extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get description => text()();
+  TextColumn get version => text()();
+  TextColumn get author => text().nullable()();
+  TextColumn get systemPrompt => text()();
+  TextColumn get exampleConversations => text().nullable()();  // JSON
+  TextColumn get tags => text().nullable()();  // JSON array
+  TextColumn get source => text().withDefault(const Constant('local'))();
+  // 'local' | 'registry' | 'file_import'
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get installedAt => dateTime().withDefault(currentDateAndTime)();
+}
 
-```yaml
-SyncConfig:
-  isEnabled:       bool                       # Master sync toggle (default: false)
-  provider:        SyncProvider               # firebase | supabase | custom
-  lastSyncAt:      DateTime?                  # Last successful sync
-  syncedFolderIds: List<String>               # Which folders to sync
-  autoSync:        bool                       # Sync automatically on change
-  syncIntervalMin: int                        # Auto-sync interval (default: 15)
-  encryptionKeyRef: String                    # Reference to E2E encryption key
-```
-
-### SyncState
-
-```yaml
-SyncState:
-  fileId:          String                     # FK to GemmieFile
-  localVersion:    int                        # Local version number
-  remoteVersion:   int                        # Remote version number
-  status:          SyncStatus                 # synced | pending | uploading | downloading | conflict | error
-  lastSyncedAt:    DateTime?
-  errorMessage:    String?
-```
-
-### ConflictEntry
-
-```yaml
-ConflictEntry:
-  id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
-  localContent:    Uint8List                  # Local version content (encrypted)
-  remoteContent:   Uint8List                  # Remote version content (encrypted)
-  localModifiedAt: DateTime
-  remoteModifiedAt: DateTime
-  localAuthor:     String
-  remoteAuthor:    String
-  status:          ConflictStatus             # pending | resolvedLocal | resolvedRemote | resolvedMerge
-  resolvedAt:      DateTime?
-  createdAt:       DateTime
-```
-
-### SyncStatus (Enum)
-
-```yaml
-SyncStatus:
-  - synced         # Local and remote are in sync
-  - pending        # Local changes not yet uploaded
-  - uploading      # Currently uploading
-  - downloading    # Currently downloading remote changes
-  - conflict       # Both local and remote changed
-  - error          # Sync failed
+class SkillsetTools extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get skillsetId => integer().references(Skillsets, #id,
+      onDelete: KeyAction.cascade)();
+  IntColumn get toolId => integer().references(ToolDefinitions, #id)();
+}
 ```
 
 ---
 
-## 12. Entity Relationship Diagram
+## 11 AI Gateway
 
+### 11.1 Gateway Tokens
+
+```dart
+class GatewayTokens extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();  // Token label
+  TextColumn get tokenHash => text().unique()();  // SHA-256 hash of token
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  IntColumn get rateLimitPerMinute => integer()
+      .withDefault(const Constant(60))();
+  IntColumn get totalRequests => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUsedAt => dateTime().nullable()();
+  DateTimeColumn get expiresAt => dateTime().nullable()();
+}
 ```
-┌──────────────┐    1    ┌───────────────┐    *    ┌──────────────┐
-│  UserProfile │────────→│  Conversation │────────→│   Message    │
-└──────────────┘         └───────────────┘         └──────┬───────┘
-       │                        │                         │
-       │ 1                      │ *                       │ *
-       ▼                        ▼                         ▼
-┌──────────────┐         ┌───────────────┐         ┌──────────────┐
-│   Persona    │         │  TokenUsage   │         │  Attachment  │
-└──────────────┘         └───────────────┘         └──────────────┘
-       │                                                  │
-       │ 5 (soul, personality, memory, rules, knowledge)  │
-       ▼                                                  │
-┌──────────────┐←─────────────────────────────────────────┘
-│  GemmieFile  │←─────────┐
-└──────┬───────┘          │
-       │                  │ (file in folder)
-       │ *                │
-       ▼                  │
-┌──────────────┐    *     │
-│ FileVersion  │          │
-└──────────────┘          │
-       │                  │
-       │                  │
-       ▼                  │
-┌──────────────┐    ┌─────┴────────┐
-│  DiffResult  │    │ GemmieFolder │──→ (self: parent)
-└──────────────┘    └──────────────┘
-                          │
-                          │
-                    ┌─────▼──────────┐
-                    │PermissionGrant │
-                    └────────────────┘
-                          │
-                    ┌─────▼──────────┐
-                    │ AuditLogEntry  │
-                    └────────────────┘
 
-┌──────────────┐    ┌───────────────┐    ┌────────────────┐
-│ProviderConfig│───→│ ProviderModel │    │ RemoteEndpoint │
-└──────────────┘    └───────────────┘    └────────────────┘
+### 11.2 Gateway Request Logs
 
-┌──────────────┐    ┌───────────────┐    ┌────────────────┐
-│    Tool      │───→│ToolInvocation │───→│   ToolResult   │
-└──────────────┘    └───────────────┘    └────────────────┘
+```dart
+class GatewayRequestLogs extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get tokenId => integer().nullable()
+      .references(GatewayTokens, #id)();
+  TextColumn get method => text()();
+  TextColumn get path => text()();
+  TextColumn get modelRequested => text().nullable()();
+  IntColumn get statusCode => integer()();
+  IntColumn get promptTokens => integer().nullable()();
+  IntColumn get completionTokens => integer().nullable()();
+  IntColumn get durationMs => integer().nullable()();
+  DateTimeColumn get requestedAt => dateTime().withDefault(currentDateAndTime)();
+}
+```
 
-┌──────────────┐    ┌───────────────┐
-│   Script     │───→│ExecutionResult│
-└──────────────┘    └───────────────┘
+---
 
-┌──────────────┐    ┌───────────────┐
-│  SyncConfig  │───→│  SyncState    │
-└──────────────┘    └───────────────┘
+## 12 Notifications & Settings
+
+### 12.1 Notification Rules
+
+```dart
+class NotificationRules extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get type => text()();
+  // 'procrastination' | 'checklist' | 'motivation' | 'break_reminder'
+  TextColumn get config => text()();  // JSON configuration
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+  TextColumn get schedule => text().nullable()();  // Cron or time-based
+  DateTimeColumn get lastTriggeredAt => dateTime().nullable()();
+}
+```
+
+### 12.2 App Settings
+
+```dart
+class AppSettings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+  TextColumn get type => text().withDefault(const Constant('string'))();
+  // 'string' | 'int' | 'double' | 'bool' | 'json'
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+```
+
+---
+
+## 13 Indexes
+
+```dart
+// Key indexes for query performance
+@TableIndex(name: 'idx_messages_conversation', columns: {#conversationId})
+@TableIndex(name: 'idx_messages_parent', columns: {#parentMessageId})
+@TableIndex(name: 'idx_files_folder', columns: {#folderId})
+@TableIndex(name: 'idx_para_items_type', columns: {#type})
+@TableIndex(name: 'idx_tasks_status', columns: {#status})
+@TableIndex(name: 'idx_tasks_due_date', columns: {#dueDate})
+@TableIndex(name: 'idx_tasks_para_item', columns: {#paraItemId})
+@TableIndex(name: 'idx_transactions_date', columns: {#transactionDate})
+@TableIndex(name: 'idx_transactions_category', columns: {#categoryId})
+@TableIndex(name: 'idx_gateway_logs_token', columns: {#tokenId})
+@TableIndex(name: 'idx_gateway_logs_date', columns: {#requestedAt})
+```
+
+## 14 FTS5 Virtual Tables
+
+```sql
+-- Full-text search tables (configured in Drift)
+CREATE VIRTUAL TABLE messages_fts USING fts5(content, content=messages, content_rowid=id);
+CREATE VIRTUAL TABLE files_fts USING fts5(name, contentPreview, tags, content=prism_files, content_rowid=id);
+CREATE VIRTUAL TABLE para_notes_fts USING fts5(title, content, tags, content=para_notes, content_rowid=id);
+CREATE VIRTUAL TABLE tasks_fts USING fts5(title, description, tags, content=tasks, content_rowid=id);
+```
+
+## 15 Entity Relationship Overview
+
+```mermaid
+erDiagram
+    Conversations ||--o{ Messages : contains
+    Messages ||--o{ Messages : branches
+    Messages ||--o{ MessageAttachments : has
+    Conversations }o--|| Personas : uses
+    Conversations }o--|| Providers : uses
+
+    Providers ||--o{ ProviderModels : offers
+
+    ParaItems ||--o{ ParaNotes : contains
+    ParaItems ||--o{ Tasks : has
+    ParaNotes }o--o{ NoteLinks : links
+    Tasks ||--o{ TaskDependencies : depends
+
+    Transactions }o--|| Categories : categorized
+    Categories ||--o{ Budgets : budgeted
+
+    McpServers ||--o{ McpTools : provides
+    Skillsets ||--o{ SkillsetTools : uses
+    SkillsetTools }o--|| ToolDefinitions : references
+    ToolDefinitions ||--o{ ToolExecutionLogs : logged
+
+    GatewayTokens ||--o{ GatewayRequestLogs : accessed
 ```

@@ -1,917 +1,453 @@
-# 03 — Architecture
+# Prism — Architecture
 
-> This document defines the system architecture, module breakdown, provider abstraction patterns, plugin systems, storage engine, and diff engine for Gemmie. It serves as the technical blueprint for implementation.
+## 1 Architecture Overview
 
----
-
-## Table of Contents
-
-- [1. Architecture Principles](#1-architecture-principles)
-- [2. Layer Architecture](#2-layer-architecture)
-- [3. Module Map](#3-module-map)
-- [4. Provider Abstraction Layer](#4-provider-abstraction-layer)
-- [5. Tool Plugin Architecture](#5-tool-plugin-architecture)
-- [6. Storage Architecture](#6-storage-architecture)
-- [7. Permission Engine](#7-permission-engine)
-- [8. Diff Engine](#8-diff-engine)
-- [9. Code Execution Architecture](#9-code-execution-architecture)
-- [10. Agent Persona Architecture](#10-agent-persona-architecture)
-- [11. Sync Architecture](#11-sync-architecture)
-- [12. Navigation Architecture](#12-navigation-architecture)
-- [13. Dependency Graph](#13-dependency-graph)
-
----
-
-## 1. Architecture Principles
-
-| Principle | Application |
-|-----------|------------|
-| **Clean Architecture** | Strict separation: Presentation → Domain → Data. Dependencies point inward. |
-| **Dependency Inversion** | Domain defines interfaces; Data implements them. UI depends on abstractions, not concretions. |
-| **Plugin-First** | AI providers, tools, and code executors are plugins — no core code changes to extend. |
-| **Offline-First** | All local features work without network. Cloud features gracefully degrade. |
-| **Encryption by Default** | Every write to persistent storage goes through the encryption layer. |
-| **Reactive State** | UI reactively binds to state via Riverpod providers. No imperative UI updates. |
-| **Package Isolation** | Features are extracted into independent packages with clear public APIs. |
-
----
-
-## 2. Layer Architecture
+Prism follows a **feature-first modular architecture** with Riverpod as the dependency injection and state management layer. Each feature is a self-contained module with its own providers, repositories, models, and UI. Cross-cutting concerns live in `core/` and `shared/`.
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                        PRESENTATION LAYER                            │
-│                                                                      │
-│  Screens (Widgets)  ←→  Controllers/Notifiers  ←→  Riverpod Providers│
-│                                                                      │
-│  • ChatScreen, ToolsScreen, FileExplorer, SettingsScreen, etc.       │
-│  • Widget-level state via StateNotifier / AsyncNotifier               │
-│  • Navigation via GoRouter                                           │
-│  • Theming via Material 3 tokens                                     │
-├──────────────────────────────────────────────────────────────────────┤
-│                          DOMAIN LAYER                                │
-│                                                                      │
-│  Use Cases / Services  ←→  Repository Interfaces  ←→  Entities       │
-│                                                                      │
-│  • ChatService, ModelService, FileService, PermissionEngine, etc.    │
-│  • Business logic lives here — no Flutter/platform imports           │
-│  • Repository interfaces (abstract classes) defined here             │
-│  • Pure Dart — testable in isolation                                 │
-├──────────────────────────────────────────────────────────────────────┤
-│                           DATA LAYER                                 │
-│                                                                      │
-│  Repository Implementations  ←→  Data Sources  ←→  External APIs     │
-│                                                                      │
-│  • IsarRepository, SecureStorageSource, ProviderAdapters, etc.       │
-│  • Platform channels for native AI runtime (LiteRT / Core ML)       │
-│  • HTTP clients for cloud APIs                                       │
-│  • Encryption/decryption happens at this layer boundary              │
-└──────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Presentation Layer                     │
+│  Moon Design UI     │  GoRouter  │  Riverpod Consumers  │
+├─────────────────────────────────────────────────────────┤
+│                    Application Layer                     │
+│  Use Cases  │  Riverpod Providers  │  State Notifiers    │
+├─────────────────────────────────────────────────────────┤
+│                      Domain Layer                        │
+│  Entities  │  Repository Interfaces  │  Value Objects     │
+├─────────────────────────────────────────────────────────┤
+│                   Infrastructure Layer                   │
+│  Drift DAOs  │  API Clients  │  Platform Services        │
+├─────────────────────────────────────────────────────────┤
+│                    External Services                     │
+│ llama_cpp  │ LangChain  │ Supabase │ shelf │ mcp_dart   │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Layer Rules
+## 2 Module Diagram
 
-| Rule | Description |
-|------|-------------|
-| **Presentation → Domain** | Screens access domain via Riverpod providers that expose domain services |
-| **Domain → Data** | Domain defines repository interfaces; data layer provides concrete implementations |
-| **No Skip** | Presentation never directly accesses data layer |
-| **Domain is Pure** | Domain layer has zero dependencies on Flutter, platform, or data libraries |
-| **Data Hides Implementation** | Whether data comes from Isar, secure storage, or network — domain doesn't know |
+```mermaid
+graph TB
+    subgraph Presentation
+        UI[Moon Design UI]
+        Router[GoRouter]
+    end
 
----
+    subgraph Features
+        Chat[Chat Module]
+        Files[Files Module]
+        Brain[Second Brain Module]
+        Tasks[Tasks Module]
+        Finance[Financial Tracker]
+        Tools[Tools Module]
+        MCP_Mod[MCP Module]
+        Gateway[AI Gateway Module]
+        Notifs[Notifications Module]
+        Models[Model Manager]
+        Settings[Settings Module]
+        Search_Mod[Search Module]
+        GitHub_Mod[GitHub Module]
+        CodeExec[Code Execution Module]
+    end
 
-## 3. Module Map
+    subgraph Core
+        AIEngine[AI Engine]
+        ProviderMgr[Provider Manager]
+        LangChain[LangChain.dart Adapter]
+        LocalInference[llama_cpp_dart Service]
+        OllamaDisc[Ollama Discovery]
+    end
+
+    subgraph Infrastructure
+        DB[(Drift / SQLite)]
+        FS[File System Service]
+        Sync[Supabase Sync]
+        HTTP[shelf HTTP Server]
+        MCPRuntime[mcp_dart Runtime]
+        NotifListener[Notification Listener]
+        Crypto[Encryption Service]
+    end
+
+    UI --> Router
+    Router --> Features
+    Features --> Core
+    Features --> Infrastructure
+    Chat --> AIEngine
+    Tools --> MCPRuntime
+    MCP_Mod --> MCPRuntime
+    Gateway --> HTTP
+    Gateway --> AIEngine
+    Finance --> NotifListener
+    Notifs --> NotifListener
+    AIEngine --> ProviderMgr
+    ProviderMgr --> LangChain
+    ProviderMgr --> LocalInference
+    ProviderMgr --> OllamaDisc
+    Features --> DB
+    Features --> FS
+    Sync --> DB
+```
+
+## 3 Directory Structure
 
 ```
 lib/
-├── core/                              # Shared utilities
-│   ├── constants/                     #   App-wide constants, defaults
-│   ├── errors/                        #   Error types, failure classes
-│   ├── extensions/                    #   Dart/Flutter extension methods
-│   ├── utils/                         #   Formatting, validation, helpers
-│   └── theme/                         #   Material 3 theme data, colors, typography
-│
-├── features/                          # Feature modules (each follows Clean Architecture)
-│   ├── chat/                          #   FR-01: Chat & Conversation
-│   │   ├── data/                      #     repositories, data sources, DTOs
-│   │   ├── domain/                    #     entities, use cases, repository interfaces
-│   │   └── presentation/             #     screens, widgets, controllers
-│   │
-│   ├── models/                        #   FR-02: Model Management
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── providers/                     #   FR-03: Cloud AI API Integration
-│   │   ├── data/
-│   │   │   └── adapters/              #     LangChain.dart adapters: OpenAI, Gemini, Claude,
-│   │   │                              #     Ollama, Mistral, HF, OpenRouter, local
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── tools/                         #   FR-04: Tools System
-│   │   ├── data/
-│   │   │   └── builtin/               #     Built-in tool implementations
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── settings/                      #   FR-05: Settings & Profiles
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── storage/                       #   FR-06: File Storage System
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── versioning/                    #   FR-07: File Versioning & Diff
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── permissions/                   #   FR-08: Multi-Tier Permissions
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── persona/                       #   FR-09: Agent Persona System
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── executor/                      #   FR-10: Code Execution Engine
-│   │   ├── data/
-│   │   │   └── runtimes/              #     Python, JS, TS, Dart runtime adapters
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   ├── documents/                     #   FR-11: Sheets & Documents
-│   │   ├── data/
-│   │   ├── domain/
-│   │   └── presentation/
-│   │
-│   └── sync/                          #   FR-12: Cloud Sync
-│       ├── data/
-│       ├── domain/
-│       └── presentation/
-│
-├── shared/                            # Shared widgets and components
-│   ├── widgets/                       #   Reusable UI components
-│   ├── dialogs/                       #   Common dialogs (confirm, permission, error)
-│   └── layouts/                       #   Adaptive layout scaffolds
-│
-├── routing/                           # GoRouter configuration
-│   └── app_router.dart
-│
-├── di/                                # Dependency injection setup
-│   └── providers.dart                 #   Top-level Riverpod providers
-│
-└── main.dart                          # App entry point
+├── main.dart                       # App entry point, Riverpod ProviderScope
+├── app.dart                        # MaterialApp configuration, MoonTheme, routing
+├── core/
+│   ├── ai/
+│   │   ├── ai_engine.dart          # Unified AI interface
+│   │   ├── provider_manager.dart   # Provider registry and switching
+│   │   ├── langchain_adapter.dart  # LangChain.dart wrapper
+│   │   ├── local_inference.dart    # llama_cpp_dart service
+│   │   ├── ollama_discovery.dart   # mDNS/DNS-SD Ollama scanner
+│   │   └── model_config.dart       # Model configuration value objects
+│   ├── database/
+│   │   ├── database.dart           # Drift database definition
+│   │   ├── database.g.dart         # Generated code
+│   │   ├── tables/                 # Table definitions
+│   │   │   ├── conversations.dart
+│   │   │   ├── messages.dart
+│   │   │   ├── files.dart
+│   │   │   ├── tasks.dart
+│   │   │   ├── para_items.dart
+│   │   │   ├── transactions.dart
+│   │   │   ├── providers_table.dart
+│   │   │   ├── personas.dart
+│   │   │   ├── tool_definitions.dart
+│   │   │   ├── mcp_servers.dart
+│   │   │   ├── skillsets.dart
+│   │   │   ├── gateway_tokens.dart
+│   │   │   └── settings.dart
+│   │   └── daos/                   # Data access objects
+│   │       ├── conversation_dao.dart
+│   │       ├── message_dao.dart
+│   │       ├── file_dao.dart
+│   │       ├── task_dao.dart
+│   │       ├── para_dao.dart
+│   │       ├── transaction_dao.dart
+│   │       └── settings_dao.dart
+│   ├── services/
+│   │   ├── file_system_service.dart
+│   │   ├── encryption_service.dart
+│   │   ├── notification_service.dart
+│   │   ├── sync_service.dart
+│   │   └── platform_service.dart
+│   ├── router/
+│   │   ├── app_router.dart         # GoRouter configuration
+│   │   └── routes.dart             # Route constants
+│   └── theme/
+│       ├── prism_theme.dart        # Moon Design theme config
+│       └── color_schemes.dart      # Light/dark color schemes
+├── features/
+│   ├── chat/
+│   │   ├── providers/              # Riverpod providers
+│   │   │   ├── chat_provider.dart
+│   │   │   ├── conversation_list_provider.dart
+│   │   │   └── streaming_provider.dart
+│   │   ├── repositories/
+│   │   │   └── chat_repository.dart
+│   │   ├── models/                 # Feature-specific models
+│   │   │   └── chat_message.dart
+│   │   └── ui/
+│   │       ├── chat_screen.dart
+│   │       ├── conversation_list.dart
+│   │       ├── message_bubble.dart
+│   │       └── chat_input.dart
+│   ├── files/
+│   │   ├── providers/
+│   │   ├── repositories/
+│   │   └── ui/
+│   │       ├── file_explorer_screen.dart
+│   │       ├── file_tree.dart
+│   │       ├── rich_editor_screen.dart
+│   │       └── code_editor_screen.dart
+│   ├── second_brain/
+│   │   ├── providers/
+│   │   ├── repositories/
+│   │   └── ui/
+│   │       ├── para_dashboard.dart
+│   │       ├── projects_view.dart
+│   │       ├── areas_view.dart
+│   │       ├── resources_view.dart
+│   │       ├── archives_view.dart
+│   │       └── note_editor.dart
+│   ├── tasks/
+│   │   ├── providers/
+│   │   ├── repositories/
+│   │   └── ui/
+│   │       ├── task_list_screen.dart
+│   │       ├── kanban_board.dart
+│   │       ├── task_calendar.dart
+│   │       └── task_detail.dart
+│   ├── finance/
+│   │   ├── providers/
+│   │   ├── repositories/
+│   │   └── ui/
+│   │       ├── finance_dashboard.dart
+│   │       ├── transaction_list.dart
+│   │       ├── budget_view.dart
+│   │       └── spending_chart.dart
+│   ├── tools/
+│   │   ├── providers/
+│   │   ├── built_in/               # Built-in tool implementations
+│   │   │   ├── web_search_tool.dart
+│   │   │   ├── calculator_tool.dart
+│   │   │   ├── file_tool.dart
+│   │   │   └── url_fetcher_tool.dart
+│   │   └── ui/
+│   │       ├── tools_grid_screen.dart
+│   │       └── tool_config_sheet.dart
+│   ├── mcp/
+│   │   ├── providers/
+│   │   ├── services/
+│   │   │   ├── mcp_host_service.dart
+│   │   │   └── mcp_client_service.dart
+│   │   └── ui/
+│   │       ├── mcp_servers_screen.dart
+│   │       └── mcp_tool_browser.dart
+│   ├── gateway/
+│   │   ├── providers/
+│   │   ├── services/
+│   │   │   ├── gateway_server.dart      # shelf HTTP server
+│   │   │   ├── openai_compat_handler.dart
+│   │   │   └── auth_middleware.dart
+│   │   └── ui/
+│   │       ├── gateway_settings.dart
+│   │       └── gateway_logs.dart
+│   ├── notifications/
+│   │   ├── providers/
+│   │   ├── services/
+│   │   │   ├── smart_notification_service.dart
+│   │   │   ├── procrastination_detector.dart
+│   │   │   └── notification_listener_bridge.dart
+│   │   └── ui/
+│   │       └── notification_settings.dart
+│   ├── models/                      # Model management feature
+│   │   ├── providers/
+│   │   ├── repositories/
+│   │   └── ui/
+│   │       ├── model_manager_screen.dart
+│   │       ├── model_download.dart
+│   │       └── ollama_browser.dart
+│   ├── search/
+│   │   ├── providers/
+│   │   └── ui/
+│   │       └── search_screen.dart
+│   ├── github_integration/
+│   │   ├── providers/
+│   │   ├── services/
+│   │   │   └── github_service.dart
+│   │   └── ui/
+│   │       ├── repo_browser.dart
+│   │       └── issue_view.dart
+│   ├── code_execution/
+│   │   ├── providers/
+│   │   ├── services/
+│   │   │   ├── remote_executor.dart
+│   │   │   ├── quickjs_executor.dart
+│   │   │   └── docker_executor.dart
+│   │   └── ui/
+│   │       └── code_runner_sheet.dart
+│   └── settings/
+│       ├── providers/
+│       └── ui/
+│           ├── settings_screen.dart
+│           ├── provider_config.dart
+│           ├── appearance_settings.dart
+│           ├── privacy_settings.dart
+│           └── sync_settings.dart
+├── shared/
+│   ├── widgets/                     # Shared UI components
+│   │   ├── app_scaffold.dart        # App shell with sidebar
+│   │   ├── command_palette.dart     # Global command palette
+│   │   ├── loading_indicator.dart
+│   │   └── error_view.dart
+│   ├── extensions/
+│   │   └── context_extensions.dart
+│   └── utils/
+│       ├── markdown_utils.dart
+│       └── date_utils.dart
+└── generated/                       # Drift, Riverpod code generation output
 ```
 
-### Module Responsibility Matrix
+## 4 Key Architectural Decisions
 
-| Module | Domain Entities | External Dependencies | Cross-Module Dependencies |
-|--------|----------------|----------------------|--------------------------|
-| **chat** | Conversation, Message, Attachment | None | providers, tools, persona, permissions |
-| **models** | AIModel, ModelConfig, DownloadState | llama_sdk (FFI), LiteRT (platform channels), Ollama (via `ollama_dart`), HuggingFace API | settings (tokens) |
-| **providers** | Provider, ProviderConfig, TokenUsage | LangChain.dart (`langchain_openai`, `langchain_google`, `langchain_anthropic`, `langchain_ollama`, `langchain_mistralai`) | settings (API keys) |
-| **tools** | Tool, ToolInvocation, ToolResult | Per-tool external deps | permissions, executor, storage |
-| **settings** | UserProfile, AppPreferences, CredentialEntry | Platform Keystore | None (dependency of others) |
-| **storage** | GemmieFile, GemmieFolder, FileMetadata | Isar DB | permissions, versioning |
-| **versioning** | FileVersion, Diff, DiffHunk | None | storage |
-| **permissions** | PermissionTier, PermissionRequest, AuditEntry | None | storage |
-| **persona** | Persona, SoulConfig, PersonalityConfig, Memory | None | storage, versioning, permissions |
-| **executor** | ExecutionRequest, ExecutionResult, Script | Python/JS runtimes, remote APIs | storage (scripts), permissions |
-| **documents** | Document, Sheet, CSVData | None | storage, versioning |
-| **sync** | SyncState, ConflictEntry | Firebase/Supabase | storage, settings |
+### 4.1 State Management — Riverpod 2.x
 
----
+- **Why Riverpod over BLoC**: Less boilerplate, better testability, compile-time safety, tree-shaking support.
+- Code generation via `riverpod_generator` for `@riverpod` annotations.
+- `AsyncNotifierProvider` for async state with loading/error handling.
+- `StreamProvider` for reactive Drift database watches.
+- `Provider` for dependency injection of services.
 
-## 4. Provider Abstraction Layer
+### 4.2 Database — Drift (SQLite)
 
-Gemmie uses **LangChain.dart** (`langchain_core`) as its provider abstraction layer instead of a custom interface. This gives us battle-tested abstractions, 10+ pre-built provider integrations, and the `Runnable` composability pattern.
+- **Why Drift over Isar**: Isar is discontinued. Drift is Flutter Favorite, actively maintained, supports reactive queries, full web support (sql.js), and type-safe schema.
+- WAL mode for concurrent reads/writes.
+- FTS5 virtual tables for full-text search.
+- Schema versioning with migration system.
+- Compiled SQL queries for performance.
 
-### Core Abstraction: BaseChatModel
+### 4.3 UI — moon_design
 
-LangChain.dart's `BaseChatModel` serves as the unified provider interface:
+- **Why moon_design**: Moon Design System with 30+ themed widgets, squircle borders, token-based theming via ThemeExtension, works alongside MaterialApp.
+- New York theme as default.
+- Built-in dark mode support.
+- Components: `NavigationSidebar`, `Card`, `Button` variants, `Command` (palette), `TreeView`, `Table`, `Accordion`, `Tabs`, `ChatBubble`, `ChatGroup`, etc.
 
-```dart
-/// LangChain.dart provides this — we wrap it for Gemmie-specific concerns.
-/// See: langchain_core/lib/src/chat_models/base.dart
-///
-/// Key methods:
-///   invoke(PromptValue) → ChatResult
-///   stream(PromptValue) → Stream<ChatResult>
-///   bind(ChatModelOptions) → BaseChatModel (with options baked in)
-///
-/// Runnable composability:
-///   final chain = promptTemplate | chatModel | outputParser;
-///   final result = await chain.invoke('user query');
+### 4.4 AI Engine — LangChain.dart Adapter
+
+- All AI interactions go through `AiEngine` → `ProviderManager` → LangChain `BaseChatModel`.
+- Provider-specific adapters handle serialization differences.
+- Tool calling normalized to LangChain's function-calling interface.
+- Streaming via `BaseChatModel.stream()`.
+
+### 4.5 Local Inference — llama_cpp_dart
+
+- **Why llama_cpp_dart over llama_sdk**: llama_sdk is vendored in Maid and not published. llama_cpp_dart is on pub.dev, actively maintained, uses FFI.
+- Model loading with mmap for memory efficiency.
+- GPU layer offloading configuration.
+- Inference in isolate to prevent UI jank.
+
+### 4.6 AI Gateway — shelf
+
+- **Why shelf**: Official Dart team package, lightweight, composable middleware, production-tested.
+- Runs as in-process HTTP server (no separate process).
+- OpenAI-compatible API surface for maximum client compatibility.
+- Middleware chain: auth → rate limiting → logging → routing → model execution.
+
+### 4.7 MCP — mcp_dart
+
+- Host mode: connect to external MCP tool servers.
+- Client mode: expose Prism's tools to other MCP hosts.
+- Transport: stdio for local servers, SSE for remote.
+- Tool schemas auto-generated from tool definitions.
+
+## 5 Data Flow Diagrams
+
+### 5.1 Chat Message Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ChatUI
+    participant ChatProvider
+    participant AIEngine
+    participant ProviderManager
+    participant LangChain
+    participant Drift
+
+    User->>ChatUI: Type message, press send
+    ChatUI->>ChatProvider: sendMessage(text)
+    ChatProvider->>Drift: insertMessage(userMessage)
+    ChatProvider->>AIEngine: generateResponse(messages, tools)
+    AIEngine->>ProviderManager: getActiveProvider()
+    ProviderManager->>LangChain: chatModel.stream(messages)
+    loop Streaming tokens
+        LangChain-->>AIEngine: token chunk
+        AIEngine-->>ChatProvider: onToken(chunk)
+        ChatProvider-->>ChatUI: update UI
+    end
+    alt Tool Call Detected
+        AIEngine->>ProviderManager: executeTool(name, args)
+        ProviderManager-->>AIEngine: toolResult
+        AIEngine->>LangChain: continue with tool result
+    end
+    ChatProvider->>Drift: insertMessage(aiMessage)
+    ChatUI->>User: Display complete response
 ```
 
-### Gemmie Provider Wrapper
+### 5.2 AI Gateway Request Flow
 
-```dart
-/// Wraps a LangChain BaseChatModel with Gemmie-specific concerns:
-/// credential management, rate limiting, cost tracking, health checks.
-class GemmieProvider {
-  final String id;
-  final String displayName;
-  final BaseChatModel chatModel;
-  final ProviderCapabilities capabilities;
-  final ProviderConfig config;
+```mermaid
+sequenceDiagram
+    participant ExternalApp
+    participant ShelfServer
+    participant AuthMiddleware
+    participant ModelRouter
+    participant AIEngine
+    participant Provider
 
-  /// All providers use LangChain.dart under the hood
-  factory GemmieProvider.openai(ProviderConfig config) =>
-    GemmieProvider._(
-      id: 'openai',
-      displayName: 'OpenAI',
-      chatModel: ChatOpenAI(apiKey: config.apiKey),
-      // ...
-    );
-
-  factory GemmieProvider.ollama(ProviderConfig config) =>
-    GemmieProvider._(
-      id: 'ollama',
-      displayName: 'Ollama',
-      chatModel: ChatOllama(baseUrl: config.baseUrl),
-      // ...
-    );
-
-  // ... factories for each provider
-}
+    ExternalApp->>ShelfServer: POST /v1/chat/completions
+    ShelfServer->>AuthMiddleware: validate Bearer token
+    AuthMiddleware->>ModelRouter: route to model
+    ModelRouter->>AIEngine: generateResponse(messages)
+    AIEngine->>Provider: invoke model
+    Provider-->>AIEngine: response/stream
+    AIEngine-->>ModelRouter: result
+    ModelRouter-->>ShelfServer: OpenAI-format response
+    ShelfServer-->>ExternalApp: JSON response (or SSE stream)
 ```
 
-### Provider Registry
+### 5.3 Financial Transaction Capture Flow
 
-```dart
-/// Registry for dynamically adding/removing providers
-class ProviderRegistry {
-  final Map<String, GemmieProvider> _providers = {};
+```mermaid
+sequenceDiagram
+    participant BankApp
+    participant Android
+    participant NotifListener
+    participant FinanceProvider
+    participant AIEngine
+    participant Drift
 
-  void register(GemmieProvider provider);
-  void unregister(String providerId);
-  GemmieProvider? getProvider(String providerId);
-  List<GemmieProvider> get allProviders;
-  List<GemmieProvider> getProvidersWithCapability(Capability cap);
-}
+    BankApp->>Android: Push notification
+    Android->>NotifListener: onNotification(event)
+    NotifListener->>FinanceProvider: processNotification(text)
+    FinanceProvider->>FinanceProvider: regexParse(amount, merchant)
+    FinanceProvider->>AIEngine: categorize(merchant, amount)
+    AIEngine-->>FinanceProvider: category
+    FinanceProvider->>Drift: insertTransaction(...)
+    FinanceProvider->>FinanceProvider: checkBudgetThresholds()
 ```
 
-### Provider Adapter Map
-
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                   GemmieProvider (wrapper)                           │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────────┤
-│ ChatOpenAI│ChatGoogle│ChatAnthr.│ChatOllama│ChatMistr.│  llama_sdk   │
-│ (langchain│(langchain│(langchain│(langchain│(langchain│  (FFI)       │
-│ _openai)  │_google)  │_anthropic│_ollama)  │_mistralai│              │
-├──────────┴──────────┴──────────┴──────────┴──────────┴──────────────┤
-│    openai_dart  googleai_dart  anthropic_sdk  ollama_dart           │
-│                       (low-level API clients)                       │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-### LangChain.dart Packages to Use
-
-| Package | Purpose | Pub.dev |
-|---------|---------|--------|
-| `langchain_core` | Base abstractions, Runnable, ChatMessage, PromptTemplate | [![pub](https://img.shields.io/pub/v/langchain_core.svg)](https://pub.dev/packages/langchain_core) |
-| `langchain` | Chains, agents, retrievers | [![pub](https://img.shields.io/pub/v/langchain.svg)](https://pub.dev/packages/langchain) |
-| `langchain_openai` | OpenAI + compatible (OpenRouter, vLLM, LM Studio) | [![pub](https://img.shields.io/pub/v/langchain_openai.svg)](https://pub.dev/packages/langchain_openai) |
-| `langchain_google` | Google AI / Gemini | [![pub](https://img.shields.io/pub/v/langchain_google.svg)](https://pub.dev/packages/langchain_google) |
-| `langchain_anthropic` | Anthropic Claude | [![pub](https://img.shields.io/pub/v/langchain_anthropic.svg)](https://pub.dev/packages/langchain_anthropic) |
-| `langchain_ollama` | Ollama (local/LAN) | [![pub](https://img.shields.io/pub/v/langchain_ollama.svg)](https://pub.dev/packages/langchain_ollama) |
-| `langchain_mistralai` | Mistral AI | [![pub](https://img.shields.io/pub/v/langchain_mistralai.svg)](https://pub.dev/packages/langchain_mistralai) |
-| `langchain_firebase` | Firebase Vertex AI | [![pub](https://img.shields.io/pub/v/langchain_firebase.svg)](https://pub.dev/packages/langchain_firebase) |
-
-### Adding a New Provider
-
-1. Check if LangChain.dart already has a package for it (likely yes)
-2. If yes: add `langchain_<provider>` dependency, create `GemmieProvider.<provider>()` factory
-3. If no (custom/self-hosted): use `langchain_openai` with custom `baseUrl` (most self-hosted solutions are OpenAI-compatible)
-4. Register in `ProviderRegistry` during app initialization
-5. Add credentials schema to settings
-6. **Zero changes to core code required**
-
----
-
-## 5. Tool Plugin Architecture
-
-### Interface
-
-```dart
-/// Core interface all tools must implement.
-abstract class GemmieTool {
-  /// Unique tool identifier
-  String get id;
-
-  /// Human-readable name
-  String get name;
-
-  /// Tool description (shown to AI and user)
-  String get description;
-
-  /// Tool category for grouping in UI
-  ToolCategory get category;
-
-  /// Required permission tier for this tool
-  PermissionTier get requiredPermission;
-
-  /// JSON Schema describing the tool's input parameters
-  Map<String, dynamic> get inputSchema;
-
-  /// JSON Schema describing the tool's output
-  Map<String, dynamic> get outputSchema;
-
-  /// Execute the tool with given parameters
-  Future<ToolResult> execute(Map<String, dynamic> params, ToolContext context);
-
-  /// Whether the tool requires user confirmation before execution
-  bool get requiresConfirmation;
-}
-
-/// Context provided to tool during execution
-class ToolContext {
-  final String conversationId;
-  final PermissionEngine permissionEngine;
-  final FileService fileService;
-  final String requestingModelName;
-}
-```
-
-### Tool Registry & Discovery
-
-```
-┌──────────────────────────────────────────┐
-│              ToolRegistry                │
-│                                          │
-│  ┌─ Built-in Tools ─────────────────┐    │
-│  │  CodeExecutionTool                │    │
-│  │  FileReadTool                     │    │
-│  │  FileWriteTool                    │    │
-│  │  FileSearchTool                   │    │
-│  │  WebSearchTool                    │    │
-│  │  UrlFetchTool                     │    │
-│  │  CalculatorTool                   │    │
-│  │  CreateSheetTool                  │    │
-│  │  CreateDocumentTool               │    │
-│  └───────────────────────────────────┘    │
-│                                          │
-│  ┌─ User/Community Tools ───────────┐    │
-│  │  (via plugin system — future)     │    │
-│  └───────────────────────────────────┘    │
-│                                          │
-│  enable(toolId) / disable(toolId)        │
-│  getEnabledTools() → for AI context      │
-│  getToolsByCategory() → for Tools tab    │
-└──────────────────────────────────────────┘
-```
-
-### Tool Invocation Flow
-
-```
-User Message
-    │
-    ▼
-AI Provider (with tool definitions in system prompt)
-    │
-    ▼
-AI decides to use tool(s) → returns function_call
-    │
-    ▼
-ToolInvocationHandler
-    │
-    ├── Check: Is tool enabled? ──No──→ Error: tool not available
-    │
-    ├── Check: Permission tier? ──Gated──→ Show permission dialog → User approves/rejects
-    │
-    ├── Check: Requires confirmation? ──Yes──→ Show confirmation dialog
-    │
-    ▼
-tool.execute(params, context)
-    │
-    ▼
-ToolResult (success/failure + data)
-    │
-    ▼
-Result fed back to AI for follow-up reasoning
-    │
-    ▼
-AI generates final response to user
-```
-
----
-
-## 6. Storage Architecture
-
-### Layers
-
-```
-┌────────────────────────────────────────────────────────────┐
-│               Virtual Filesystem API                       │
-│   createFile / readFile / updateFile / deleteFile           │
-│   createFolder / listFolder / moveItem / searchFiles       │
-├────────────────────────────────────────────────────────────┤
-│              Format Serialization Layer                     │
-│   MarkdownSerializer   CSVSerializer   BinaryBlobHandler   │
-│   (all text → MD)      (CSV ↔ MD)      (raw blob + meta)  │
-├────────────────────────────────────────────────────────────┤
-│              Versioning Integration                        │
-│   createVersion() on every write                           │
-│   computeDiff() between any two versions                   │
-│   Permission check before every read/write                 │
-├────────────────────────────────────────────────────────────┤
-│              Encryption Layer                              │
-│   AES-256-GCM encrypt on write / decrypt on read           │
-│   Key from platform keystore                               │
-├────────────────────────────────────────────────────────────┤
-│              Isar Database                                 │
-│   Collections: Files, Folders, Versions, Metadata          │
-│   Indices: by path, by type, by modified date, full-text   │
-└────────────────────────────────────────────────────────────┘
-```
-
-### Internal File Format
-
-All text-based files are stored internally as Markdown with a YAML frontmatter header:
-
-```markdown
----
-id: "uuid-v4"
-type: "document"          # document | sheet | script | persona | note
-created: "2026-02-07T10:00:00Z"
-modified: "2026-02-07T12:30:00Z"
-author: "user"            # "user" or "ai:gemma-3b"
-tags: ["project", "budget"]
-permission: "gated"       # locked | gated | open
-lock_pin: null            # optional user-set lock
----
-
-# Document Title
-
-Content here in standard Markdown...
-
-<!-- csv:ref:budget_q1.csv -->
-| Month | Revenue | Expenses |
-|-------|---------|----------|
-| Jan   | 10000   | 7500     |
-| Feb   | 12000   | 8000     |
-```
-
-### File Type → Internal Representation
-
-| User-Facing Type | Internal Format | Presentation |
-|-----------------|-----------------|-------------|
-| Text Note | Markdown body | Rich text viewer |
-| Document | Markdown with headings, sections | Document editor with toolbar |
-| Spreadsheet/CSV | CSV block within Markdown (with `csv:ref` comment) | Grid editor UI |
-| Code Script | Fenced code block with language tag | Code editor with syntax highlighting |
-| Persona File | Structured Markdown with YAML sections | Persona editor with sliders/toggles |
-| Image | Binary blob in DB + Markdown metadata file | Image viewer |
-| PDF | Binary blob in DB + Markdown metadata/summary | PDF viewer (if available) |
-
----
-
-## 7. Permission Engine
-
-### Architecture
-
-```
-┌──────────────────────────────────────────────────┐
-│                Permission Engine                  │
-│                                                  │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐ │
-│  │  Policy    │  │  Runtime   │  │   Audit    │ │
-│  │  Store     │  │  Evaluator │  │    Log     │ │
-│  │            │  │            │  │            │ │
-│  │ Per-file   │  │ checkRead  │  │ timestamp  │ │
-│  │ Per-folder │  │ checkWrite │  │ file       │ │
-│  │ Defaults   │  │ checkExec  │  │ operation  │ │
-│  │ Overrides  │  │ → allow    │  │ requester  │ │
-│  │            │  │ → deny     │  │ decision   │ │
-│  │            │  │ → ask user │  │ reason     │ │
-│  └────────────┘  └────────────┘  └────────────┘ │
-└──────────────────────────────────────────────────┘
-```
-
-### Evaluation Flow
-
-```dart
-enum PermissionDecision { allow, deny, askUser }
-
-class PermissionEvaluator {
-  PermissionDecision evaluate({
-    required String filePath,
-    required OperationType operation,    // read, write, delete, execute
-    required String requesterId,         // "user" or "ai:model-name"
-  }) {
-    // 1. If requester is "user" → always allow
-    // 2. Get file's permission tier
-    // 3. Locked → deny (always)
-    // 4. Open → allow (always, but log)
-    // 5. Gated → check session grants
-    //    a. Session grant exists → allow
-    //    b. Permanent grant exists → allow
-    //    c. Neither → askUser
-  }
-}
-```
-
-### Session Grant Model
-
-```
-┌─ Permission Grant ────────────────┐
-│ fileId:     "uuid"                │
-│ operation:  "write"               │
-│ scope:      "this_time" |         │
-│             "this_session" |      │
-│             "always"              │
-│ grantedAt:  timestamp             │
-│ expiresAt:  timestamp | null      │
-│ grantedBy:  "user"                │
-│ revokedAt:  null                  │
-└───────────────────────────────────┘
-```
-
----
-
-## 8. Diff Engine
-
-### Algorithm
-
-The diff engine uses the **Myers Diff Algorithm** (same as git) for computing minimal edit sequences between two versions of a file.
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    Diff Engine                       │
-│                                                     │
-│  computeDiff(oldText, newText) → List<DiffHunk>     │
-│                                                     │
-│  ┌─────────────┐   ┌──────────────┐                │
-│  │  Line-Level  │   │  Word-Level  │                │
-│  │    Diff      │──→│  Refinement  │                │
-│  │  (Myers)     │   │  (within     │                │
-│  │              │   │   changed    │                │
-│  │              │   │   lines)     │                │
-│  └─────────────┘   └──────────────┘                │
-│                                                     │
-│  ┌──── DiffHunk ────┐                              │
-│  │ type: add/del/mod│                              │
-│  │ oldStart: int    │                              │
-│  │ oldEnd: int      │                              │
-│  │ newStart: int    │                              │
-│  │ newEnd: int      │                              │
-│  │ oldText: String  │                              │
-│  │ newText: String  │                              │
-│  │ wordDiffs: [...]│                              │
-│  └──────────────────┘                              │
-│                                                     │
-│  Specialized Diff Modes:                            │
-│  • Text diff  → line-by-line + word refinement      │
-│  • CSV diff   → cell-by-cell comparison             │
-│  • JSON diff  → key-path aware                      │
-│  • YAML diff  → structure-aware frontmatter diff    │
-└─────────────────────────────────────────────────────┘
-```
-
-### Version Storage Model
-
-```
-┌─ FileVersion ─────────────────────┐
-│ versionId:   "uuid"               │
-│ fileId:      "uuid"               │
-│ content:     "encrypted blob"     │  ← Full snapshot (for restore)
-│ diff:        "compressed diff"    │  ← Delta from previous (for display)
-│ author:      "user" | "ai:model"  │
-│ timestamp:   DateTime             │
-│ summary:     "Added budget row"   │  ← Auto-generated or user-provided
-│ parentId:    "uuid" | null        │  ← Previous version
-└───────────────────────────────────┘
-```
-
-### Storage Strategy
-
-- **Full Snapshots:** Every 10th version stores the complete file content (for fast restore)
-- **Deltas:** All other versions store only the diff from the previous version (for storage efficiency)
-- **Compression:** Both snapshots and deltas are compressed (zlib) before encryption
-
----
-
-## 9. Code Execution Architecture
-
-### Executor Interface
-
-```dart
-abstract class CodeExecutor {
-  /// Language this executor handles
-  String get language;
-
-  /// Whether this executor runs locally or remotely
-  ExecutionEnvironment get environment;
-
-  /// Execute code and return result
-  Future<ExecutionResult> execute(ExecutionRequest request);
-
-  /// Stream output line by line during execution
-  Stream<String> executeStreaming(ExecutionRequest request);
-
-  /// Cancel a running execution
-  Future<void> cancel(String executionId);
-
-  /// Check if the executor is available and ready
-  Future<bool> isAvailable();
-}
-```
-
-### Architecture
-
-```
-┌──────────────────────────────────────────────────┐
-│              Code Execution Engine                │
-│                                                  │
-│  ┌─────────────────────────────────────────────┐ │
-│  │           ExecutorRegistry                   │ │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
-│  │  │ Python  │ │  JS/TS  │ │  Dart   │  ...  │ │
-│  │  │Executor │ │Executor │ │Executor │       │ │
-│  │  └────┬────┘ └────┬────┘ └────┬────┘       │ │
-│  └───────┼───────────┼───────────┼─────────────┘ │
-│          │           │           │                │
-│  ┌───────▼───────────▼───────────▼─────────────┐ │
-│  │           Sandbox Manager                    │ │
-│  │  • Filesystem isolation (temp dir only)      │ │
-│  │  • Memory limits (configurable)              │ │
-│  │  • Execution timeout (configurable)          │ │
-│  │  • Network policy (default: deny)            │ │
-│  └─────────────────────────────────────────────┘ │
-│                                                  │
-│  ┌─────────────────────────────────────────────┐ │
-│  │          Remote Execution Bridge             │ │
-│  │  • Modal connector                           │ │
-│  │  • Daytona connector                         │ │
-│  │  • Custom SSH connector                      │ │
-│  │  • Output streaming via WebSocket            │ │
-│  └─────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────┘
-```
-
-### Local Execution Flow
-
-```
-User/AI triggers code execution
-    │
-    ▼
-Permission check (FR-08)
-    │
-    ▼
-Language detection (from code block tag or file extension)
-    │
-    ▼
-ExecutorRegistry.getExecutor(language)
-    │
-    ▼
-SandboxManager.createSandbox(config)
-    │
-    ├── Create temp directory
-    ├── Write code to temp file
-    ├── Set resource limits
-    │
-    ▼
-executor.execute(request) within sandbox
-    │
-    ├── Capture stdout/stderr
-    ├── Monitor timeout
-    ├── Monitor memory
-    │
-    ▼
-ExecutionResult { stdout, stderr, exitCode, executionTime, artifacts }
-    │
-    ▼
-Cleanup sandbox
-    │
-    ▼
-Display result in UI (chat inline or code editor output panel)
-```
-
----
-
-## 10. Agent Persona Architecture
-
-### Persona File Structure
-
-```
-Agent (folder — Permission-Gated by default)
-├── soul.md               # Core identity — rarely changes
-├── personality.md         # Style and tone — evolves over time
-├── memory.md              # User-specific memories
-├── rules.md               # Behavioral rules
-├── knowledge.md           # Domain-specific instructions
-└── personas/              # Additional persona profiles
-    ├── professional.md
-    ├── creative.md
-    └── tutor.md
-```
-
-### System Prompt Assembly
-
-```
-┌─────────────────────────────────────────┐
-│        System Prompt Builder             │
-│                                         │
-│  1. Load active persona files            │
-│  2. Assemble in order:                   │
-│     a. Soul (core identity)              │
-│     b. Personality (style params)        │
-│     c. Rules (behavioral constraints)    │
-│     d. Knowledge (domain context)        │
-│     e. Memory (user-specific context)    │
-│  3. Inject tool definitions              │
-│  4. Inject permission context            │
-│  5. Output: complete system prompt       │
-└─────────────────────────────────────────┘
-         │
-         ▼
-  Sent as `system` message to AI provider
-```
-
-### Persona Evolution Flow
-
-```
-During conversation, AI identifies relevant persona update
-    │
-    ▼
-AI proposes change via special response format:
-  "I'd like to remember that you prefer concise answers."
-    │
-    ▼
-PersonaService creates a proposed edit to memory.md (or personality.md)
-    │
-    ▼
-Diff is computed (FR-07) showing exact proposed change
-    │
-    ▼
-Permission check (FR-08) — persona files are Tier 2 (gated)
-    │
-    ▼
-User sees notification: "Gemmie wants to update its memory"
-    │
-    ▼
-User reviews diff → Accept / Modify / Reject
-    │
-    ▼
-If accepted: new version saved with author "ai:model-name"
-```
-
----
-
-## 11. Sync Architecture
-
-### Design
-
-```
-┌──────────────────────────────────────────────────┐
-│                 Sync Engine                       │
-│                                                  │
-│  ┌─────────────┐    ┌──────────────────────────┐ │
-│  │  Change     │    │  Cloud Adapter           │ │
-│  │  Tracker    │──→ │  (Firebase / Supabase)   │ │
-│  │  (local)    │    │                          │ │
-│  │  - watches  │    │  ┌──────────────────┐    │ │
-│  │    Isar DB  │    │  │  E2E Encryption  │    │ │
-│  │    for edits│    │  │  Layer           │    │ │
-│  │             │    │  │  AES-256-GCM     │    │ │
-│  └─────────────┘    │  │  Key: user       │    │ │
-│                     │  │  passphrase      │    │ │
-│  ┌─────────────┐    │  └──────────────────┘    │ │
-│  │  Conflict   │    │                          │ │
-│  │  Resolver   │    │  upload() / download()   │ │
-│  │  - 3-way    │    │  listChanges()           │ │
-│  │    merge    │    │  resolveConflict()       │ │
-│  │  - manual   │    └──────────────────────────┘ │
-│  │    resolve  │                                 │
-│  └─────────────┘                                 │
-└──────────────────────────────────────────────────┘
-```
-
-### Sync Flow
-
-```
-Local Change Detected
-    │
-    ▼
-Is sync enabled for this file/folder? ──No──→ Skip
-    │ Yes
-    ▼
-Encrypt content client-side (E2E)
-    │
-    ▼
-Upload encrypted blob + sync metadata
-    │
-    ▼
-Check for remote changes since last sync
-    │
-    ├── No remote changes → Done
-    │
-    ├── Remote changes, no conflict → Apply remote changes locally
-    │
-    └── Conflict detected →
-        ├── Auto-merge (if changes in different sections)
-        └── Manual resolution UI (side-by-side diff)
-```
-
----
-
-## 12. Navigation Architecture
-
-### Screen Map
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        App Shell                                │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                   Bottom Navigation                      │   │
-│  │  [💬 Chat]  [🔧 Tools]  [📁 Files]  [⚙ Settings]       │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  Chat Tab                Tools Tab         Files Tab             │
-│  ├─ ConversationList     ├─ ToolsGrid      ├─ FileBrowser       │
-│  ├─ ChatScreen           ├─ ToolDetail      ├─ FileViewer        │
-│  │  └─ ModelSelector     │  └─ ToolConfig   ├─ DiffViewer        │
-│  └─ ConversationSearch   └─ ToolExecution   ├─ FileHistory       │
-│                                              ├─ CodeEditor       │
-│  Settings Tab                                ├─ SheetEditor      │
-│  ├─ SettingsHome                             └─ DocumentEditor   │
-│  ├─ ProfileEditor                                                │
-│  ├─ ProviderSetup         Overlays / Modals                      │
-│  ├─ TokenManager          ├─ PermissionDialog                    │
-│  ├─ PersonaEditor         ├─ ConfirmationDialog                  │
-│  ├─ SyncSettings          ├─ DiffReviewDialog                    │
-│  ├─ StorageManager        ├─ ModelDownloadSheet                  │
-│  └─ AboutPage             └─ ErrorDialog                         │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Adaptive Layout Strategy
-
-| Screen Width | Layout | Navigation |
-|-------------|--------|------------|
-| < 600dp (Phone) | Single-pane | Bottom navigation bar |
-| 600–839dp (Small tablet) | Optional split-pane | Navigation rail |
-| ≥ 840dp (Large tablet / Desktop) | Split-pane (list + detail) | Navigation rail + persistent panel |
-
----
-
-## 13. Dependency Graph
-
-```
-                    ┌──────────┐
-                    │  core/   │
-                    │ (shared) │
-                    └────┬─────┘
-                         │ depends on by all
-        ┌────────┬───────┼────────┬────────────┐
-        ▼        ▼       ▼        ▼            ▼
-   ┌────────┐ ┌──────┐ ┌──────┐ ┌──────────┐ ┌──────┐
-   │settings│ │perms │ │versn │ │ storage  │ │persona│
-   │        │ │      │ │      │ │          │ │       │
-   └───┬────┘ └──┬───┘ └──┬───┘ └────┬─────┘ └──┬────┘
-       │         │        │          │           │
-       │    ┌────┴────────┴──────────┤           │
-       │    │    storage depends on  │           │
-       │    │    perms + versioning  │           │
-       │    │                        │           │
-       ▼    ▼                        ▼           ▼
-   ┌─────────────┐            ┌──────────┐  ┌────────┐
-   │  providers  │            │  tools   │  │  chat  │
-   │  (AI APIs)  │            │          │  │        │
-   └──────┬──────┘            └────┬─────┘  └───┬────┘
-          │                        │            │
-          └────────────┬───────────┘            │
-                       │                        │
-                  ┌────▼────┐            ┌──────▼─────┐
-                  │executor │            │ documents  │
-                  │         │            │            │
-                  └─────────┘            └────────────┘
-                                               │
-                                          ┌────▼────┐
-                                          │  sync   │
-                                          └─────────┘
-```
-
-### Package Extraction Strategy
-
-For reusability and testability, these modules should be extracted into independent Dart packages under `packages/`:
-
-| Package | Contains | Public API |
-|---------|----------|-----------|
-| `gemmie_ai_providers` | Provider interface + all adapters | `AIProvider`, `ProviderRegistry`, adapters |
-| `gemmie_storage` | Virtual filesystem + encryption + Isar | `FileService`, `FolderService`, encryption utils |
-| `gemmie_diff` | Diff engine (Myers + word-level) | `DiffEngine`, `DiffHunk`, `FileVersion` |
-| `gemmie_executor` | Code execution sandbox + remote bridge | `CodeExecutor`, `SandboxManager`, `ExecutorRegistry` |
-| `gemmie_persona` | Persona file management + system prompt builder | `PersonaService`, `SystemPromptBuilder` |
+## 6 Cross-Cutting Concerns
+
+### 6.1 Error Handling
+
+- Global error boundary in Riverpod (`ProviderObserver`).
+- Per-feature error states in `AsyncValue`.
+- Network errors → retry with exponential backoff.
+- Inference errors → graceful message ("Model encountered an error").
+- File system errors → user notification with recovery options.
+
+### 6.2 Logging
+
+- Structured logging via `dart:developer`.
+- Log levels: debug, info, warning, error.
+- AI Gateway request/response logging.
+- MCP tool invocation logging.
+
+### 6.3 Dependency Injection
+
+- All dependencies provided via Riverpod.
+- No service locators or singletons.
+- Tests override providers for mocking.
+
+### 6.4 Platform Abstraction
+
+- `PlatformService` abstracts platform-specific APIs.
+- Conditional imports for web vs. native.
+- Feature flags for platform-unavailable features (e.g., notification listener on web).
+
+## 7 Technology Integration Map
+
+| Technology | Module | Purpose |
+|---|---|---|
+| llama_cpp_dart | core/ai | Local GGUF model inference |
+| langchain_dart | core/ai | Provider abstraction |
+| dart_openai | core/ai | OpenAI-compatible API client |
+| Drift | core/database | Persistent storage, reactive queries |
+| moon_design | all UI | Component library |
+| GoRouter | core/router | Declarative navigation |
+| Riverpod | all | State management, DI |
+| shelf + shelf_router | features/gateway | AI Gateway HTTP server |
+| mcp_dart | features/mcp | MCP host/client |
+| re_editor | features/files | Code editing |
+| appflowy_editor | features/files, second_brain | Rich text editing |
+| github | features/github_integration | GitHub API |
+| notification_listener_service | features/notifications, finance | Android notification access |
+| google_mlkit_genai_summarization | features/chat | On-device summarization |
+| puppeteer | features/tools | Desktop browser automation |
+| flutter_secure_storage | core/services | Secure credential storage |
+| supabase_flutter | core/services | Cloud sync |
+| flutter_js | features/code_execution | QuickJS local execution |
