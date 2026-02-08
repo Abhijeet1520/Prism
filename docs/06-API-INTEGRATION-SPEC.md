@@ -26,7 +26,7 @@
 
 ## 1. Unified Provider Interface
 
-All AI provider adapters are built on **LangChain.dart** (`langchain_core`). Each provider uses the corresponding `langchain_<provider>` package, wrapped by `GemmieProvider` to add credential management, rate limiting, cost tracking, and health checks. See [Architecture § Provider Abstraction](./03-ARCHITECTURE.md#4-provider-abstraction-layer). The interface ensures:
+All AI provider adapters are built on **LangChain.dart** (`langchain_core`). Each provider uses the corresponding `langchain_<provider>` package, wrapped by `PrismProvider` to add credential management, rate limiting, cost tracking, and health checks. See [Architecture § Provider Abstraction](./03-ARCHITECTURE.md#4-provider-abstraction-layer). The interface ensures:
 
 - **Consistent API** for the chat module regardless of backend
 - **Hot-swappable** providers mid-conversation
@@ -192,7 +192,7 @@ stream         → stream
 
 ### Error Mapping
 
-| OpenAI Error | HTTP Code | Gemmie Handling |
+| OpenAI Error | HTTP Code | Prism Handling |
 |-------------|-----------|-----------------|
 | `invalid_api_key` | 401 | Prompt user to update API key |
 | `rate_limit_exceeded` | 429 | Auto-retry with backoff |
@@ -325,7 +325,7 @@ event: message_stop       → Stream complete
 
 ## 6. HuggingFace Integration
 
-HuggingFace serves **two purposes** in Gemmie:
+HuggingFace serves **two purposes** in Prism:
 
 ### 6A. Model Downloads
 
@@ -425,8 +425,8 @@ OpenRouter uses the **OpenAI-compatible format** with additional headers:
 
 ```
 Additional headers:
-  HTTP-Referer: https://gemmie.app (or app identifer)
-  X-Title: Gemmie
+  HTTP-Referer: https://prism.app (or app identifer)
+  X-Title: Prism
 
 Additional body fields:
   transforms: ["middle-out"]    # Optional: context compression
@@ -477,7 +477,7 @@ Ollama wraps llama.cpp with an easy-to-use API and model management system. It's
 
 ### LAN Discovery (from Maid)
 
-Gemmie can automatically discover Ollama instances running on the local network:
+Prism can automatically discover Ollama instances running on the local network:
 
 ```
 1. Get device's local IP and subnet mask via network_info_plus
@@ -587,7 +587,7 @@ final chatModel = ChatMistralAI(
 ### Architecture (Dual Runtime)
 
 ```
-Dart (GemmieProvider.local)
+Dart (PrismProvider.local)
     │
     ├── GGUF Models (llama.cpp path):
     │   └── llama_sdk package
@@ -708,7 +708,7 @@ ProviderError:
 
 ### Client-Side Rate Limiting
 
-Gemmie implements client-side rate limiting as a politeness layer:
+Prism implements client-side rate limiting as a politeness layer:
 
 ```yaml
 ClientRateLimit:
@@ -772,7 +772,7 @@ Prices are stored per-model in `ProviderModel.inputPricePerMT` / `outputPricePer
    ```
    dart pub add langchain_<provider>
    ```
-   Create `GemmieProvider.<provider>()` factory — done in ~50 lines.
+   Create `PrismProvider.<provider>()` factory — done in ~50 lines.
 
 3. **If OpenAI-compatible:**
    Use `langchain_openai` with custom `baseUrl` — most self-hosted solutions (vLLM, LM Studio, GPT4All, llama-server) work this way.

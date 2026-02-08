@@ -1,6 +1,6 @@
 # 02 — Non-Functional Requirements
 
-> This document defines the quality attributes, constraints, and operational requirements for Gemmie. These are cross-cutting concerns that apply across all features and modules.
+> This document defines the quality attributes, constraints, and operational requirements for Prism. These are cross-cutting concerns that apply across all features and modules.
 
 ---
 
@@ -71,7 +71,7 @@
 | NFR-03.6 | Version history handles 1000+ versions per file without UI lag | Should | History loads in <1 second |
 | NFR-03.7 | Model allowlist can be updated remotely without app update | Must | JSON fetch + parse <2 seconds |
 | NFR-03.8 | Feature flags system for toggling features without code deployment | Should | Remote config or local flags |
-| NFR-03.9 | Modular package architecture — core packages can be used independently | Should | Each `gemmie_*` package has zero cross-package dependencies |
+| NFR-03.9 | Modular package architecture — core packages can be used independently | Should | Each `prism_*` package has zero cross-package dependencies |
 
 ---
 
@@ -131,7 +131,7 @@
 |----|-------------|----------|-----------------|
 | NFR-07.1 | New user can send first message within 60 seconds of first launch | Must | Onboarding to first interaction ≤ 60s |
 | NFR-07.2 | Core workflows (chat, file browse, settings) reachable within 2 taps from home | Must | Navigation depth ≤ 2 for primary features |
-| NFR-07.3 | Consistent visual language and interaction patterns across all screens | Must | Material 3 design system compliance |
+| NFR-07.3 | Consistent visual language and interaction patterns across all screens | Must | Moon Design system compliance |
 | NFR-07.4 | Loading states and progress indicators for all async operations | Must | No blank/frozen screens during loading |
 | NFR-07.5 | Error messages are actionable — tell the user what went wrong AND what to do | Must | Every error has a suggested action |
 | NFR-07.6 | Undo support for destructive actions (delete file, discard draft) | Should | Snackbar with undo for 5 seconds |

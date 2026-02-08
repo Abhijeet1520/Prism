@@ -1,6 +1,8 @@
 # 01 — Functional Requirements
 
-> This document specifies every user-facing feature of Gemmie. Each requirement has a unique ID, priority (MoSCoW), status, and acceptance criteria. Requirements are grouped by feature domain.
+> This document specifies every user-facing feature of Prism. Each requirement has a unique ID, priority (MoSCoW), status, and acceptance criteria. Requirements are grouped by feature domain.
+
+> **Navigation Note:** Prism has 4 primary tabs: **Chat**, **Brain**, **Apps Hub**, **Settings**. The Brain tab provides a knowledge management interface using the PARA method (Projects, Areas, Resources, Archive) — this is a new primary navigation item replacing the direct Files tab. Tools and Files are accessed through the Apps Hub tab.
 
 ---
 
@@ -66,7 +68,7 @@ The core interaction paradigm. Users converse with the AI assistant in a multi-t
 | FR-01.3.3 | User can attach images from camera or gallery for vision-capable models | Should | Draft |
 | FR-01.3.4 | User can attach files (PDF, MD, CSV, etc.) for context | Should | Draft |
 | FR-01.3.5 | User can paste clipboard content (text, images) directly into chat | Must | Draft |
-| FR-01.3.6 | User can reference files from Gemmie's storage in chat messages | Should | Draft |
+| FR-01.3.6 | User can reference files from Prism's storage in chat messages | Should | Draft |
 
 #### FR-01.4: Rich Content Rendering
 
@@ -194,7 +196,7 @@ Users can connect to cloud AI providers as an alternative or supplement to local
 | FR-03.2.1 | All providers support text chat (multi-turn) | Must | Draft |
 | FR-03.2.2 | Providers that support streaming deliver token-by-token responses | Must | Draft |
 | FR-03.2.3 | Providers that support vision accept image inputs | Should | Draft |
-| FR-03.2.4 | Providers that support function calling integrate with Gemmie's tools system | Should | Draft |
+| FR-03.2.4 | Providers that support function calling integrate with Prism's tools system | Should | Draft |
 | FR-03.2.5 | Provider capabilities are auto-detected or declared in configuration | Must | Draft |
 | FR-03.2.6 | System prompt / persona (FR-09) is sent to cloud providers as system message | Must | Draft |
 
@@ -243,11 +245,11 @@ Users can connect to cloud AI providers as an alternative or supplement to local
 **Priority:** Must
 **Status:** Draft
 **Module:** Tools Module
-**UI:** Tools Tab, Chat (inline tool invocations)
+**UI:** Apps Hub (Tools section), Chat (inline tool invocations)
 
 ### Description
 
-A dedicated tools ecosystem allowing the AI to interact with external services, device capabilities, and internal Gemmie features. Tools are browsable in a dedicated tab and invocable by the AI during conversations.
+A dedicated tools ecosystem allowing the AI to interact with external services, device capabilities, and internal Prism features. Tools are browsable in the Apps Hub (Tools section) and invocable by the AI during conversations.
 
 ### Sub-Requirements
 
@@ -255,7 +257,7 @@ A dedicated tools ecosystem allowing the AI to interact with external services, 
 
 | ID | Requirement | Priority | Status |
 |----|-------------|----------|--------|
-| FR-04.1.1 | Dedicated "Tools" tab showing all available tools organized by category | Must | Draft |
+| FR-04.1.1 | Apps Hub > Tools section showing all available tools organized by category | Must | Draft |
 | FR-04.1.2 | Tool categories: Code Execution, File Operations, Web/API, Device, Productivity, Custom | Must | Draft |
 | FR-04.1.3 | Each tool displays: name, description, required permissions, input/output types | Must | Draft |
 | FR-04.1.4 | User can enable/disable individual tools | Must | Draft |
@@ -292,7 +294,7 @@ A dedicated tools ecosystem allowing the AI to interact with external services, 
 
 ### Acceptance Criteria
 
-- [ ] Tools tab displays all available tools organized by category
+- [ ] Apps Hub (Tools section) displays all available tools organized by category
 - [ ] AI can invoke a tool (e.g., code execution) during a conversation with visible output
 - [ ] Tool invocation requiring elevated permissions triggers the approval dialog
 - [ ] Disabling a tool prevents the AI from invoking it
@@ -350,7 +352,7 @@ Centralized configuration for user profiles, authentication tokens, AI provider 
 
 | ID | Requirement | Priority | Status |
 |----|-------------|----------|--------|
-| FR-05.4.1 | Display total storage used by Gemmie (models, files, cache) | Must | Draft |
+| FR-05.4.1 | Display total storage used by Prism (models, files, cache) | Must | Draft |
 | FR-05.4.2 | Breakdown of storage by category (models, conversations, files, cache) | Should | Draft |
 | FR-05.4.3 | User can clear cache and temporary files | Must | Draft |
 | FR-05.4.4 | User can export all data (data portability) | Should | Draft |
@@ -371,7 +373,7 @@ Centralized configuration for user profiles, authentication tokens, AI provider 
 **Priority:** Must
 **Status:** Draft
 **Module:** Storage Module
-**UI:** File Explorer
+**UI:** Apps Hub (Files section)
 
 ### Description
 
@@ -577,7 +579,7 @@ A granular permission system controlling what the AI can read, modify, or execut
 
 ### Description
 
-Gemmie features a full agent persona system where the AI assistant's identity is defined by editable "soul" files. The agent's personality, tone, behavioral rules, and memory preferences are stored as structured files that the agent can self-modify with user approval, enabling persona evolution over time.
+Prism features a full agent persona system where the AI assistant's identity is defined by editable "soul" files. The agent's personality, tone, behavioral rules, and memory preferences are stored as structured files that the agent can self-modify with user approval, enabling persona evolution over time.
 
 ### Sub-Requirements
 
@@ -787,7 +789,7 @@ Create and edit spreadsheets (CSV-based with grid UI) and rich documents (Markdo
 
 ### Description
 
-Optional cloud backup and synchronization with end-to-end encryption. Users choose what to sync and can use Gemmie fully offline without any cloud dependency.
+Optional cloud backup and synchronization with end-to-end encryption. Users choose what to sync and can use Prism fully offline without any cloud dependency.
 
 ### Sub-Requirements
 

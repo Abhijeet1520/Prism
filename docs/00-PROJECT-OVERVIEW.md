@@ -2,7 +2,7 @@
 
 ## 1. Vision Statement
 
-**Gemmie** is a privacy-first, cross-platform AI personal assistant that gives users full control over their AI experience. Users can run models locally on-device for maximum privacy, connect to cloud AI providers for enhanced capabilities, or blend both — all from a single unified interface. Gemmie goes beyond chat: it manages files with enterprise-grade encryption, executes code in multiple languages, maintains a customizable agent persona that evolves with the user, and provides a complete toolkit for AI-augmented productivity.
+**Prism** is a privacy-first, cross-platform AI personal assistant that gives users full control over their AI experience. Users can run models locally on-device for maximum privacy, connect to cloud AI providers for enhanced capabilities, or blend both — all from a single unified interface. Prism goes beyond chat: it manages files with enterprise-grade encryption, executes code in multiple languages, maintains a customizable agent persona that evolves with the user, and provides a complete toolkit for AI-augmented productivity.
 
 ### Core Principles
 
@@ -20,7 +20,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Working Title** | Gemmie |
+| **Working Title** | Prism |
 | **Name Status** | In progress — subject to change |
 | **Tagline** | *Your AI, your rules.* |
 | **Category** | Productivity / AI Assistant |
@@ -42,7 +42,7 @@
 ### Why Flutter?
 
 - **Single codebase** for all platforms — reduces maintenance overhead
-- **Rich UI toolkit** with Material 3, custom widgets, and smooth animations
+- **Rich UI toolkit** with Moon Design 1.1.0, custom widgets, and smooth animations
 - **Strong ecosystem** for file handling, encryption, and platform channels
 - **Dart's performance** is sufficient for UI; heavy AI work offloaded to native code via platform channels or FFI
 - **Existing Flutter expertise** in the workspace (multiple Flutter projects available as reference)
@@ -62,7 +62,8 @@
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
 | **Language** | Dart 3.x | Flutter's native language; null safety, pattern matching, records |
-| **UI Framework** | Flutter 3.x | Cross-platform UI with Material 3 |
+| **UI Framework** | Flutter 3.x | Cross-platform UI |
+| **UI Toolkit** | Moon Design 1.1.0 | Token-based theming with Dragon Ball-named tokens (piccolo, goten, gohan, etc.); dark mode support; comprehensive component library |
 | **State Management** | Riverpod 2.x | Compile-safe, testable, supports async; preferred over BLoC for new projects |
 | **Navigation** | GoRouter | Declarative routing with deep link support |
 | **Local Database** | Isar 4.x | High-performance embedded NoSQL DB with encryption support |
@@ -122,8 +123,8 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                        PRESENTATION LAYER                       │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
-│  │   Chat   │ │  Tools   │ │  Files   │ │ Settings │  ...      │
-│  │  Screen  │ │   Tab    │ │ Explorer │ │  Screen  │          │
+│  │   Chat   │ │  Brain   │ │ Apps Hub │ │ Settings │  ...      │
+│  │  Screen  │ │  Screen  │ │  Screen  │ │  Screen  │          │
 │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘          │
 │       │             │            │             │                │
 │  ┌────▼─────────────▼────────────▼─────────────▼────────────┐  │
@@ -169,7 +170,7 @@
 ## 6. Repository Structure (Planned)
 
 ```
-gennie/
+prism/
 ├── docs/                          # ← You are here
 │   ├── README.md                  # Documentation index
 │   ├── 00-PROJECT-OVERVIEW.md     # This file
@@ -197,11 +198,11 @@ gennie/
 │   └── analysis_options.yaml
 │
 ├── packages/                      # Extracted packages (future)
-│   ├── gemmie_ai_providers/       # AI provider abstraction & adapters
-│   ├── gemmie_storage/            # Encrypted storage & virtual filesystem
-│   ├── gemmie_diff/               # Diff engine
-│   ├── gemmie_executor/           # Code execution engine
-│   └── gemmie_persona/            # Agent persona system
+│   ├── prism_ai_providers/       # AI provider abstraction & adapters
+│   ├── prism_storage/            # Encrypted storage & virtual filesystem
+│   ├── prism_diff/               # Diff engine
+│   ├── prism_executor/           # Code execution engine
+│   └── prism_persona/            # Agent persona system
 │
 └── tools/                         # Build tools, scripts, CI config (future)
 ```
@@ -210,7 +211,7 @@ gennie/
 
 ## 7. Reference: AI Edge Gallery
 
-The [AI Edge Gallery](../gallery/Android/) is a production-quality Android app by Google for on-device GenAI model inference. Key modules targeted for future porting to Gemmie:
+The [AI Edge Gallery](../gallery/Android/) is a production-quality Android app by Google for on-device GenAI model inference. Key modules targeted for future porting to Prism:
 
 | Gallery Module | Purpose | Porting Priority |
 |---------------|---------|-----------------|
@@ -218,9 +219,9 @@ The [AI Edge Gallery](../gallery/Android/) is a production-quality Android app b
 | LiteRT Integration | On-device inference via LiteRT-LM engine | High |
 | Chat UI Components | 30+ Compose chat composables (bubbles, streaming, markdown rendering) | Medium — will adapt to Flutter equivalents |
 | Config System | Runtime-adjustable model configs (topK, topP, temperature) | High |
-| Custom Task Plugin System | `CustomTask` interface for extensible tasks | Medium — will inform Gemmie's tool plugin design |
+| Custom Task Plugin System | `CustomTask` interface for extensible tasks | Medium — will inform Prism's tool plugin design |
 | Model Allowlist | JSON-based model registry with metadata | High |
-| Theme System | Material 3 theming with dynamic color | Low — Flutter has equivalent support |
+| Theme System | Moon Design token-based theming with dynamic color | Low — Flutter has equivalent support via Moon Design |
 
 > **Note:** Gallery is Kotlin/Compose. Porting to Flutter/Dart means re-implementing patterns, not direct code translation. The architecture and data models are the primary value to carry over.
 
@@ -244,3 +245,5 @@ The [AI Edge Gallery](../gallery/Android/) is a production-quality Android app b
 | Code execution | Local sandboxed + remote | Flexibility: quick local runs + powerful remote environments | 2026-02-07 |
 | Release scope | Full feature set (phased implementation) | All features designed upfront; implementation phases for delivery | 2026-02-07 |
 | Branching conversations | Tree structure (from Maid) | Support conversation forking with parent/children message nodes | 2026-02-07 |
+| UI Toolkit | Moon Design 1.1.0 | Switched from shadcn_flutter to Moon Design 1.1.0 for token-based theming with Dragon Ball-named tokens (piccolo, goten, gohan, etc.), better dark mode support, and comprehensive component library | 2026-02-08 |
+| Navigation simplification | 4 primary tabs | Simplified from 8 bottom navigation tabs to 4 primary tabs (Chat, Brain, Apps Hub, Settings). Secondary features (Tasks, Finance, Files, Tools, Gateway) accessible via Apps Hub. | 2026-02-08 |
