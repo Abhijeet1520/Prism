@@ -1,0 +1,56 @@
+# ── Flutter / Dart ───────────────────────────────────────────
+*.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# ── IDE ─────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# ── Build outputs ───────────────────────────────────────────
+*.apk
+*.aab
+*.ipa
+*.app
+*.exe
+*.msix
+
+# ── Environment / Secrets ──────────────────────────────────
+.env
+.env.local
+*.keystore
+*.jks
+key.properties
+google-services.json
+GoogleService-Info.plist
+
+# ── Models (large files) ───────────────────────────────────
+*.gguf
+*.bin
+*.safetensors
+models/
+
+# ── Coverage / Test ────────────────────────────────────────
+coverage/
+.test_runner/
+lcov.info
+
+# ── Misc ───────────────────────────────────────────────────
+pubspec.lock
+*.g.dart
+*.freezed.dart
