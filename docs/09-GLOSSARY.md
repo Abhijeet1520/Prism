@@ -1,157 +1,221 @@
-# Prism — Glossary
+# 09 — Glossary
 
-## A
-
-**AGPL (Affero General Public License)** — Open-source license used by Prism. Requires source code distribution, including for network-accessible services (AI Gateway).
-
-**AI Gateway** — Prism's built-in local HTTP server (shelf) that exposes OpenAI-compatible API endpoints, allowing other applications on the device or LAN to use Prism's AI capabilities.
-
-**AppFlowy Editor** — Notion-style block-based rich text editor (`appflowy_editor` 6.2.0) used for Markdown editing in files and PARA notes.
-
-**AsyncNotifierProvider** — Riverpod provider type for managing asynchronous state with built-in loading/error handling.
-
-## B
-
-**Branching** — Conversation feature allowing users to fork a message thread at any point, creating alternative response paths. Implemented via `parentMessageId` in the Messages table.
-
-## C
-
-**ChatBubble** — Custom widget styled with MoonSquircleBorder for rendering individual chat messages.
-
-**ChatGroup** — Widget that groups consecutive messages from the same sender with MoonAvatar display.
-
-**Command Palette** — Keyboard-triggered searchable action list (Ctrl+K / Cmd+K). Custom overlay widget.
-
-## D
-
-**DAO (Data Access Object)** — Drift pattern for encapsulating database queries per table/feature. e.g., `ConversationDao`, `TaskDao`.
-
-**dart_openai** — Dart package (6.1.1) for OpenAI API integration. Supports custom `baseUrl` for connecting to any OpenAI-compatible endpoint (LM Studio, vLLM, text-generation-webui).
-
-**Drift** — Type-safe, reactive SQLite database layer for Flutter (2.31.0). Flutter Favorite. Replaces Isar (discontinued). Supports web via sql.js, schema migrations, FTS5 full-text search.
-
-## F
-
-**F-Droid** — Open-source Android app repository. Distribution channel for Prism alongside GitHub Releases.
-
-**Firecrawl** — Web scraping and crawling API service. No Dart package; integrated via direct REST API calls.
-
-**FTS5** — SQLite full-text search extension. Used via Drift virtual tables for searching conversations, files, notes, and tasks.
-
-**flutter_secure_storage** — Package for storing sensitive data (API keys, tokens) in OS-level secure storage (Android Keystore, iOS Keychain).
-
-## G
-
-**GGUF** — Model file format used by llama.cpp. Supports various quantization levels (Q4_0, Q4_K_M, Q5_K_M, Q8_0).
-
-**GoRouter** — Declarative navigation package for Flutter. Handles deep linking, shell routes, and nested navigation.
-
-**GitHub Actions** — CI/CD platform used for Prism's automated build, test, and release pipeline.
-
-## I
-
-**Isolate** — Dart mechanism for running code in parallel threads. Used for local inference to prevent UI jank.
-
-## K
-
-**Kanban** — Task management view showing tasks as cards in columns (Backlog → To Do → In Progress → Done).
-
-## L
-
-**LangChain.dart** — Dart port of the LangChain framework. Provides unified `BaseChatModel` interface across providers (OpenAI, Ollama, Gemini, Mistral). Core abstraction layer for Prism's AI engine.
-
-**llama_cpp_dart** — Dart FFI bindings for llama.cpp (0.2.2). Enables on-device GGUF model inference with GPU acceleration.
-
-**MoonIcons** — Primary icon set used in Prism's UI (from moon_icons package).
-
-## M
-
-**MCP (Model Context Protocol)** — Open protocol for connecting AI models to external tools and data sources. Prism acts as both MCP Host (connecting to external servers) and MCP Client (exposing its tools). Implemented via `mcp_dart` (1.2.2).
-
-**mmap** — Memory-mapped file I/O. Used by llama_cpp_dart to load large GGUF models without consuming full RAM.
-
-## N
-
-**NavigationSidebar** — Custom sidebar using MoonMenuItem for vertical navigation with labels and dividers.
-
-**notification_listener_service** — Android-only package (0.3.5) for reading notifications from other apps. Used for financial transaction capture.
-
-## O
-
-**Ollama** — Local/LAN AI model server with OpenAI-compatible API. Prism supports auto-discovery via mDNS, model pulling, and inference.
-
-## P
-
-**PARA Method** — Knowledge organization system: **P**rojects (active with goals), **A**reas (ongoing responsibilities), **R**esources (reference material), **A**rchives (completed/inactive). Core of Prism's Second Brain feature.
-
-**Persona** — Named AI personality configuration including system prompt, default model, temperature, and avatar. Assigned per-conversation.
-
-**Prism** — The application name. "The central hub for your intelligence."
-
-**Provider** — An AI service that Prism can connect to for inference (OpenAI, Gemini, Ollama, local llama.cpp, Mistral, Anthropic, custom).
-
-**Puppeteer** — Dart package (3.20.0) for controlling headless Chrome. Desktop-only browser automation.
-
-## Q
-
-**QuickJS** — Lightweight JavaScript engine used for sandboxed mobile code execution via `flutter_js`.
-
-## R
-
-**re_editor** — Code editor package (0.8.0) supporting 100+ languages with syntax highlighting, code folding, and minimap. Web-compatible.
-
-**Riverpod** — State management and dependency injection framework for Flutter (2.x). Uses code generation via `@riverpod` annotations. Chosen over BLoC for less boilerplate and better testability.
-
-## S
-
-**moon_design** — Moon Design System (1.1.0) for Flutter. Themable, extensible widgets with squircle borders and token-based styling. Uses MaterialApp with MoonTheme as ThemeExtension.
-
-**shelf** — Official Dart HTTP server package (1.4.2). Used for Prism's AI Gateway with composable middleware pipeline.
-
-**Skillset** — Community-contributed AI capability package containing a system prompt, tool definitions, and example conversations. e.g., "Code Reviewer", "SQL Expert", "Research Assistant".
-
-**Supabase** — Open-source Firebase alternative. Used for cloud sync (authentication, real-time database, file storage). Free tier for MVP.
-
-**SQLCipher** — SQLite extension providing AES-256-CBC encryption. Optional for Drift database encryption at rest.
-
-## T
-
-**Tool** — A function that an AI model can invoke during a conversation. Examples: web search, calculator, file reader. Defined by name, description, input JSON schema, and execution handler.
-
-**TreeView** — Hierarchical tree display widget. Used for file explorer and conversation list grouping.
-
-## W
-
-**WAL (Write-Ahead Logging)** — SQLite journal mode enabling concurrent reads and writes. Default mode for Prism's Drift database.
+> Definitions of terms, abbreviations, and concepts used across the Gemmie documentation suite.
 
 ---
 
-## Acronym Reference
+## A
 
-| Acronym | Expansion |
-|---|---|
-| AGPL | Affero General Public License |
+| Term | Definition |
+|------|-----------|
+| **Adapter Pattern** | Design pattern where each AI provider implements a common interface (`AIProvider`), allowing Gemmie to swap providers without changing calling code. |
+| **AES-256-GCM** | Advanced Encryption Standard with 256-bit keys in Galois/Counter Mode. Authenticated encryption providing both confidentiality and integrity. Used for all data at rest in Gemmie. |
+| **AI Provider** | An external (cloud) or local service that performs AI inference. Examples: OpenAI, Gemini, Claude, HuggingFace, OpenRouter, local LiteRT. |
+| **Audit Log** | Append-only record of all security-relevant events (file access, permission grants, code executions) for user review. |
+
+## B
+
+| Term | Definition |
+|------|-----------|
+| **BIP39** | Bitcoin Improvement Proposal 39 — standard for encoding cryptographic seeds as human-readable word lists. Used for Gemmie's sync recovery key. |
+| **Bottom Sheet** | A Material Design component that slides up from the bottom of the screen. Used in Gemmie for model selection, file actions, and tool previews. |
+
+## C
+
+| Term | Definition |
+|------|-----------|
+| **Chat Completion** | An AI API endpoint that takes a conversation history (list of messages) and returns the next assistant message. Core API pattern used by all Gemmie providers. |
+| **Clean Architecture** | Software architecture with strict separation: Presentation → Domain → Data. Each layer depends only on inner layers. |
+| **Cloud Sync** | Optional feature to synchronize encrypted data across multiple devices via a cloud backend. |
+| **Code Execution Sandbox** | An isolated environment where user/AI code runs with restricted filesystem, network, and system access. |
+| **Content Part** | A segment of a chat message: text, image, file reference, or tool call result. Messages contain one or more content parts. |
+| **CRDT** | Conflict-free Replicated Data Type — a data structure that can be merged across devices without conflicts. Considered for cloud sync. |
+| **CPython** | The reference implementation of Python, written in C. Gemmie embeds CPython via FFI for local Python execution. |
+
+## D
+
+| Term | Definition |
+|------|-----------|
+| **dart_eval** | A Dart package that evaluates Dart code at runtime without compilation. Used for local Dart code execution in Gemmie. |
+| **Daytona** | A cloud development environment platform. Supported as a remote code execution backend in Gemmie. |
+| **DEK** | Data Encryption Key — the AES-256 key used to encrypt all user data. Itself encrypted by the KEK. |
+| **Diff** | The set of changes between two versions of a file. Gemmie uses Myers algorithm with word-level refinement. |
+| **DiffHunk** | A contiguous block of changes within a diff result, containing old and new line ranges plus word-level diffs. |
+
+## E
+
+| Term | Definition |
+|------|-----------|
+| **E2E Encryption** | End-to-End Encryption — data encrypted on the client before transmission; the server never has access to plaintext. Used for cloud sync. |
+| **Emergency Lockdown** | A one-tap security action that immediately revokes all AI permissions, cancels pending operations, and logs the event. |
+
+## F
+
+| Term | Definition |
+|------|-----------|
+| **FFI** | Foreign Function Interface — a mechanism for Dart to call native C/C++ libraries. Used for LiteRT inference and CPython embedding. |
+| **File Version** | A snapshot of a file at a specific point in time, stored with diff data and metadata (who changed it, why). |
+| **Flutter** | Google's cross-platform UI framework using Dart. The development platform for Gemmie. |
+| **Function Calling** | An AI capability where the model outputs structured tool invocations instead of (or alongside) text responses. |
+
+## G
+
+| Term | Definition |
+|------|-----------|
+| **Gated** | The default permission tier. AI can access the file/folder only after explicit user approval (per-request, per-session, or permanent grant). |
+| **GCM** | Galois/Counter Mode — an authenticated encryption mode that provides both encryption and integrity verification. |
+| **GGUF** | GGML Universal Format — the file format for quantized LLM models used by llama.cpp and Ollama. Gemmie loads .gguf files for on-device inference via `llama_sdk`. |
+| **GemmieProvider** | Wrapper around LangChain.dart's `BaseChatModel` that adds Gemmie-specific concerns: credential management, rate limiting, cost tracking, and health checks. |
+| **GemmieFolder** | A virtual folder organizing GemmieFiles. Can have permission overrides that cascade to children. |
+| **GoRouter** | A declarative routing package for Flutter. Used for Gemmie's navigation with deep link support. |
+| **Grant** | A permission approval from the user to the AI for a specific file/operation, with an expiration scope (this time / session / always). |
+
+## H
+
+| Term | Definition |
+|------|-----------|
+| **HuggingFace** | An AI platform providing model hosting, downloads, and inference APIs. Gemmie uses HuggingFace for model downloads (with OAuth) and cloud inference. |
+| **Hunk** | See DiffHunk. |
+
+## I
+
+| Term | Definition |
+|------|-----------|
+| **Isar** | A fast, embedded NoSQL database for Flutter/Dart. Version 4.x used as Gemmie's local storage engine. |
+
+## K
+
+| Term | Definition |
+|------|-----------|
+| **KEK** | Key Encryption Key — the master key stored in the platform's hardware keystore. Used to encrypt/decrypt the DEK. Never leaves the secure hardware. |
+| **Keystore** | Platform-specific secure key storage. Android Keystore (TEE/StrongBox) or iOS Keychain (Secure Enclave). |
+
+## L
+
+| Term | Definition |
+|------|-----------|
+| **LAN Discovery** | Feature that automatically scans the local network to find running Ollama instances. Uses `lan_scanner` + `network_info_plus` packages. Ported from the Maid Flutter app. |
+| **LangChain.dart** | A Dart port of the LangChain framework providing unified abstractions (`BaseChatModel`, `Runnable`, chains, agents, tools) for working with LLMs. Gemmie's provider abstraction layer. See [langchain_dart](https://pub.dev/packages/langchain). |
+| **LiteRT** | Google's on-device AI inference runtime (formerly TensorFlow Lite). Used for running TFLite models in Gemmie via platform channels. |
+| **llama.cpp** | A C/C++ library for local LLM inference supporting 100+ model architectures with extensive quantization. Gemmie accesses it via `llama_sdk` (FFI) or Ollama. |
+| **llama_sdk** | A Dart package wrapping llama.cpp via FFI for direct in-process LLM inference. Used by the Maid Flutter app. Supports conditional imports for web. |
+| **Locked** | The most restrictive permission tier. AI cannot access the file/folder under any circumstances. Only the user has access. |
+| **LWW** | Last Writer Wins — a simple conflict resolution strategy where the most recent write takes precedence. Used as the default sync conflict strategy. |
+
+## M
+
+| Term | Definition |
+|------|-----------|
+| **Memory Entry** | A piece of persistent context in the persona system. Memories survive across conversations and inform AI behavior. |
+| **Modal** | A cloud compute platform for running code in the cloud. Supported as a remote code execution backend. |
+| **Myers Algorithm** | An efficient algorithm for computing the minimum edit distance (diff) between two sequences. Core of Gemmie's versioning engine. |
+
+## N
+
+| Term | Definition |
+|------|-----------|
+| **Nonce** | A number used once. In AES-GCM, a 96-bit random value unique per encryption operation to ensure ciphertext uniqueness. |
+
+## O
+
+| Term | Definition |
+|------|-----------|
+| **Ollama** | A tool for running LLMs locally, wrapping llama.cpp with an easy API and model management. First-class provider in Gemmie via `langchain_ollama`. Supports LAN discovery for mobile-to-desktop connectivity. |
+| **Open** | The least restrictive permission tier. AI can freely access the file/folder without asking. All accesses are still logged. |
+| **OpenRouter** | A meta-provider that routes AI requests to various models via a unified API (OpenAI-compatible format). |
+
+## P
+
+| Term | Definition |
+|------|-----------|
+| **PBKDF2** | Password-Based Key Derivation Function 2 — used to derive encryption keys from user passphrases. 600,000 iterations for Gemmie sync keys. |
+| **Persona** | The AI agent's identity configuration: soul (core identity), personality (behavioral traits), memory, rules, and knowledge files. |
+| **Permission Tier** | One of three access levels for files/folders: Locked, Gated, or Open. Determines how the AI can interact with the resource. |
+| **PKCE** | Proof Key for Code Exchange — an OAuth 2.0 extension preventing authorization code interception. Required for HuggingFace auth. |
+| **Platform Channel** | Flutter's mechanism for Dart code to communicate with native platform code (Kotlin/Swift). Used for keystore and LiteRT access. |
+| **Provider Registry** | A singleton that manages all registered AI providers. Handles registration, lookup, health checks, and provider lifecycle. |
+
+## Q
+
+| Term | Definition |
+|------|-----------|
+| **QuickJS** | A small, embeddable JavaScript engine. Used for sandboxed JavaScript/TypeScript execution in Gemmie. |
+
+## R
+
+| Term | Definition |
+|------|-----------|
+| **Recovery Key** | A 24-word BIP39 mnemonic that can restore access to cloud sync data if the user forgets their passphrase. |
+| **Riverpod** | A reactive state management framework for Flutter. Version 2.x used in Gemmie for compile-safe dependency injection and state management. |
+| **Runnable** | LangChain.dart's core composable interface. Allows chaining components with the pipe operator: `promptTemplate \| chatModel \| outputParser`. Every step in a chain is a Runnable. |
+## S
+
+| Term | Definition |
+|------|-----------|
+| **Sandbox** | See Code Execution Sandbox. |
+| **Soul File** | The core identity definition in the persona system. Contains the AI agent's name, identity statement, primary directives, and immutable constraints. |
+| **SSE** | Server-Sent Events — a protocol for server-to-client streaming over HTTP. Used by some AI providers for streaming responses. |
+| **STRIDE** | A threat modeling framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege. |
+| **Streaming** | Receiving AI responses token-by-token as they are generated, rather than waiting for the complete response. |
+| **Supabase** | An open-source Firebase alternative providing auth, real-time database, storage, and edge functions. Chosen for Gemmie's cloud sync backend (proven in Maid). |
+| **System Prompt** | The initial instruction message sent to the AI model, assembled from the active persona's components (soul + personality + memory + rules + knowledge). |
+
+## T
+
+| Term | Definition |
+|------|-----------|
+| **TEE** | Trusted Execution Environment — a secure area of the processor that ensures code and data are protected. Android Keystore uses TEE for key storage. |
+| **TLS** | Transport Layer Security — cryptographic protocol for secure network communication. Gemmie requires TLS 1.3 (or 1.2 minimum). |
+| **Token** | (1) In AI: a piece of text (~4 characters) that models process. Used for billing and context limits. (2) In auth: an OAuth access/refresh token. |
+| **Tool** | A capability that the AI can invoke during a conversation (e.g., web search, calculator, file read, code execution). |
+| **Tool Calling** | See Function Calling. |
+
+## V
+
+| Term | Definition |
+|------|-----------|
+| **Version** | A snapshot of a file's state at a point in time, linked to its predecessor via a diff. Enables history browsing and rollback. |
+| **Virtual Filesystem** | Gemmie's file storage system, implemented in Isar (not the device OS filesystem). Provides files, folders, encryption, and versioning. |
+
+## W
+
+| Term | Definition |
+|------|-----------|
+| **WCAG AA** | Web Content Accessibility Guidelines level AA — the target accessibility standard for Gemmie, covering contrast, screen readers, and keyboard navigation. |
+| **Word-Level Diff** | A refinement of line-level diffs that identifies specifically which words within a changed line were added, removed, or modified. |
+
+---
+
+## Abbreviations Quick Reference
+
+| Abbreviation | Full Form |
+|-------------|-----------|
+| AES | Advanced Encryption Standard |
 | API | Application Programming Interface |
-| CI/CD | Continuous Integration / Continuous Deployment |
+| CRDT | Conflict-free Replicated Data Type |
 | CRUD | Create, Read, Update, Delete |
-| DAO | Data Access Object |
+| DB | Database |
+| DEK | Data Encryption Key |
+| E2E | End-to-End |
 | FFI | Foreign Function Interface |
-| FTS | Full-Text Search |
-| GGUF | GPT-Generated Unified Format |
-| HTTP | HyperText Transfer Protocol |
-| JWT | JSON Web Token |
+| FR | Functional Requirement |
+| GCM | Galois/Counter Mode |
+| GGUF | GGML Universal Format |
+| KEK | Key Encryption Key |
+| KDF | Key Derivation Function |
 | LAN | Local Area Network |
-| MCP | Model Context Protocol |
-| mDNS | Multicast Domain Name System |
-| ML | Machine Learning |
-| ORM | Object-Relational Mapping |
-| PARA | Projects, Areas, Resources, Archives |
-| PWA | Progressive Web App |
-| RAG | Retrieval-Augmented Generation |
-| REST | Representational State Transfer |
+| LCEL | LangChain Expression Language |
+| LWW | Last Writer Wins |
+| MD | Markdown |
+| NFR | Non-Functional Requirement |
+| OWASP | Open Worldwide Application Security Project |
+| PBKDF2 | Password-Based Key Derivation Function 2 |
+| PKCE | Proof Key for Code Exchange |
+| RLS | Row Level Security |
 | SSE | Server-Sent Events |
+| TEE | Trusted Execution Environment |
 | TLS | Transport Layer Security |
-| UPI | Unified Payments Interface |
+| UI | User Interface |
 | UX | User Experience |
-| WAL | Write-Ahead Logging |
 | WCAG | Web Content Accessibility Guidelines |
+| WSS | WebSocket Secure |

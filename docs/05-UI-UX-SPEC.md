@@ -1,442 +1,1002 @@
-﻿# Prism — UI/UX Specification (Moon Design)
+# 05 — UI/UX Specification
 
-> Built with **moon_design** (1.1.0) — Moon Design System for Flutter. Themable, extensible widgets with squircle borders and token-based styling. Uses `MaterialApp` with `MoonTheme` as a `ThemeExtension`.
-
-## 1 Design System
-
-### 1.1 Theme Configuration
-
-```dart
-final lightTokens = MoonTokens.light.copyWith(
-  colors: MoonColors.light.copyWith(
-    piccolo: const Color(0xFF6366F1),   // Primary brand — indigo
-    textPrimary: Colors.grey.shade900,
-  ),
-  typography: MoonTypography.typography.copyWith(
-    heading: MoonTypography.typography.heading.apply(
-      fontFamily: "Inter",
-      fontWeightDelta: -1,
-    ),
-  ),
-);
-
-final darkTokens = MoonTokens.dark.copyWith(
-  colors: MoonColors.dark.copyWith(
-    piccolo: const Color(0xFF818CF8),   // Primary brand — indigo lighter
-  ),
-);
-
-final lightTheme = ThemeData.light().copyWith(
-  extensions: <ThemeExtension<dynamic>>[MoonTheme(tokens: lightTokens)],
-);
-
-final darkTheme = ThemeData.dark().copyWith(
-  extensions: <ThemeExtension<dynamic>>[MoonTheme(tokens: darkTokens)],
-);
-
-// In MaterialApp:
-MaterialApp(
-  title: 'Prism',
-  theme: lightTheme,
-  darkTheme: darkTheme,
-  themeMode: ThemeMode.dark,      // Default dark
-)
-```
-
-### 1.2 Color Palette (MoonColors)
-
-| Token | Purpose | Light | Dark |
-|---|---|---|---|
-| `piccolo` | Primary/accent | Indigo 500 | Indigo 400 |
-| `goten` | Surface/card | White | Grey 900 |
-| `gohan` | Background | Grey 50 | Grey 950 |
-| `bulma` | Text primary | Grey 900 | Grey 50 |
-| `trunks` | Text secondary | Grey 500 | Grey 400 |
-| `beerus` | Border/divider | Grey 200 | Grey 800 |
-| `chichi` | Error/destructive | Red 500 | Red 400 |
-| `roshi` | Success | Green 500 | Green 400 |
-| `krillin` | Warning | Amber 500 | Amber 400 |
-| `whis` | Info | Blue 500 | Blue 400 |
-
-Access: `context.moonColors!.piccolo`, `context.moonTypography!.heading.text14`
-
-### 1.3 Typography
-
-- Headings: Inter (via `MoonTypography.typography.heading`)
-- Body: System default (via `MoonTypography.typography.body`)
-- Monospace: JetBrains Mono for code display
-- Scale: `text12`, `text14`, `text16`, `text18`, `text20`, `text24`
-
-### 1.4 Icon Set
-
-- **Primary**: `MoonIcons` — from `moon_icons` package
-- Naming: `MoonIcons.{category}_{name}_{size}_{weight}`
-- Example: `MoonIcons.chat_chat_24_light`, `MoonIcons.generic_settings_24_regular`
-- **Fallback**: Material Icons where MoonIcons lacks coverage
-
-### 1.5 Shape Language
-
-- Moon Design uses **squircle** borders (`MoonSquircleBorder`) by default
-- Consistent rounded corners via `MoonSizes` tokens
-- All containers/cards/buttons use squircle rounding
+> Screen-by-screen specification for Gemmie. Defines layout, navigation, interactions, and component behavior for every major screen. All designs follow Material 3 guidelines with adaptive layouts for phone, tablet, and desktop.
 
 ---
 
-## 2 App Shell & Navigation
+## Table of Contents
 
-### 2.1 Navigation Philosophy
+- [1. Design System](#1-design-system)
+- [2. Navigation Structure](#2-navigation-structure)
+- [3. Home / Onboarding](#3-home--onboarding)
+- [4. Chat Screen](#4-chat-screen)
+- [5. Tools Tab](#5-tools-tab)
+- [6. File Explorer](#6-file-explorer)
+- [7. Settings Screen](#7-settings-screen)
+- [8. Persona Editor](#8-persona-editor)
+- [9. Code Editor](#9-code-editor)
+- [10. Sheets Editor](#10-sheets-editor)
+- [11. Document Editor](#11-document-editor)
+- [12. Diff Viewer](#12-diff-viewer)
+- [13. Permission Dialogs](#13-permission-dialogs)
+- [14. Model Manager](#14-model-manager)
+- [15. Adaptive Layout Breakpoints](#15-adaptive-layout-breakpoints)
 
-The app has a **3+1 navigation model**:
-- **Chat** — Core AI assistant (primary)
-- **Brain** — Second Brain / knowledge base
-- **Apps** — Secondary features: Tasks, Finance, Files, Tools, Gateway
-- **Settings** — Configuration (pinned to bottom)
+---
 
-This keeps the bottom bar to **4 items** on mobile and provides a clean sidebar on desktop.
+## 1. Design System
 
-### 2.2 Root Layout (Desktop / Tablet > 800px)
+### Theme
+
+| Token | Light | Dark |
+|-------|-------|------|
+| **Primary** | Teal 500 | Teal 200 |
+| **Secondary** | Amber 600 | Amber 200 |
+| **Surface** | White | Grey 900 |
+| **Error** | Red 500 | Red 300 |
+| **On Primary** | White | Grey 900 |
+| **Background** | Grey 50 | Grey 950 |
+
+> Final colors TBD — user-configurable accent color with Material 3 dynamic color support.
+
+### Typography
+
+| Style | Font | Size | Weight | Usage |
+|-------|------|------|--------|-------|
+| Display Large | System default | 57sp | 400 | Splash / empty states |
+| Headline Medium | System default | 28sp | 400 | Screen titles |
+| Title Large | System default | 22sp | 500 | Section headers |
+| Title Medium | System default | 16sp | 500 | Card titles, list items |
+| Body Large | System default | 16sp | 400 | Chat messages, file content |
+| Body Medium | System default | 14sp | 400 | Secondary text |
+| Label Large | System default | 14sp | 500 | Buttons, tabs |
+| Code | JetBrains Mono / Fira Code | 14sp | 400 | Code blocks, code editor |
+
+### Iconography
+
+- Material Symbols (Rounded, weight 400, grade 0, optical size 24)
+- Custom icons for permission tiers: 🔒 🔐 🔓
+- AI indicator icon for AI-authored content
+- Provider logos for API provider identification
+
+### Spacing & Layout
+
+- Standard padding: 16dp
+- Card margin: 8dp
+- List item height: 56dp (single-line), 72dp (two-line)
+- FAB bottom offset: 16dp
+- Bottom navigation height: 80dp
+- Navigation rail width: 80dp
+
+### Motion
+
+- Page transitions: Shared axis (horizontal for siblings, vertical for parent-child)
+- List item animations: Fade + slide in (staggered)
+- Loading states: Shimmer placeholder
+- Respect system reduced-motion setting
+
+---
+
+## 2. Navigation Structure
+
+### Primary Navigation
 
 ```
-+-----------------------------------------------------------+
-|  AppBar:  Prism logo  -----------  [Search]  [Cmd-K]      |
-+----------+------------------------------------------------+
-| Sidebar  |                                                |
-|          |              Main Content                      |
-| Chat     |     (Router outlet — current screen)           |
-| Brain    |                                                |
-|          |                                                |
-| -- Apps -|                                                |
-|  Tasks   |                                                |
-|  Finance |                                                |
-|  Files   |                                                |
-|  Tools   |                                                |
-|  Gateway |                                                |
-|          |                                                |
-| -------- |                                                |
-| Settings |                                                |
-+----------+------------------------------------------------+
-| Status: sync | model: gemma-3 | gateway: idle            |
-+-----------------------------------------------------------+
+┌────────────────────────────────────────────────────────────┐
+│                     App Shell                              │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │                   Content Area                       │  │
+│  │                                                      │  │
+│  │    [Active Tab Content]                              │  │
+│  │                                                      │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  Phone: Bottom Navigation Bar                              │
+│  ┌──────────┬──────────┬──────────┬──────────┐            │
+│  │  💬 Chat │ 🔧 Tools │ 📁 Files │ ⚙ Settings│           │
+│  └──────────┴──────────┴──────────┴──────────┘            │
+│                                                            │
+│  Tablet/Desktop: Navigation Rail (left side)               │
+│  ┌──┐                                                      │
+│  │💬│ Chat                                                 │
+│  │🔧│ Tools                                                │
+│  │📁│ Files                                                │
+│  │⚙│ Settings                                             │
+│  └──┘                                                      │
+└────────────────────────────────────────────────────────────┘
 ```
 
-**Implementation:**
-- `Scaffold` (Material) — outer structure
-- Custom sidebar using `MoonMenuItem` list in a `Drawer`-style column
-- Sidebar background: `context.moonColors!.gohan`
-- Selected item highlight: `context.moonColors!.piccolo` tint
-
-### 2.3 Root Layout (Mobile < 800px)
+### Navigation Hierarchy
 
 ```
-+----------------------------+
-| AppBar: Prism  [Search]    |
-+----------------------------+
-|                            |
-|     Main Content           |
-|     (full width)           |
-|                            |
-+----------------------------+
-| BottomNav (4 items only)   |
-| Chat | Brain | Apps | Cfg  |
-+----------------------------+
+Chat Tab
+├── Conversation List (default landing)
+│   ├── [+] New Conversation
+│   ├── Search Conversations
+│   └── Conversation Item → Chat Screen
+│       ├── Model Selector (bottom sheet)
+│       ├── Conversation Info (slide panel)
+│       └── Export Dialog
+│
+Tools Tab
+├── Tools Grid (categories)
+│   └── Tool Detail
+│       ├── Tool Config / Usage
+│       └── Tool Execution View
+│
+Files Tab
+├── File Browser (tree + breadcrumb)
+│   ├── File Viewer (based on type)
+│   │   ├── Document Viewer → Document Editor
+│   │   ├── Sheet Viewer → Sheets Editor
+│   │   ├── Code Viewer → Code Editor
+│   │   ├── Image Viewer
+│   │   └── Persona Viewer → Persona Editor
+│   ├── File History → Diff Viewer
+│   ├── File Info Panel
+│   └── Trash (special folder)
+│
+Settings Tab
+├── Settings Home
+│   ├── Profile Editor
+│   ├── AI Providers
+│   │   └── Provider Setup
+│   ├── Tokens & Keys
+│   ├── Agent Persona → Persona Editor
+│   ├── Storage Management
+│   ├── Sync Settings
+│   ├── Theme & Appearance
+│   ├── Permissions Overview
+│   ├── About & Licenses
+│   └── Privacy & Data
 ```
 
-**Implementation:**
-- Material `BottomNavigationBar` or `NavigationBar` (Moon Design does not include one)
-- 4 items: Chat, Brain, Apps, Settings
-- Apps tab opens a sub-navigation grid using `MoonMenuItem`
+---
 
-### 2.4 Apps Hub Screen
+## 3. Home / Onboarding
 
-When "Apps" is selected, show a grid of available mini-apps:
+### First Launch Flow
 
-```dart
-GridView(
-  children: [
-    _AppTile(icon: MoonIcons.generic_check_alternative_24_light, label: 'Tasks'),
-    _AppTile(icon: MoonIcons.shop_wallet_24_light, label: 'Finance'),
-    _AppTile(icon: MoonIcons.files_folder_open_24_light, label: 'Files'),
-    _AppTile(icon: MoonIcons.software_settings_24_light, label: 'Tools'),
-    _AppTile(icon: MoonIcons.generic_lightning_24_light, label: 'Gateway'),
-  ],
-)
+```
+┌─────────────────────────────────────┐
+│          Welcome to Gemmie          │
+│                                     │
+│     [App Logo / Animation]          │
+│                                     │
+│  Your AI, your rules.              │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │       [Get Started]           │  │
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────┐
+│     Quick Setup (3 steps)           │
+│                                     │
+│  Step 1/3: Your Name                │
+│  ┌─────────────────────────────┐    │
+│  │ Display Name: [_________]   │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  Step 2/3: Choose Your AI           │
+│  ○ Run models locally (free,        │
+│    requires download)               │
+│  ○ Connect to cloud AI (needs       │
+│    API key)                         │
+│  ○ Set up later                     │
+│                                     │
+│  Step 3/3: Theme                    │
+│  [Light] [Dark] [System]            │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │      [Start Chatting →]       │  │
+│  └───────────────────────────────┘  │
+└─────────────────────────────────────┘
 ```
 
-Each tile is a `MoonBaseControl` with icon + label, navigates to the sub-screen.
+### Behaviors
+
+- Onboarding is skippable — user can go directly to app
+- Setup can be completed later from Settings
+- Default persona files are created automatically on first launch
+- If user chooses "local models" → redirect to Model Manager after onboarding
+- If user chooses "cloud AI" → redirect to Provider Setup
 
 ---
 
-## 3 Screen: Chat (Primary)
+## 4. Chat Screen
 
-### 3.1 Conversation List (Sidebar / Drawer)
+### Conversation List
 
-**Components:**
-- `ListView` with `MoonMenuItem` — each conversation
-  - `leading`: `MoonAvatar` with persona initial
-  - `label`: conversation title
-  - `trailing`: `MoonTag` (unread count) or pin icon
-- `MoonTextInput` — search/filter at top
-- `MoonFilledButton` — "New Chat"
-- `MoonPopover` — context menu (Rename, Pin, Archive, Delete)
-- `MoonDropdown` — sort options
+```
+┌──────────────────────────────────────┐
+│  💬 Chats                    [🔍] [+]│
+├──────────────────────────────────────┤
+│  📌 Pinned                           │
+│  ┌──────────────────────────────────┐│
+│  │ 🤖 Budget Analysis              ││
+│  │ "Here's the Q1 breakdown..."    ││
+│  │ 2 hours ago · gemma-3b          ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  Recent                              │
+│  ┌──────────────────────────────────┐│
+│  │ 🤖 Code Review Help             ││
+│  │ "I found 3 potential issues..." ││
+│  │ Yesterday · GPT-4o              ││
+│  └──────────────────────────────────┘│
+│  ┌──────────────────────────────────┐│
+│  │ 🤖 Meeting Notes Summary        ││
+│  │ "Key action items from..."      ││
+│  │ 2 days ago · Claude 3.5         ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  [Show Archived]                     │
+└──────────────────────────────────────┘
+```
 
-### 3.2 Chat View (Main Area)
+### Chat Screen (Active Conversation)
 
-**Components:**
-- Custom `ChatBubble` widget — styled with `MoonSquircleBorder`
-  - AI messages: background `context.moonColors!.gohan`, left-aligned
-  - User messages: background `context.moonColors!.piccolo` tint, right-aligned
-- `MoonAccordion` — expandable tool call results
-  - Header: "Tool: web_search" with `MoonTag`
-  - Body: JSON input/output
-- `MoonLinearProgress` — token generation progress
-- `MoonCircularLoader` — streaming indicator
-- `MoonToast` — copy/error notifications
-- `MoonAvatar` — user/AI avatars beside messages
+```
+┌──────────────────────────────────────┐
+│  [←] Budget Analysis     [⊕ model] [⋮]│
+├──────────────────────────────────────┤
+│                                      │
+│  ┌─ User ────────────────────────┐   │
+│  │ Can you analyze this budget   │   │
+│  │ spreadsheet?                  │   │
+│  │ 📎 budget_q1.csv             │   │
+│  └───────────────────────────────┘   │
+│                                      │
+│  ┌─ Gemmie (gemma-3b) ──────────┐   │
+│  │ I'll analyze the spreadsheet. │   │
+│  │                               │   │
+│  │ ┌─ 🔧 Tool: File Read ─────┐ │   │
+│  │ │ Reading: budget_q1.csv    │ │   │
+│  │ │ Status: ✅ Complete       │ │   │
+│  │ └──────────────────────────┘ │   │
+│  │                               │   │
+│  │ ## Summary                    │   │
+│  │ - Total Revenue: **$45,000**  │   │
+│  │ - Total Expenses: **$32,500** │   │
+│  │ - Net Profit: **$12,500**     │   │
+│  │                               │   │
+│  │ ```python                     │   │
+│  │ revenue = [10000, 12000, ...]│   │
+│  │ ```            [📋 Copy] [▶ Run]│  │
+│  │                               │   │
+│  │ Would you like me to create   │   │
+│  │ a chart?                      │   │
+│  │                 [🔄] [📋] [👍👎]│  │
+│  └───────────────────────────────┘   │
+│                                      │
+│                                      │
+├──────────────────────────────────────┤
+│  ┌────────────────────────────────┐  │
+│  │ [📎][🎤] Type a message... [➤]│  │
+│  └────────────────────────────────┘  │
+│  Using: gemma-3b (local) · 142 tokens│
+└──────────────────────────────────────┘
+```
 
-### 3.3 Chat Input Bar
+### Chat Interactions
 
-**Components:**
-- `MoonTextArea` — multi-line message input
-- `MoonFilledButton` — send
-- `MoonButton.icon` — attach file, stop generation
-- `MoonDropdown` — model/provider selector
-- `MoonPopover` — persona quick-switch
-- `MoonChip` — attached file indicators with close button
+| Interaction | Behavior |
+|------------|----------|
+| Swipe left on message | Edit (user) / Regenerate (assistant) |
+| Long press message | Copy, Share, Edit, Delete, Branch |
+| Tap branch indicator | Show sibling branches, switch to another branch |
+| Swipe left/right on branch node | Navigate between sibling branches at fork point |
+| Tap model badge | Open model selector bottom sheet |
+| Tap tool invocation | Expand/collapse tool details |
+| Tap "Run" on code block | Execute code (FR-10) → show output inline |
+| Tap "Copy" on code block | Copy code to clipboard |
+| Pull down | Scroll to top, show conversation info |
+| 👍/👎 on response | Feedback stored for future reference |
 
-### 3.4 Branching UI
+### Model Selector (Bottom Sheet)
 
-- `MoonSegmentedControl` or button row — branch navigation
-- `MoonPopover` — branch preview on hover
-- Context menu — "Fork from here" option
-
----
-
-## 4 Screen: Second Brain (PARA)
-
-### 4.1 PARA Dashboard
-
-**Components:**
-- `MoonTabBar` with `MoonTab` — top-level PARA tabs (Projects, Areas, Resources, Archives)
-- Card container with squircle + `goten` bg — item cards in grid
-  - Title, description, `MoonTag` (status), emoji icon
-  - `MoonLinearProgress` for project completion
-- `MoonFilledButton` — "Add New"
-- `MoonTextInput` — filter/search
-- `MoonDropdown` — sort by
-
-### 4.2 Note Editor
-
-- `AppFlowy Editor` (embedded) — block-based note editing
-- `MoonChip` — tags
-- `MoonDropdown` — PARA category assignment
-- `MoonPopover` — bi-directional link picker
-- `MoonAlert` — AI suggestion
-
----
-
-## 5 Screen: Tasks (App)
-
-### 5.1 Task List View
-
-**Components:**
-- `MoonTable` — sortable task table
-  - Columns: `MoonCheckbox`, Title, Priority (`MoonTag`), Status (`MoonTag`), Project, Due Date
-  - `MoonTableRow` — selectable rows
-- `MoonTabBar` — view switcher: List | Kanban | Calendar
-- `MoonDropdown` — filter by status/priority/project
-- `MoonFilledButton` — "Add Task"
-
-### 5.2 Kanban View
-
-- Column headers: `MoonTag` with count
-- Task cards: Container with `goten` bg, `MoonSquircleBorder`
-  - `MoonTag` for priority, emoji for project
-- `MoonChip` — tags on cards
-
-### 5.3 Task Detail
-
-- `MoonModal` or `showMoonModalBottomSheet` — detail panel
-- `MoonTextInput` — title
-- `MoonTextArea` — description
-- `MoonDropdown` — status, priority
-- `MoonCheckbox` — subtasks
-- `MoonAccordion` — AI suggestions section
-
----
-
-## 6 Screen: Finance (App)
-
-### 6.1 Finance Dashboard
-
-**Components:**
-- Summary cards (Container + squircle) — Income, Expenses, Balance, Savings Rate
-- `MoonLinearProgress` — budget usage per category
-- `MoonTabBar` — Transactions | Budget | Insights
-
-### 6.2 Transaction List
-
-- Custom `ListView` — transaction rows
-  - `MoonTag` for category
-  - Color-coded amounts (roshi for income, chichi for expense)
-- `MoonDropdown` — filter by category/date
-- `MoonFilledButton` — "Add Entry"
-- `MoonAlert` — AI spending insight
-
-### 6.3 Budget View
-
-- Cards per category with `MoonLinearProgress`
-- Percentage labels with roshi/chichi coloring
-
----
-
-## 7 Screen: Files (App)
-
-**Components:**
-- `MoonMenuItem` list — file tree with indentation
-  - Folder/file icons from `MoonIcons`
-  - `MoonTag` for file type
-- `MoonTextInput` — search
-- File preview pane — rendered markdown/code
-- `MoonLinearProgress` — storage usage indicator
-- `MoonFilledButton` / `MoonOutlinedButton` — New File, Import
+```
+┌──────────────────────────────────────┐
+│  ──── Select Model ────              │
+│                                      │
+│  Local Models                        │
+│  ┌──────────────────────────────────┐│
+│  │ ✅ gemma-3b-it                   ││
+│  │    3B params · Q4_0 · 1.8 GB    ││
+│  └──────────────────────────────────┘│
+│  ┌──────────────────────────────────┐│
+│  │ ○  gemma-7b-it                   ││
+│  │    7B params · Q4_0 · 3.9 GB    ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  Ollama Servers                      │
+│  ┌──────────────────────────────────┐│
+│  │ 🟢 Desktop PC (192.168.1.42)    ││
+│  │    llama3, mistral, codellama   ││
+│  │    ○ llama3:8b                  ││
+│  │    ○ mistral:7b                 ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  Cloud Providers                     │
+│  ┌──────────────────────────────────┐│
+│  │ ○  GPT-4o (OpenAI)              ││
+│  │    128K context · Vision ✓      ││
+│  └──────────────────────────────────┘│
+│  ┌──────────────────────────────────┐│
+│  │ ○  Claude 3.5 Sonnet            ││
+│  │    200K context · Vision ✓      ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  [Manage Models →]                   │
+└──────────────────────────────────────┘
+```
 
 ---
 
-## 8 Screen: Tools & MCP (App)
+## 5. Tools Tab
 
-### 8.1 MCP Tools Dashboard
+### Tools Grid
 
-**Components:**
-- `MoonTable` — registered tools table (name, description, provider, call count)
-- `MoonAccordion` — tool detail expand (parameters, recent calls)
-- `MoonSwitch` — enable/disable individual tools
-- `MoonTag` — provider labels (builtin, mcp-server, custom)
+```
+┌──────────────────────────────────────┐
+│  🔧 Tools                    [🔍]   │
+├──────────────────────────────────────┤
+│                                      │
+│  Code Execution                      │
+│  ┌──────────┐ ┌──────────┐          │
+│  │ 🐍       │ │ ⚡       │          │
+│  │ Python   │ │ JS/TS    │          │
+│  │ Runner   │ │ Runner   │          │
+│  │ ✅ On    │ │ ✅ On    │          │
+│  └──────────┘ └──────────┘          │
+│                                      │
+│  File Operations                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────┐ │
+│  │ 📖       │ │ ✏️       │ │ 🔍   │ │
+│  │ File     │ │ File     │ │ File │ │
+│  │ Read     │ │ Write    │ │Search│ │
+│  │ ✅ On    │ │ ✅ On    │ │✅ On │ │
+│  └──────────┘ └──────────┘ └──────┘ │
+│                                      │
+│  Web & API                           │
+│  ┌──────────┐ ┌──────────┐          │
+│  │ 🌐       │ │ 🔗       │          │
+│  │ Web      │ │ URL      │          │
+│  │ Search   │ │ Fetch    │          │
+│  │ ⬜ Off   │ │ ✅ On    │          │
+│  └──────────┘ └──────────┘          │
+│                                      │
+│  Productivity                        │
+│  ┌──────────┐ ┌──────────┐ ┌──────┐ │
+│  │ 🔢       │ │ 📊       │ │ 📄   │ │
+│  │Calcu-    │ │ Create   │ │Create│ │
+│  │lator     │ │ Sheet    │ │ Doc  │ │
+│  │ ✅ On    │ │ ✅ On    │ │✅ On │ │
+│  └──────────┘ └──────────┘ └──────┘ │
+│                                      │
+└──────────────────────────────────────┘
+```
 
-### 8.2 MCP Server Management
+### Tool Detail Screen
 
-- `MoonMenuItem` list — connected servers with status
-- `MoonAlert` — connection errors
-- `MoonFilledButton` — "Add Server"
-- `MoonModal` — server configuration form
-  - `MoonTextInput` — name, command, args
-  - `MoonSwitch` — auto-connect on startup
-
----
-
-## 9 Screen: AI Gateway (App)
-
-**Components:**
-- `MoonSwitch` — Gateway on/off toggle
-- `MoonTextInput` — port number, bind address
-- Status cards: requests served, active connections, uptime
-- `MoonTable` — API key table (key, created, last used, revoke button)
-- `MoonLinearProgress` — rate limit usage
-- `MoonAccordion` — recent request log
-
----
-
-## 10 Screen: Settings
-
-### 10.1 Settings Layout
-
-- `MoonMenuItem` list — settings categories (sidebar or full list on mobile)
-- Categories: General, AI Providers, Personas, Appearance, Security, About
-
-### 10.2 General Settings
-
-- `MoonSwitch` — startup behaviors
-- `MoonDropdown` — default model, language
-- `MoonTextInput` — custom paths
-
-### 10.3 AI Provider Settings
-
-- `MoonAccordion` per provider — expandable config
-  - `MoonTextInput` — API key, base URL
-  - `MoonDropdown` — default model selection
-  - `MoonSwitch` — enabled/disabled
-  - `MoonFilledButton` — "Test Connection"
-- `MoonAlert` — connection status
-
-### 10.4 Appearance Settings
-
-- `MoonSegmentedControl` — Theme: Light | Dark | System
-- `MoonDropdown` — accent color preset
-- `MoonSwitch` — compact mode, animations
-
-### 10.5 Security Settings
-
-- `MoonTextInput` (password) — set app password
-- `MoonSwitch` — biometric unlock
-- `MoonFilledButton` — export/import encryption keys
-- `MoonAlert` — security status
-
----
-
-## 11 Responsive Breakpoints
-
-| Breakpoint | Layout | Nav |
-|---|---|---|
-| < 600px | Single column | Bottom bar (4 items) |
-| 600–1200px | Content + optional panel | Rail or small sidebar |
-| > 1200px | Sidebar + resizable content | Full sidebar |
-
----
-
-## 12 Accessibility
-
-- All `MoonButton`, `MoonTextInput`, `MoonMenuItem` are keyboard-navigable
-- `semanticLabel` on all `MoonAvatar`, `MoonSwitch`, `MoonCheckbox`
-- Focus effects via `MoonFocusEffect` (built-in)
-- `MoonTooltip` for icon-only buttons
-- Min touch target: 48x48 on mobile
+```
+┌──────────────────────────────────────┐
+│  [←] Python Runner                   │
+├──────────────────────────────────────┤
+│                                      │
+│  Execute Python code locally or via  │
+│  remote execution environment.       │
+│                                      │
+│  ┌─ Configuration ────────────────┐  │
+│  │ Enabled:         [ON ████████] │  │
+│  │ Timeout:         [30 sec ───●] │  │
+│  │ Memory Limit:    [256 MB ──●─] │  │
+│  │ Network Access:  [OFF ███████] │  │
+│  │ Auto-approve:    [OFF ███████] │  │
+│  │ Environment:     [Local ▼    ] │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  Permission: 🔐 Gated                │
+│  AI must request permission before   │
+│  executing code.                     │
+│                                      │
+│  ┌─ Recent Invocations ──────────┐   │
+│  │ 📝 "Calculate monthly avgs"    │   │
+│  │    Today 2:30 PM · ✅ Success  │   │
+│  │ 📝 "Parse CSV data"            │   │
+│  │    Yesterday · ✅ Success      │   │
+│  │ 📝 "Generate chart"            │   │
+│  │    2 days ago · ❌ Timeout     │   │
+│  └────────────────────────────────┘  │
+│                                      │
+└──────────────────────────────────────┘
+```
 
 ---
 
-## 13 Animation & Micro-interactions
+## 6. File Explorer
 
-- `MoonAccordion` — smooth expand/collapse with configurable duration
-- `MoonSwitch` — toggle animation
-- `MoonTabBar` — indicator slide animation
-- `MoonAlert` — enter/exit fade
-- `MoonCircularLoader` — continuous rotation
-- `MoonToast` — slide-in from top/bottom
-- Page transitions: Material `SharedAxisTransition` or `FadeThrough`
+### File Browser
+
+```
+┌──────────────────────────────────────┐
+│  📁 Files              [🔍] [+] [⋮] │
+├──────────────────────────────────────┤
+│  📁 > Documents > Project Alpha      │
+│  ───────────────────────────────────  │
+│                                      │
+│  ┌─────────────┬────────┬──────────┐ │
+│  │ Name        │ Modified│ Lock    │ │
+│  ├─────────────┼────────┼──────────┤ │
+│  │📁 Research  │ Today  │ 🔐      │ │
+│  │📁 Drafts    │ Yester.│ 🔓      │ │
+│  │📄 spec.md   │ Today  │ 🔐      │ │
+│  │📊 data.csv  │ 2d ago │ 🔓      │ │
+│  │💻 analyze.py│ 1w ago │ 🔐      │ │
+│  │🖼 diagram.png│3d ago │ 🔓      │ │
+│  └─────────────┴────────┴──────────┘ │
+│                                      │
+│  6 items · 2.4 MB                    │
+│                                      │
+│  ┌─ Quick Access ──────────────────┐ │
+│  │ ⭐ budget_q1.csv                │ │
+│  │ ⭐ soul.md                      │ │
+│  │ 🕐 meeting-notes.md (recent)   │ │
+│  └─────────────────────────────────┘ │
+└──────────────────────────────────────┘
+```
+
+### File Context Menu (Long Press / Right Click)
+
+```
+┌──────────────────────────────┐
+│  spec.md                     │
+│  ─────────────────────────── │
+│  📖 Open                     │
+│  ✏️  Edit                    │
+│  📋 Copy                     │
+│  📁 Move to...               │
+│  🏷️  Tags...                 │
+│  ─────────────────────────── │
+│  🔐 Change Permission → [▶] │
+│      🔒 Locked               │
+│      🔐 Gated ✓              │
+│      🔓 Open                 │
+│  ─────────────────────────── │
+│  📜 Version History          │
+│  📤 Export                    │
+│  📎 Share                    │
+│  ─────────────────────────── │
+│  🗑️  Move to Trash           │
+└──────────────────────────────┘
+```
+
+### File Info Panel (Slide-In from Right)
+
+```
+┌──────────────────────────────┐
+│  spec.md                     │
+│  ─────────────────────────── │
+│  Type:       📄 Document     │
+│  Size:       12.4 KB         │
+│  Created:    Feb 5, 2026     │
+│  Modified:   Feb 7, 2026     │
+│  Created by: User            │
+│  Modified by: ai:gemma-3b   │
+│  Permission: 🔐 Gated       │
+│  Versions:   14              │
+│  Tags:       project, spec   │
+│  ─────────────────────────── │
+│  [📜 View History]           │
+│  [✏️  Edit Info]              │
+│  [🔐 Change Permission]     │
+└──────────────────────────────┘
+```
 
 ---
 
-## 14 Component Mapping Summary
+## 7. Settings Screen
 
-| Concept | Moon Design Widget |
-|---|---|
-| Primary button | `MoonFilledButton` |
-| Secondary button | `MoonOutlinedButton` |
-| Text button | `MoonTextButton` |
-| Icon button | `MoonButton.icon` |
-| Text field | `MoonTextInput` / `MoonFormTextInput` |
-| Text area | `MoonTextArea` |
-| Checkbox | `MoonCheckbox` |
-| Radio | `MoonRadio` |
-| Switch/Toggle | `MoonSwitch` |
-| Dropdown/Select | `MoonDropdown` |
-| Tab bar | `MoonTabBar` + `MoonTab` |
-| Pill tabs | `MoonTabBar` + `MoonPillTab` |
-| Segments | `MoonSegmentedControl` |
-| Alert/Banner | `MoonAlert` / `MoonAlert.filled` |
-| Toast | `MoonToast` |
-| Tooltip | `MoonTooltip` |
-| Popover | `MoonPopover` |
-| Modal | `MoonModal` / `showMoonModal` |
-| Bottom sheet | `showMoonModalBottomSheet` |
-| Drawer | `MoonDrawer` |
-| Avatar | `MoonAvatar` |
-| Tag/Badge | `MoonTag` |
-| Chip | `MoonChip` |
-| Menu item | `MoonMenuItem` |
-| Table | `MoonTable` |
-| Accordion | `MoonAccordion` |
-| Progress bar | `MoonLinearProgress` |
-| Spinner/Loader | `MoonCircularLoader` |
-| Carousel | `MoonCarousel` |
-| Breadcrumb | `MoonBreadcrumb` |
-| Dot indicator | `MoonDotIndicator` |
+### Settings Home
+
+```
+┌──────────────────────────────────────┐
+│  ⚙ Settings                         │
+├──────────────────────────────────────┤
+│                                      │
+│  ┌─ Profile ───────────────────────┐ │
+│  │ 👤 Abhij                     [→]│ │
+│  │    abhij@email.com              │ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  AI Configuration                    │
+│  ┌─────────────────────────────────┐ │
+│  │ 🤖 AI Providers             [→]│ │
+│  │ 🔑 Tokens & API Keys        [→]│ │
+│  │ 📥 Local Models              [→]│ │
+│  │ 🎭 Agent Persona             [→]│ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  App Settings                        │
+│  ┌─────────────────────────────────┐ │
+│  │ 🎨 Theme & Appearance        [→]│ │
+│  │ 🔒 Permissions Overview       [→]│ │
+│  │ 💾 Storage Management         [→]│ │
+│  │ ☁️  Sync Settings              [→]│ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  About                               │
+│  ┌─────────────────────────────────┐ │
+│  │ 🔐 Privacy & Data            [→]│ │
+│  │ 📜 Licenses                   [→]│ │
+│  │ ℹ️  About Gemmie               [→]│ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  App v0.1.0 · Made with 💚          │
+└──────────────────────────────────────┘
+```
+
+### Tokens & API Keys
+
+```
+┌──────────────────────────────────────┐
+│  [←] Tokens & API Keys              │
+├──────────────────────────────────────┤
+│                                      │
+│  ┌─ HuggingFace ──────────────────┐  │
+│  │ 🔑 Access Token                │  │
+│  │    hf_●●●●●●●●●●●●●●●k3f     │  │
+│  │    Status: ✅ Valid             │  │
+│  │    [Edit] [Delete] [Test]      │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌─ OpenAI ───────────────────────┐  │
+│  │ 🔑 API Key                     │  │
+│  │    sk-●●●●●●●●●●●●●●●7x2     │  │
+│  │    Status: ✅ Valid             │  │
+│  │    [Edit] [Delete] [Test]      │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌─ OpenRouter ───────────────────┐  │
+│  │ 🔑 API Key                     │  │
+│  │    Not configured              │  │
+│  │    [+ Add Key]                 │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌─ Ollama ───────────────────────┐  │
+│  │ 🌐 Servers                     │  │
+│  │    1 server connected          │  │
+│  │    No API key required         │  │
+│  │    [Manage Servers →]          │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  ┌─ Mistral AI ───────────────────┐  │
+│  │ 🔑 API Key                     │  │
+│  │    Not configured              │  │
+│  │    [+ Add Key]                 │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  [+ Add Custom Provider Key]        │
+│                                      │
+│  🔒 All keys are stored encrypted   │
+│  in your device's secure keystore.  │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 8. Persona Editor
+
+### Persona Overview
+
+```
+┌──────────────────────────────────────┐
+│  [←] Agent Persona                   │
+├──────────────────────────────────────┤
+│                                      │
+│  Active Persona: Default           ▼ │
+│                                      │
+│  ┌─ Persona Files ────────────────┐  │
+│  │                                 │  │
+│  │ 🧠 Soul        "Helpful, ho..." │  │
+│  │   Core identity & values     [→]│  │
+│  │                                 │  │
+│  │ 🎭 Personality  Casual, concise │  │
+│  │   Tone, style & behavior     [→]│  │
+│  │                                 │  │
+│  │ 💭 Memory       12 entries      │  │
+│  │   What Gemmie remembers      [→]│  │
+│  │                                 │  │
+│  │ 📏 Rules        8 rules         │  │
+│  │   Behavioral constraints     [→]│  │
+│  │                                 │  │
+│  │ 📚 Knowledge    3 entries       │  │
+│  │   Domain-specific info       [→]│  │
+│  └─────────────────────────────────┘  │
+│                                      │
+│  ┌─ Quick Preview ─────────────────┐ │
+│  │ "Hi! I'm Gemmie. I keep things │ │
+│  │  concise and casual. I'll ask   │ │
+│  │  before touching your files."   │ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  [+ New Persona] [🔄 Reset Default]  │
+└──────────────────────────────────────┘
+```
+
+### Personality Editor (Visual Mode)
+
+```
+┌──────────────────────────────────────┐
+│  [←] Personality                     │
+├──────────────────────────────────────┤
+│                                      │
+│  Tone                                │
+│  Formal ────────●──── Casual         │
+│                            (0.7)     │
+│                                      │
+│  Verbosity                           │
+│  Concise ──●────────── Verbose       │
+│                            (0.3)     │
+│                                      │
+│  Humor                               │
+│  Serious ──────●─────── Humorous     │
+│                            (0.5)     │
+│                                      │
+│  Empathy                             │
+│  Neutral ────────●──── Empathetic    │
+│                            (0.6)     │
+│                                      │
+│  Creativity                          │
+│  Factual ───●──────── Creative       │
+│                            (0.4)     │
+│                                      │
+│  Emoji Usage: [Minimal ▼]           │
+│  Code Style:  [Commented ▼]         │
+│  Response Format: [Bullets ▼]       │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ 🔐 1 pending AI change request │  │
+│  │    [Review Changes →]          │  │
+│  └────────────────────────────────┘  │
+│                                      │
+│  [📝 Edit Raw Markdown]              │
+│  [↩️  Undo Last Change]              │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 9. Code Editor
+
+### Code Editor Screen
+
+```
+┌──────────────────────────────────────┐
+│  [←] analyze.py    [▶ Run] [💾] [⋮] │
+│  Language: Python · Local · 30s max  │
+├──────────────────────────────────────┤
+│  1 │ import csv                      │
+│  2 │                                 │
+│  3 │ def analyze_budget(filepath):   │
+│  4 │     data = []                   │
+│  5 │     with open(filepath) as f:   │
+│  6 │         reader = csv.reader(f)  │
+│  7 │         for row in reader:      │
+│  8 │             data.append(row)    │
+│  9 │                                 │
+│ 10 │     total = sum(               │
+│ 11 │         float(r[1]) for r in   │
+│ 12 │         data[1:]               │
+│ 13 │     )                          │
+│ 14 │     print(f"Total: ${total}")  │
+│ 15 │                                 │
+│ 16 │ analyze_budget("budget.csv")   │
+│    │                                 │
+├──────────────────── Output ──────────┤
+│  ▶ Running... (2.1s)                 │
+│  Total: $45000.00                    │
+│                                      │
+│  ✅ Completed in 2.3s · 12MB RAM     │
+└──────────────────────────────────────┘
+```
+
+### Execution Configuration (Expandable Panel)
+
+```
+┌─ Execution Settings ─────────────────┐
+│ Environment:  [Local ▼] [Remote ▼]   │
+│ Timeout:      [30 ────●──── sec]     │
+│ Memory:       [256 ───●──── MB]      │
+│ Network:      [OFF ████████]         │
+│ Save as Script: [+ Save]            │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 10. Sheets Editor
+
+```
+┌──────────────────────────────────────┐
+│  [←] budget_q1.csv  [💾] [📤] [⋮]  │
+├──────────────────────────────────────┤
+│     │  A        │  B       │  C      │
+│  ───┼───────────┼──────────┼─────────│
+│  1  │ Month     │ Revenue  │ Expenses│
+│  ───┼───────────┼──────────┼─────────│
+│  2  │ January   │ 10000    │ 7500    │
+│  3  │ February  │ 12000    │ 8000    │
+│  4  │ March     │ 15000    │ 9500    │
+│  5  │ April     │ 13000    │ 8200    │
+│  6  │           │          │         │
+│  ───┼───────────┼──────────┼─────────│
+│                                      │
+│  ┌─ Cell B2 ─────────────────────┐   │
+│  │ Value: [10000_____________]   │   │
+│  └───────────────────────────────┘   │
+│                                      │
+│  [+ Row] [+ Column] [Sort ▼]        │
+│  [Filter ▼] [🔢 Formulas] [📊 Chart]│
+│                                      │
+│  4 rows · 3 columns · 🔓 Open       │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 11. Document Editor
+
+```
+┌──────────────────────────────────────┐
+│  [←] Project Spec    [👁/✏] [💾] [⋮]│
+├──────────────────────────────────────┤
+│  [B] [I] [H▼] [•] [1.] [🔗] [</>]  │
+│  ─────────────────────────────────── │
+│                                      │
+│  # Project Alpha Specification       │
+│                                      │
+│  ## Overview                         │
+│                                      │
+│  Project Alpha is a data pipeline    │
+│  that processes customer feedback    │
+│  and generates actionable insights.  │
+│                                      │
+│  ## Budget                           │
+│                                      │
+│  ┌─ Embedded: budget_q1.csv ──────┐ │
+│  │ Month    │ Revenue │ Expenses  │ │
+│  │ January  │ 10,000  │ 7,500     │ │
+│  │ February │ 12,000  │ 8,000     │ │
+│  │ March    │ 15,000  │ 9,500     │ │
+│  │ [Open in Sheets →]            │ │
+│  └────────────────────────────────┘ │
+│                                      │
+│  ## Technical Requirements           │
+│                                      │
+│  - Python 3.10+                      │
+│  - PostgreSQL 15                     │
+│  - Redis 7.x                        │
+│                                      │
+│  ──────────────── Outline ───────── │
+│  • Overview                          │
+│  • Budget                            │
+│  • Technical Requirements            │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 12. Diff Viewer
+
+### Side-by-Side Diff
+
+```
+┌──────────────────────────────────────┐
+│  [←] spec.md · v12 → v13            │
+│  Changed by: ai:gemma-3b · 2h ago   │
+│  [Unified] [Side-by-Side ✓]         │
+├────────────────┬─────────────────────┤
+│  Version 12    │  Version 13         │
+│  ──────────────│─────────────────────│
+│  ## Overview   │  ## Overview        │
+│                │                     │
+│- processes     │+ processes and      │
+│  customer      │  analyzes customer  │
+│  feedback      │  feedback           │
+│                │                     │
+│  ## Budget     │  ## Budget          │
+│                │                     │
+│                │+ > Note: Budget     │
+│                │+ figures are        │
+│                │+ preliminary.       │
+│                │                     │
+│  ## Technical  │  ## Technical       │
+│  Requirements  │  Requirements       │
+│                │                     │
+│  - Python 3.10+│  - Python 3.10+    │
+│- - PostgreSQL  │+ - PostgreSQL 16   │
+│    15          │                     │
+│                │                     │
+├────────────────┴─────────────────────┤
+│  +3 additions · -1 deletion · 1 mod  │
+│                                      │
+│  [✅ Accept All] [❌ Reject All]     │
+│  [◀ Prev Hunk] [Next Hunk ▶]        │
+│                                      │
+│  Or select individual changes above  │
+│  to accept/reject each one.          │
+└──────────────────────────────────────┘
+```
+
+### File History View
+
+```
+┌──────────────────────────────────────┐
+│  [←] spec.md · History               │
+├──────────────────────────────────────┤
+│                                      │
+│  ● v14 · Now                         │
+│  │  User · "Updated requirements"    │
+│  │  [View] [Compare ↕]              │
+│  │                                   │
+│  ● v13 · 2 hours ago                 │
+│  │  🤖 ai:gemma-3b · "Added budget  │
+│  │  note and updated PostgreSQL"     │
+│  │  [View] [Compare ↕] [Revert]     │
+│  │                                   │
+│  ● v12 · Yesterday                   │
+│  │  User · "Initial draft"           │
+│  │  [View] [Compare ↕] [Revert]     │
+│  │                                   │
+│  ● v11 · 3 days ago                  │
+│  │  User · "Created file"            │
+│  │  [View] [Compare ↕]              │
+│  │                                   │
+│  ─────────────────────────────────── │
+│  [🗑 Delete History...] ⚠️           │
+│  14 versions · 48 KB total           │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 13. Permission Dialogs
+
+### Permission Request Dialog
+
+```
+┌────────────────────────────────────────┐
+│  🔐 Permission Request                 │
+│  ────────────────────────────────────  │
+│                                        │
+│  Gemmie (gemma-3b) wants to:          │
+│                                        │
+│  ✏️  Write to: spec.md                 │
+│  📁 In: Documents/Project Alpha       │
+│                                        │
+│  Reason:                               │
+│  "I'd like to update the PostgreSQL   │
+│  version requirement from 15 to 16    │
+│  based on our discussion."            │
+│                                        │
+│  Current permission: 🔐 Gated         │
+│                                        │
+│  ┌──────────────────────────────────┐  │
+│  │ ✅ Allow (this time only)        │  │
+│  │ ✅ Allow (this session)          │  │
+│  │ ✅ Allow (always)                │  │
+│  │ ❌ Deny                          │  │
+│  └──────────────────────────────────┘  │
+│                                        │
+│  ☐ Show diff before applying changes  │
+│                                        │
+└────────────────────────────────────────┘
+```
+
+### Destructive Action Confirmation
+
+```
+┌────────────────────────────────────────┐
+│  ⚠️  Permanently Delete History?       │
+│  ────────────────────────────────────  │
+│                                        │
+│  You are about to permanently delete  │
+│  ALL version history for spec.md.     │
+│                                        │
+│  This action CANNOT be undone.        │
+│  14 versions (48 KB) will be removed. │
+│                                        │
+│  Type "delete" to confirm:            │
+│  ┌──────────────────────────────────┐  │
+│  │ [___________________________]    │  │
+│  └──────────────────────────────────┘  │
+│                                        │
+│  [Cancel]          [Delete Forever]    │
+│                                        │
+└────────────────────────────────────────┘
+```
+
+---
+
+## 14. Model Manager
+
+```
+┌──────────────────────────────────────┐
+│  [←] Local Models                    │
+├──────────────────────────────────────┤
+│                                      │
+│  Downloaded                          │
+│  ┌──────────────────────────────────┐│
+│  │ ✅ gemma-3b-it                   ││
+│  │ 3B · Q4_0 · 1.8 GB · Ready      ││
+│  │ Last used: Today                 ││
+│  │ [Configure] [Delete]            ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  Available                           │
+│  ┌──────────────────────────────────┐│
+│  │ ⬇️  gemma-7b-it                  ││
+│  │ 7B · Q4_0 · 3.9 GB              ││
+│  │ "Larger model for complex tasks" ││
+│  │ [Download]                       ││
+│  └──────────────────────────────────┘│
+│  ┌──────────────────────────────────┐│
+│  │ 🔒 gemma-2-27b-it               ││
+│  │ 27B · Q4_0 · 14.2 GB            ││
+│  │ Requires HuggingFace login       ││
+│  │ [Login to Download]             ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  ┌──────────────────────────────────┐│
+│  │ 📂 Import Local Model File      ││
+│  └──────────────────────────────────┘│
+│                                      │
+│  Storage: 1.8 GB / 32 GB used       │
+│  ████░░░░░░░░░░░░░░░░ 5.6%          │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 15. Adaptive Layout Breakpoints
+
+### Phone (< 600dp)
+
+- Single-pane layout
+- Bottom navigation bar (4 tabs)
+- Full-screen modals and sheets
+- Chat: single column
+- File explorer: single pane with navigation stack
+
+### Tablet (600-839dp)
+
+- Optional split-pane (list + detail)
+- Navigation rail (left side)
+- Bottom sheets become side panels
+- Chat: conversation list visible alongside active chat
+- File explorer: tree + preview pane
+
+### Desktop (≥ 840dp)
+
+- Split-pane layout (persistent)
+- Navigation rail with labels
+- Side panels for info/settings
+- Chat: three-pane (list / chat / info)
+- File explorer: tree + editor + info panel
+- Code editor: full IDE-like layout (editor + output + file tree)
+
+### Responsive Component Behavior
+
+| Component | Phone | Tablet | Desktop |
+|-----------|-------|--------|---------|
+| Navigation | Bottom bar | Rail | Rail + labels |
+| Chat list | Full screen → push to chat | Side panel | Persistent panel |
+| File browser | Full screen → push to file | Split-pane | Three-pane |
+| Settings | Full screen | Full screen | Side panel or overlay |
+| Dialogs | Full-screen sheet | Center dialog | Center dialog |
+| Code editor | Full screen, tab between code/output | Split (code + output) | Side-by-side + file tree |
+| Diff viewer | Tab between old/new | Side-by-side | Side-by-side with controls |
