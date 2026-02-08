@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:moon_design/moon_design.dart';
 
+import 'theme/theme_provider.dart';
+import 'screens/splash_screen.dart';
+import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/brain_screen.dart';
 import 'screens/apps_hub_screen.dart';
@@ -10,103 +13,116 @@ void main() {
   runApp(const PrismApp());
 }
 
-class PrismApp extends StatelessWidget {
+class PrismApp extends StatefulWidget {
   const PrismApp({super.key});
 
-  // ── Prism Dark Palette ──────────────────────────────────────────────
-  static const _bgDeep      = Color(0xFF060610); // goku  – deepest layer
-  static const _bgBase      = Color(0xFF0C0C16); // scaffold & gohan
-  static const _surface     = Color(0xFF16162A); // goten – cards / panels
-  static const _border      = Color(0xFF252540); // beerus
-  static const _textPrimary = Color(0xFFE2E2EC); // bulma
-  static const _textSecond  = Color(0xFF7A7A90); // trunks
-  static const _accent      = Color(0xFF818CF8); // piccolo  (indigo-400)
-  static const _accentHover = Color(0x1F818CF8); // jiren
+  @override
+  State<PrismApp> createState() => _PrismAppState();
+}
+
+class _PrismAppState extends State<PrismApp> {
+  final _themeProvider = ThemeProvider();
+  bool _splashDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeProvider.addListener(() => setState(() {}));
+  }
 
   @override
   Widget build(BuildContext context) {
-    // ── Light tokens ────────────────────────────────────────────────
+    final tp = _themeProvider;
+    final accent = tp.accent;
+
+    final bgDeep = tp.bgDeep;
+    final bgBase = tp.bgBase;
+    final surface = tp.surface;
+    final border = tp.border;
+    const textPrimary = ThemeProvider.textPrimary;
+    const textSecond = ThemeProvider.textSecondary;
+
     final lightTokens = MoonTokens.light.copyWith(
-      colors: MoonColors.light.copyWith(
-        piccolo: const Color(0xFF6366F1),
-      ),
+      colors: MoonColors.light.copyWith(piccolo: accent),
     );
 
-    // ── Dark tokens ─────────────────────────────────────────────────
     final darkTokens = MoonTokens.dark.copyWith(
       colors: MoonColors.dark.copyWith(
-        piccolo: _accent,
-        hit: const Color(0xFF34D399),      // emerald-400
-        goku: _bgDeep,
-        gohan: _bgBase,
-        goten: _surface,
-        beerus: _border,
-        bulma: _textPrimary,
-        trunks: _textSecond,
-        popo: _textPrimary,
-        jiren: _accentHover,
+        piccolo: accent,
+        hit: const Color(0xFF34D399),
+        goku: bgDeep,
+        gohan: bgBase,
+        goten: surface,
+        beerus: border,
+        bulma: textPrimary,
+        trunks: textSecond,
+        popo: textPrimary,
+        jiren: accent.withValues(alpha: 0.12),
         heles: const Color(0x0AFFFFFF),
-        textPrimary: _textPrimary,
-        textSecondary: _textSecond,
-        iconPrimary: _textPrimary,
-        iconSecondary: _textSecond,
+        textPrimary: textPrimary,
+        textSecondary: textSecond,
+        iconPrimary: textPrimary,
+        iconSecondary: textSecond,
       ),
     );
 
-    // ── Material color scheme aligned with the Moon tokens ──────────
     final darkScheme = ColorScheme.dark(
-      primary: _accent,
+      primary: accent,
       onPrimary: Colors.white,
-      surface: _surface,
-      onSurface: _textPrimary,
-      onSurfaceVariant: _textSecond,
-      outline: _border,
-      outlineVariant: _border,
+      surface: surface,
+      onSurface: textPrimary,
+      onSurfaceVariant: textSecond,
+      outline: border,
+      outlineVariant: border,
     );
 
     return MaterialApp(
       title: 'Prism',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.light().copyWith(
-        extensions: <ThemeExtension<dynamic>>[MoonTheme(tokens: lightTokens)],
+        extensions: <ThemeExtension>[MoonTheme(tokens: lightTokens)],
       ),
       darkTheme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: _bgBase,
+        scaffoldBackgroundColor: bgBase,
         colorScheme: darkScheme,
-        cardColor: _surface,
-        dividerColor: _border,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: _surface,
-          foregroundColor: _textPrimary,
+        cardColor: surface,
+        dividerColor: border,
+        appBarTheme: AppBarTheme(
+          backgroundColor: surface,
+          foregroundColor: textPrimary,
           surfaceTintColor: Colors.transparent,
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: _surface,
+          backgroundColor: surface,
           surfaceTintColor: Colors.transparent,
-          indicatorColor: _accent.withValues(alpha: 0.12),
+          indicatorColor: accent.withValues(alpha: 0.12),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return TextStyle(color: _accent, fontSize: 12, fontWeight: FontWeight.w600);
+              return TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.w600);
             }
-            return TextStyle(color: _textSecond, fontSize: 12);
+            return const TextStyle(color: textSecond, fontSize: 12);
           }),
           iconTheme: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return IconThemeData(color: _accent);
+              return IconThemeData(color: accent);
             }
-            return IconThemeData(color: _textSecond);
+            return const IconThemeData(color: textSecond);
           }),
         ),
-        extensions: <ThemeExtension<dynamic>>[MoonTheme(tokens: darkTokens)],
+        extensions: <ThemeExtension>[MoonTheme(tokens: darkTokens)],
       ),
-      themeMode: ThemeMode.dark,
-      home: const AppShell(),
+      themeMode: tp.mode,
+      home: _splashDone
+          ? AppShell(themeProvider: _themeProvider)
+          : SplashScreen(onComplete: () => setState(() => _splashDone = true)),
     );
   }
 }
 
+/// 5-tab shell: Home, Chat, Brain, Apps, Settings
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  final ThemeProvider themeProvider;
+  const AppShell({super.key, required this.themeProvider});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -115,182 +131,107 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
-  static const _screens = <Widget>[
-    ChatScreen(),
-    BrainScreen(),
-    AppsHubScreen(),
-    SettingsScreen(),
-  ];
-
-  static const _labels = ['Chat', 'Brain', 'Apps', 'Settings'];
-
+  static const _labels = ['Home', 'Chat', 'Brain', 'Apps', 'Settings'];
   static const _icons = [
-    Icons.chat_bubble_outline_rounded,
-    Icons.auto_awesome_outlined,
-    Icons.apps_rounded,
-    Icons.settings_outlined,
+    Icons.home_outlined, Icons.chat_bubble_outline_rounded,
+    Icons.auto_awesome_outlined, Icons.apps_rounded, Icons.settings_outlined,
+  ];
+  static const _selectedIcons = [
+    Icons.home_rounded, Icons.chat_bubble_rounded,
+    Icons.auto_awesome, Icons.apps_rounded, Icons.settings_rounded,
   ];
 
-  static const _selectedIcons = [
-    Icons.chat_bubble_rounded,
-    Icons.auto_awesome,
-    Icons.apps_rounded,
-    Icons.settings_rounded,
+  void _navigateToTab(int index) => setState(() => _selectedIndex = index);
+  void _navigateToApp(String appId) => setState(() => _selectedIndex = 3);
+
+  List<Widget> get _screens => [
+    HomeScreen(onNavigateTab: _navigateToTab, onNavigateApp: _navigateToApp),
+    const ChatScreen(),
+    const BrainScreen(),
+    const AppsHubScreen(),
+    SettingsScreen(themeProvider: widget.themeProvider),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth > 800) {
-          return _buildDesktopLayout(context);
-        }
-        return _buildMobileLayout(context);
-      },
-    );
+    return LayoutBuilder(builder: (context, c) {
+      return c.maxWidth > 800 ? _desktop(context) : _mobile(context);
+    });
   }
 
-  Widget _buildDesktopLayout(BuildContext context) {
+  Widget _desktop(BuildContext context) {
     final colors = context.moonColors!;
-
     return Scaffold(
       backgroundColor: colors.gohan,
-      body: Row(
-        children: [
-          // Sidebar
-          Container(
-            width: 220,
-            decoration: BoxDecoration(
-              color: colors.goten,
-              border: Border(
-                right: BorderSide(color: colors.beerus, width: 1),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Logo
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: colors.piccolo,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Prism',
-                        style: TextStyle(
-                          color: colors.bulma,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
+      body: Row(children: [
+        Container(
+          width: 220,
+          decoration: BoxDecoration(
+            color: colors.goten,
+            border: Border(right: BorderSide(color: colors.beerus, width: 1)),
+          ),
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Row(children: [
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(color: colors.piccolo, borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
                 ),
-                Divider(color: colors.beerus, height: 1),
-                const SizedBox(height: 8),
-                // Nav items
-                ..._buildSidebarItems(colors),
-                const Spacer(),
-                Divider(color: colors.beerus, height: 1),
-                _buildSidebarTile(colors, 3, Icons.settings_outlined, Icons.settings_rounded, 'Settings'),
-                const SizedBox(height: 12),
-              ],
+                const SizedBox(width: 10),
+                Text('Prism', style: TextStyle(color: colors.bulma, fontSize: 20, fontWeight: FontWeight.w700)),
+              ]),
             ),
-          ),
-          // Content
-          Expanded(
-            child: _screens[_selectedIndex],
-          ),
-        ],
-      ),
+            Divider(color: colors.beerus, height: 1),
+            const SizedBox(height: 8),
+            _tile(colors, 0, 'Home'),
+            _tile(colors, 1, 'Chat'),
+            _tile(colors, 2, 'Brain'),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text('APPS', style: TextStyle(color: colors.trunks, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
+            ),
+            _tile(colors, 3, 'Apps Hub'),
+            const Spacer(),
+            Divider(color: colors.beerus, height: 1),
+            _tile(colors, 4, 'Settings'),
+            const SizedBox(height: 12),
+          ]),
+        ),
+        Expanded(child: _screens[_selectedIndex]),
+      ]),
     );
   }
 
-  List<Widget> _buildSidebarItems(MoonColors colors) {
-    return [
-      _buildSidebarTile(colors, 0, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Chat'),
-      _buildSidebarTile(colors, 1, Icons.auto_awesome_outlined, Icons.auto_awesome, 'Brain'),
-      const SizedBox(height: 4),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Text('APPS', style: TextStyle(color: colors.trunks, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
-      ),
-      _buildSidebarTile(colors, 2, Icons.apps_rounded, Icons.apps_rounded, 'Apps Hub'),
-    ];
-  }
-
-  Widget _buildSidebarTile(MoonColors colors, int index, IconData icon, IconData selectedIcon, String label) {
-    final selected = _selectedIndex == index;
+  Widget _tile(MoonColors colors, int i, String label) {
+    final sel = _selectedIndex == i;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: MoonMenuItem(
-        onTap: () => setState(() => _selectedIndex = index),
-        backgroundColor: selected ? colors.piccolo.withValues(alpha: 0.12) : Colors.transparent,
-        label: Text(
-          label,
-          style: TextStyle(
-            color: selected ? colors.piccolo : colors.bulma,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            fontSize: 14,
-          ),
-        ),
-        leading: Icon(
-          selected ? selectedIcon : icon,
-          color: selected ? colors.piccolo : colors.trunks,
-          size: 20,
-        ),
+        onTap: () => setState(() => _selectedIndex = i),
+        backgroundColor: sel ? colors.piccolo.withValues(alpha: 0.12) : Colors.transparent,
+        label: Text(label, style: TextStyle(color: sel ? colors.piccolo : colors.bulma, fontWeight: sel ? FontWeight.w600 : FontWeight.w400, fontSize: 14)),
+        leading: Icon(sel ? _selectedIcons[i] : _icons[i], color: sel ? colors.piccolo : colors.trunks, size: 20),
       ),
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
+  Widget _mobile(BuildContext context) {
     final colors = context.moonColors!;
-
     return Scaffold(
       backgroundColor: colors.gohan,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: colors.piccolo,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
-            ),
-            const SizedBox(width: 8),
-            Text('Prism', style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w700, fontSize: 18)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search_rounded, color: colors.trunks),
-            onPressed: () {},
-          ),
-        ],
-      ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: List.generate(4, (i) {
-          return NavigationDestination(
-            icon: Icon(_icons[i]),
-            selectedIcon: Icon(_selectedIcons[i]),
-            label: _labels[i],
-          );
-        }),
+        destinations: List.generate(5, (i) => NavigationDestination(
+          icon: Icon(_icons[i]),
+          selectedIcon: Icon(_selectedIcons[i]),
+          label: _labels[i],
+        )),
       ),
     );
   }

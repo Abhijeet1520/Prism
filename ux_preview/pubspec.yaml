@@ -60,6 +60,8 @@ flutter:
     - assets/mock_data/tools/
     - assets/mock_data/files/
     - assets/mock_data/settings/
+    - assets/mock_data/daily_summary.json
+    - assets/mock_data/models.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
