@@ -1,4 +1,7 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:moon_design/moon_design.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -8,114 +11,233 @@ class ToolsScreen extends StatefulWidget {
 }
 
 class _ToolsScreenState extends State<ToolsScreen> {
-  int _tab = 0;
+  List<dynamic> _tools = [];
+  List<dynamic> _servers = [];
+  int _activeTab = 0;
 
-  static const _builtInTools = [
-    _Tool(name: 'Web Search', description: 'Search the web via DuckDuckGo or Google', icon: RadixIcons.magnifyingGlass, enabled: true),
-    _Tool(name: 'Calculator', description: 'Evaluate mathematical expressions', icon: RadixIcons.input, enabled: true),
-    _Tool(name: 'File Reader', description: 'Read and parse local files', icon: RadixIcons.fileText, enabled: true),
-    _Tool(name: 'URL Fetcher', description: 'Fetch and extract content from URLs', icon: RadixIcons.link2, enabled: true),
-    _Tool(name: 'Code Executor', description: 'Execute code snippets in sandboxed environment', icon: RadixIcons.code, enabled: false),
-    _Tool(name: 'Image Analyzer', description: 'Analyze images with vision models', icon: RadixIcons.image, enabled: false),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadMockData();
+  }
 
-  static const _mcpServers = [
-    _McpServer(name: 'filesystem', status: 'Connected', tools: 5, description: 'Read/write local files with security controls'),
-    _McpServer(name: 'github', status: 'Connected', tools: 12, description: 'GitHub repository operations via REST API'),
-    _McpServer(name: 'sqlite', status: 'Disconnected', tools: 4, description: 'Query SQLite databases directly'),
-    _McpServer(name: 'puppeteer', status: 'Disconnected', tools: 8, description: 'Browser automation and web scraping'),
-  ];
-
-  static const _skillsets = [
-    _Skillset(name: 'Code Review', tools: ['File Reader', 'Code Executor'], description: 'Automated code review with style checks'),
-    _Skillset(name: 'Research', tools: ['Web Search', 'URL Fetcher', 'File Reader'], description: 'Deep web research with source aggregation'),
-    _Skillset(name: 'Data Analysis', tools: ['Calculator', 'File Reader', 'Code Executor'], description: 'Analyze CSV/JSON data with visualizations'),
-  ];
+  Future<void> _loadMockData() async {
+    final toolsJson = await rootBundle.loadString('assets/mock_data/tools/tools.json');
+    final serversJson = await rootBundle.loadString('assets/mock_data/tools/mcp_servers.json');
+    setState(() {
+      _tools = jsonDecode(toolsJson) as List;
+      _servers = jsonDecode(serversJson) as List;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      headers: [
-        AppBar(
-          title: const Text('Tools & MCP'),
-          trailing: [
-            Button.secondary(
-              leading: const Icon(RadixIcons.plusCircled),
-              onPressed: () {},
-              child: const Text('Add MCP Server'),
-            ),
-          ],
+    final colors = context.moonColors!;
+
+    return Column(
+      children: [
+        // Tabs
+        Container(
+          color: colors.goten,
+          child: MoonTabBar(
+            tabBarSize: MoonTabBarSize.sm,
+            tabs: const [
+              MoonTab(label: Text('Tools')),
+              MoonTab(label: Text('MCP Servers')),
+            ],
+            onTabChanged: (i) => setState(() => _activeTab = i),
+          ),
+        ),
+        Divider(height: 1, color: colors.beerus),
+        Expanded(
+          child: _activeTab == 0 ? _buildToolsList(colors) : _buildServersList(colors),
         ),
       ],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                TabList(
-                  index: _tab,
-                  onChanged: (i) => setState(() => _tab = i),
-                  children: const [
-                    TabItem(child: Text('Built-in Tools')),
-                    TabItem(child: Text('MCP Servers')),
-                    TabItem(child: Text('Skillsets')),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _tab == 0
-                  ? _buildToolsGrid()
-                  : _tab == 1
-                      ? _buildMcpServers()
-                      : _buildSkillsets(),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildToolsGrid() {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 350,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        mainAxisExtent: 140,
-      ),
-      itemCount: _builtInTools.length,
-      itemBuilder: (context, index) {
-        final tool = _builtInTools[index];
-        return Card(
-          padding: const EdgeInsets.all(16),
+  Widget _buildToolsList(MoonColors colors) {
+    if (_tools.isEmpty) {
+      return Center(child: MoonCircularLoader(color: colors.piccolo));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _tools.length,
+      itemBuilder: (context, i) {
+        final tool = _tools[i] as Map<String, dynamic>;
+        return MoonAccordion<void>(
+          backgroundColor: colors.goten,
+          expandedBackgroundColor: colors.goten,
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          label: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  tool['displayName'] as String,
+                  style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w500, fontSize: 14),
+                ),
+              ),
+              MoonTag(
+                tagSize: MoonTagSize.x2s,
+                backgroundColor: tool['provider'] == 'built-in'
+                    ? colors.roshi.withValues(alpha: 0.15)
+                    : colors.piccolo.withValues(alpha: 0.15),
+                label: Text(
+                  tool['provider'] as String,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: tool['provider'] == 'built-in' ? colors.roshi : colors.piccolo,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              MoonSwitch(
+                switchSize: MoonSwitchSize.x2s,
+                value: tool['isEnabled'] as bool,
+                onChanged: (_) {},
+              ),
+            ],
+          ),
+          children: [
+            Text(
+              tool['description'] as String,
+              style: TextStyle(color: colors.trunks, fontSize: 12, height: 1.5),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _statChip(colors, '${tool['callCount']} calls'),
+                const SizedBox(width: 6),
+                _statChip(colors, '${tool['avgLatencyMs']}ms avg'),
+                const SizedBox(width: 6),
+                _statChip(colors, '${((tool['successRate'] as num) * 100).toInt()}% success'),
+              ],
+            ),
+            if (tool['parameters'] != null) ...[
+              const SizedBox(height: 10),
+              Text('Parameters', style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w600, fontSize: 12)),
+              const SizedBox(height: 4),
+              ..._buildParamList(colors, tool['parameters'] as List),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildParamList(MoonColors colors, List<dynamic> params) {
+    return params.map((p) {
+      final param = p as Map<String, dynamic>;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(
+          children: [
+            Text(
+              param['name'] as String,
+              style: TextStyle(color: colors.piccolo, fontSize: 11, fontFamily: 'monospace'),
+            ),
+            const SizedBox(width: 6),
+            MoonTag(
+              tagSize: MoonTagSize.x2s,
+              backgroundColor: colors.beerus,
+              label: Text(param['type'] as String, style: TextStyle(fontSize: 9, color: colors.trunks)),
+            ),
+            if (param['required'] == true) ...[
+              const SizedBox(width: 4),
+              Text('*', style: TextStyle(color: colors.chichi, fontSize: 12)),
+            ],
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildServersList(MoonColors colors) {
+    if (_servers.isEmpty) {
+      return Center(child: MoonCircularLoader(color: colors.piccolo));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _servers.length,
+      itemBuilder: (context, i) {
+        final server = _servers[i] as Map<String, dynamic>;
+        final status = server['status'] as String;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colors.goten,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: colors.beerus, width: 0.5),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 8,
+                    height: 8,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.muted,
-                      borderRadius: BorderRadius.circular(8),
+                      color: _serverStatusColor(colors, status),
+                      shape: BoxShape.circle,
                     ),
-                    child: Icon(tool.icon, size: 18),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      server['name'] as String,
+                      style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  MoonTag(
+                    tagSize: MoonTagSize.x2s,
+                    backgroundColor: _serverStatusColor(colors, status).withValues(alpha: 0.15),
+                    label: Text(
+                      status,
+                      style: TextStyle(fontSize: 10, color: _serverStatusColor(colors, status)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                server['description'] as String,
+                style: TextStyle(color: colors.trunks, fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _statChip(colors, '${server['toolCount']} tools'),
+                  const SizedBox(width: 6),
+                  _statChip(colors, '${server['requestCount']} req'),
+                  const SizedBox(width: 6),
+                  if (server['uptime'] != null) _statChip(colors, server['uptime'] as String),
                   const Spacer(),
-                  Switch(
-                    value: tool.enabled,
+                  MoonSwitch(
+                    switchSize: MoonSwitchSize.x2s,
+                    value: server['autoConnect'] as bool,
                     onChanged: (_) {},
                   ),
                 ],
               ),
-              const Spacer(),
-              Text(tool.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              Text(tool.description, style: const TextStyle(fontSize: 12, color: Colors.gray), maxLines: 2),
+              if (status == 'error' && server['lastError'] != null) ...[
+                const SizedBox(height: 8),
+                MoonAlert(
+                  show: true,
+                  backgroundColor: colors.chichi.withValues(alpha: 0.08),
+                  leading: Icon(Icons.error_outline, size: 16, color: colors.chichi),
+                  label: Text(
+                    server['lastError'] as String,
+                    style: TextStyle(color: colors.chichi, fontSize: 11),
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -123,157 +245,23 @@ class _ToolsScreenState extends State<ToolsScreen> {
     );
   }
 
-  Widget _buildMcpServers() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          for (final server in _mcpServers)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Card(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: server.status == 'Connected'
-                            ? Colors.green.withValues(alpha: 0.1)
-                            : Theme.of(context).colorScheme.muted,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        RadixIcons.component1,
-                        size: 18,
-                        color: server.status == 'Connected' ? Colors.green : Colors.gray,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(server.name, style: const TextStyle(fontWeight: FontWeight.w600, fontFamily: 'monospace')),
-                              const SizedBox(width: 8),
-                              server.status == 'Connected'
-                                ? PrimaryBadge(child: Text(server.status))
-                                : OutlineBadge(child: Text(server.status)),
-                              const SizedBox(width: 8),
-                              SecondaryBadge(child: Text('${server.tools} tools')),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(server.description, style: const TextStyle(fontSize: 13, color: Colors.gray)),
-                        ],
-                      ),
-                    ),
-                    Button.secondary(
-                      onPressed: () {},
-                      child: Text(server.status == 'Connected' ? 'Configure' : 'Connect'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+  Widget _statChip(MoonColors colors, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colors.gohan,
+        borderRadius: BorderRadius.circular(6),
       ),
+      child: Text(text, style: TextStyle(color: colors.trunks, fontSize: 10)),
     );
   }
 
-  Widget _buildSkillsets() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Description
-          Card(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Icon(RadixIcons.infoCircled, size: 16),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Skillsets are curated tool bundles that give the AI specialized capabilities for specific tasks.',
-                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.mutedForeground),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          for (final skillset in _skillsets)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Card(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(RadixIcons.stack, size: 16),
-                        const SizedBox(width: 8),
-                        Text(skillset.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                        const Spacer(),
-                        Button(
-                          style: const ButtonStyle.secondary(density: ButtonDensity.compact),
-                          onPressed: () {},
-                          child: const Text('Edit'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(skillset.description, style: const TextStyle(fontSize: 13, color: Colors.gray)),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final tool in skillset.tools)
-                          SecondaryBadge(child: Text(tool)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-          Button.outline(
-            leading: const Icon(RadixIcons.plus),
-            onPressed: () {},
-            child: const Text('Create Skillset'),
-          ),
-        ],
-      ),
-    );
+  Color _serverStatusColor(MoonColors colors, String status) {
+    return switch (status) {
+      'connected' => colors.roshi,
+      'disconnected' => colors.trunks,
+      'error' => colors.chichi,
+      _ => colors.krillin,
+    };
   }
-}
-
-class _Tool {
-  final String name;
-  final String description;
-  final IconData icon;
-  final bool enabled;
-
-  const _Tool({required this.name, required this.description, required this.icon, required this.enabled});
-}
-
-class _McpServer {
-  final String name;
-  final String status;
-  final int tools;
-  final String description;
-
-  const _McpServer({required this.name, required this.status, required this.tools, required this.description});
-}
-
-class _Skillset {
-  final String name;
-  final List<String> tools;
-  final String description;
-
-  const _Skillset({required this.name, required this.tools, required this.description});
 }

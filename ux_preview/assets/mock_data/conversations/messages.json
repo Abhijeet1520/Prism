@@ -1,0 +1,75 @@
+[
+  {
+    "id": "msg_001",
+    "conversationId": "conv_001",
+    "role": "user",
+    "content": "Can you help me design a clean architecture for my Flutter app?",
+    "createdAt": "2025-01-06T09:15:00Z",
+    "tokenCount": 18,
+    "branchId": "main",
+    "parentMessageId": null
+  },
+  {
+    "id": "msg_002",
+    "conversationId": "conv_001",
+    "role": "assistant",
+    "content": "I recommend a feature-first modular architecture with Riverpod for state management. Here's the structure:\n\n```\nlib/\n  core/       # Shared infrastructure\n  features/   # Feature modules\n  shared/     # Shared widgets\n```\n\nEach feature module contains its own providers, repositories, models, and UI. This keeps concerns separated and makes testing easier.\n\n**Key principles:**\n1. **Feature isolation** — Each feature is self-contained\n2. **Dependency injection** — Riverpod providers replace service locators\n3. **Repository pattern** — Abstract data sources behind interfaces\n4. **Reactive state** — AsyncNotifier for async operations",
+    "createdAt": "2025-01-06T09:15:30Z",
+    "tokenCount": 185,
+    "branchId": "main",
+    "parentMessageId": "msg_001",
+    "modelId": "gpt-4o",
+    "providerId": "openai",
+    "finishReason": "stop",
+    "generationTimeMs": 2340
+  },
+  {
+    "id": "msg_003",
+    "conversationId": "conv_001",
+    "role": "user",
+    "content": "What about the database layer? Should I use Drift or Hive?",
+    "createdAt": "2025-01-06T09:20:00Z",
+    "tokenCount": 16,
+    "branchId": "main",
+    "parentMessageId": "msg_002"
+  },
+  {
+    "id": "msg_004",
+    "conversationId": "conv_001",
+    "role": "assistant",
+    "content": "I strongly recommend **Drift** over Hive for your use case:\n\n- **Type-safe** queries with compile-time verification\n- **Reactive** streams — UI updates automatically when data changes\n- **SQL power** — JOINs, aggregations, FTS5 full-text search\n- **Web support** via sql.js\n- **Flutter Favorite** with 2,300+ likes\n\nHive CE is good for simple key-value storage, but Drift is the right choice for relational data like conversations, messages, and tasks.\n\nHere's a basic setup:\n\n```dart\n@DriftDatabase(tables: [Conversations, Messages, Tasks])\nclass AppDatabase extends _$AppDatabase {\n  AppDatabase() : super(_openConnection());\n  \n  @override\n  int get schemaVersion => 1;\n}\n```",
+    "createdAt": "2025-01-06T09:20:25Z",
+    "tokenCount": 247,
+    "branchId": "main",
+    "parentMessageId": "msg_003",
+    "modelId": "gpt-4o",
+    "providerId": "openai",
+    "finishReason": "stop",
+    "generationTimeMs": 3180,
+    "toolCalls": []
+  },
+  {
+    "id": "msg_005",
+    "conversationId": "conv_001",
+    "role": "user",
+    "content": "That makes sense. Can you show me a Drift table definition for conversations with branching support?",
+    "createdAt": "2025-01-06T09:25:00Z",
+    "tokenCount": 22,
+    "branchId": "main",
+    "parentMessageId": "msg_004"
+  },
+  {
+    "id": "msg_006",
+    "conversationId": "conv_001",
+    "role": "assistant",
+    "content": "Here's a complete Drift table definition with branching support:\n\n```dart\nclass Conversations extends Table {\n  TextColumn get id => text()();\n  TextColumn get title => text().withLength(max: 256)();\n  TextColumn get personaId => text().nullable()();\n  TextColumn get providerId => text()();\n  TextColumn get modelId => text()();\n  BoolColumn get isPinned => boolean().withDefault(const Constant(false))();\n  DateTimeColumn get createdAt => dateTime()();\n  DateTimeColumn get updatedAt => dateTime()();\n  \n  @override\n  Set<Column> get primaryKey => {id};\n}\n\nclass Messages extends Table {\n  TextColumn get id => text()();\n  TextColumn get conversationId => text().references(Conversations, #id)();\n  TextColumn get role => text()(); // user, assistant, system, tool\n  TextColumn get content => text()();\n  TextColumn get branchId => text().withDefault(const Constant('main'))();\n  TextColumn get parentMessageId => text().nullable()();\n  IntColumn get tokenCount => integer().nullable()();\n  DateTimeColumn get createdAt => dateTime()();\n  \n  @override\n  Set<Column> get primaryKey => {id};\n}\n```\n\nThe `branchId` and `parentMessageId` fields enable conversation branching — each branch gets a unique ID, and messages link back to their parent.",
+    "createdAt": "2025-01-06T09:25:40Z",
+    "tokenCount": 380,
+    "branchId": "main",
+    "parentMessageId": "msg_005",
+    "modelId": "gpt-4o",
+    "providerId": "openai",
+    "finishReason": "stop",
+    "generationTimeMs": 4520
+  }
+]

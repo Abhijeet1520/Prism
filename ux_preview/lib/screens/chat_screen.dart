@@ -1,4 +1,7 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:moon_design/moon_design.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -8,169 +11,202 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
+  List<dynamic> _conversations = [];
+  List<dynamic> _messages = [];
   int _selectedConversation = 0;
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
 
-  static const _conversations = [
-    'Flutter Architecture Help',
-    'Dart Design Patterns',
-    'API Integration Guide',
-    'Code Review: Auth Module',
-    'Database Schema Design',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadMockData();
+  }
 
-  static const _messages = [
-    _Msg(role: 'user', text: 'Can you help me design a clean architecture for my Flutter app?'),
-    _Msg(
-      role: 'assistant',
-      text:
-          'I recommend a feature-first modular architecture with Riverpod for state management. Here\'s the structure:\n\n'
-          '```\nlib/\n  core/       # Shared infrastructure\n  features/   # Feature modules\n  shared/     # Shared widgets\n```\n\n'
-          'Each feature module contains its own providers, repositories, models, and UI. This keeps concerns separated and makes testing easier.',
-    ),
-    _Msg(role: 'user', text: 'What about the database layer? Should I use Drift or Hive?'),
-    _Msg(
-      role: 'assistant',
-      text:
-          'I strongly recommend **Drift** over Hive for your use case:\n\n'
-          '- **Type-safe** queries with compile-time verification\n'
-          '- **Reactive** streams — UI updates automatically when data changes\n'
-          '- **SQL power** — JOINs, aggregations, FTS5 full-text search\n'
-          '- **Web support** via sql.js\n'
-          '- **Flutter Favorite** with 2,300+ likes\n\n'
-          'Hive CE is good for simple key-value storage, but Drift is the right choice for relational data like conversations, messages, and tasks.',
-    ),
-    _Msg(role: 'user', text: 'That makes sense. Can you show me a Drift table definition?'),
-  ];
+  Future<void> _loadMockData() async {
+    final convJson = await rootBundle.loadString('assets/mock_data/conversations/conversations.json');
+    final msgJson = await rootBundle.loadString('assets/mock_data/conversations/messages.json');
+    setState(() {
+      _conversations = jsonDecode(convJson) as List;
+      _messages = jsonDecode(msgJson) as List;
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // Conversation sidebar (desktop only)
-        if (MediaQuery.of(context).size.width > 800)
-          SizedBox(
-            width: 280,
-            child: _buildConversationList(),
-          ),
-        Expanded(child: _buildChatArea()),
-      ],
+    final colors = context.moonColors!;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth > 700) {
+          return Row(
+            children: [
+              SizedBox(width: 300, child: _buildConversationList(colors)),
+              VerticalDivider(width: 1, color: colors.beerus),
+              Expanded(child: _buildChatArea(colors)),
+            ],
+          );
+        }
+        return _buildChatArea(colors);
+      },
     );
   }
 
-  Widget _buildConversationList() {
+  Widget _buildConversationList(MoonColors colors) {
     return Column(
       children: [
+        // Search + New Chat
         Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Expanded(
-                child: TextField(
-                  placeholder: const Text('Search chats...'),
+                child: MoonTextInput(
+                  hintText: 'Search conversations...',
+                  leading: Icon(Icons.search, size: 18, color: colors.trunks),
                 ),
               ),
               const SizedBox(width: 8),
-              Button.outline(
-                onPressed: () {},
-                child: const Icon(RadixIcons.plus),
+              MoonButton.icon(
+                onTap: () {},
+                icon: Icon(Icons.edit_square, size: 20, color: colors.piccolo),
+                buttonSize: MoonButtonSize.sm,
               ),
             ],
           ),
         ),
-        const Divider(),
+        Divider(height: 1, color: colors.beerus),
+        // List
         Expanded(
-          child: ListView.builder(
-            itemCount: _conversations.length,
-            itemBuilder: (context, index) {
-              final isSelected = index == _selectedConversation;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                child: Button(
-                  style: isSelected
-                      ? const ButtonStyle.secondary(density: ButtonDensity.compact)
-                      : const ButtonStyle.ghost(density: ButtonDensity.compact),
-                  onPressed: () => setState(() => _selectedConversation = index),
-                  child: Row(
-                    children: [
-                      const Icon(RadixIcons.chatBubble, size: 14),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _conversations[index],
-                          overflow: TextOverflow.ellipsis,
+          child: _conversations.isEmpty
+              ? Center(child: MoonCircularLoader(color: colors.piccolo))
+              : ListView.builder(
+                  itemCount: _conversations.length,
+                  itemBuilder: (context, i) {
+                    final conv = _conversations[i] as Map<String, dynamic>;
+                    final selected = i == _selectedConversation;
+                    return MoonMenuItem(
+                      onTap: () => setState(() => _selectedConversation = i),
+                      backgroundColor: selected ? colors.piccolo.withValues(alpha: 0.08) : Colors.transparent,
+                      leading: MoonAvatar(
+                        backgroundColor: colors.piccolo.withValues(alpha: 0.15),
+                        content: Text(
+                          (conv['title'] as String).substring(0, 1),
+                          style: TextStyle(color: colors.piccolo, fontWeight: FontWeight.w600),
                         ),
                       ),
-                      if (index == 0) const PrimaryBadge(child: Text('3')),
-                    ],
-                  ),
+                      label: Text(
+                        conv['title'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.bulma,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                      trailing: conv['isPinned'] == true
+                          ? Icon(Icons.push_pin, size: 14, color: colors.trunks)
+                          : (conv['unreadCount'] as int? ?? 0) > 0
+                              ? MoonTag(
+                                  tagSize: MoonTagSize.x2s,
+                                  backgroundColor: colors.piccolo,
+                                  label: Text('${conv['unreadCount']}', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                                )
+                              : null,
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildChatArea() {
+  Widget _buildChatArea(MoonColors colors) {
+    // Filter messages for selected conversation
+    final convId = _conversations.isNotEmpty ? _conversations[_selectedConversation]['id'] : null;
+    final filtered = _messages.where((m) => m['conversationId'] == convId).toList();
+
     return Column(
       children: [
         // Chat header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.border)),
+            color: colors.goten,
+            border: Border(bottom: BorderSide(color: colors.beerus)),
           ),
           child: Row(
             children: [
-              const Avatar(initials: 'FA', size: 32),
-              const SizedBox(width: 12),
+              MoonAvatar(
+                avatarSize: MoonAvatarSize.sm,
+                backgroundColor: colors.piccolo.withValues(alpha: 0.15),
+                content: Icon(Icons.auto_awesome, size: 16, color: colors.piccolo),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_conversations[_selectedConversation],
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    const Text('Using GPT-4o · General Assistant',
-                        style: TextStyle(fontSize: 12, color: Colors.gray)),
+                    Text(
+                      _conversations.isNotEmpty ? _conversations[_selectedConversation]['title'] as String : 'New Chat',
+                      style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    Text(
+                      'Gemini 2.0 Flash',
+                      style: TextStyle(color: colors.trunks, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
-              const OutlineBadge(
-                child: Text('Branch 1/3'),
-              ),
-              const SizedBox(width: 8),
-              Button.ghost(
-                onPressed: () {},
-                child: const Icon(RadixIcons.dotsHorizontal),
+              MoonButton.icon(
+                onTap: () {},
+                icon: Icon(Icons.more_vert, color: colors.trunks, size: 20),
+                buttonSize: MoonButtonSize.sm,
               ),
             ],
           ),
         ),
-
-        // Messages area
+        // Messages
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                for (final msg in _messages) _buildMessage(msg),
-                // Streaming indicator
-                _buildStreamingIndicator(),
-              ],
-            ),
-          ),
+          child: filtered.isEmpty
+              ? _buildEmptyChat(colors)
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) => _buildMessage(colors, filtered[i] as Map<String, dynamic>),
+                ),
         ),
-
-        // Input area
-        _buildInputArea(),
+        // Input bar
+        _buildInputBar(colors),
       ],
     );
   }
 
-  Widget _buildMessage(_Msg msg) {
-    final isUser = msg.role == 'user';
+  Widget _buildEmptyChat(MoonColors colors) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.auto_awesome, size: 48, color: colors.piccolo.withValues(alpha: 0.3)),
+          const SizedBox(height: 16),
+          Text('Start a conversation', style: TextStyle(color: colors.trunks, fontSize: 16)),
+          const SizedBox(height: 8),
+          Text('Ask anything, get help with tasks, or explore ideas.', style: TextStyle(color: colors.trunks, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessage(MoonColors colors, Map<String, dynamic> msg) {
+    final isUser = msg['role'] == 'user';
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -178,102 +214,85 @@ class _ChatScreenState extends State<ChatScreen> {
         mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isUser) ...[
-            const Avatar(initials: 'AI', size: 28),
+            MoonAvatar(
+              avatarSize: MoonAvatarSize.xs,
+              backgroundColor: colors.piccolo.withValues(alpha: 0.15),
+              content: Icon(Icons.auto_awesome, size: 14, color: colors.piccolo),
+            ),
             const SizedBox(width: 10),
           ],
           Flexible(
-            child: Card(
-              padding: const EdgeInsets.all(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isUser ? colors.piccolo.withValues(alpha: 0.12) : colors.goten,
+                borderRadius: BorderRadius.circular(14),
+                border: isUser ? null : Border.all(color: colors.beerus, width: 0.5),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(msg.text),
+                  Text(
+                    msg['content'] as String,
+                    style: TextStyle(color: colors.bulma, fontSize: 14, height: 1.5),
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        isUser ? 'You' : 'GPT-4o · 247 tokens',
-                        style: const TextStyle(fontSize: 11, color: Colors.gray),
+                        '${msg['tokenCount']} tokens',
+                        style: TextStyle(color: colors.trunks, fontSize: 11),
                       ),
-                      const SizedBox(width: 8),
-                      if (!isUser)
-                        Button(
-                          style: const ButtonStyle.ghost(density: ButtonDensity.compact),
-                          onPressed: () {},
-                          child: const Icon(RadixIcons.copy, size: 12),
+                      if (msg['generationTimeMs'] != null) ...[
+                        Text(' \u00b7 ', style: TextStyle(color: colors.trunks, fontSize: 11)),
+                        Text(
+                          '${msg['generationTimeMs']}ms',
+                          style: TextStyle(color: colors.trunks, fontSize: 11),
                         ),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
           ),
-          if (isUser) ...[
-            const SizedBox(width: 10),
-            const Avatar(initials: 'U', size: 28),
-          ],
+          if (isUser) const SizedBox(width: 10),
         ],
       ),
     );
   }
 
-  Widget _buildStreamingIndicator() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Avatar(initials: 'AI', size: 28),
-          const SizedBox(width: 10),
-          Card(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(size: 14),
-                const SizedBox(width: 10),
-                const Text('Generating response...'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputArea() {
+  Widget _buildInputBar(MoonColors colors) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Theme.of(context).colorScheme.border)),
+        color: colors.goten,
+        border: Border(top: BorderSide(color: colors.beerus)),
       ),
       child: Row(
         children: [
-          Button.outline(
-            onPressed: () {},
-            child: const Icon(RadixIcons.paperPlane),
+          MoonButton.icon(
+            onTap: () {},
+            icon: Icon(Icons.attach_file_rounded, color: colors.trunks, size: 20),
+            buttonSize: MoonButtonSize.sm,
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: TextField(
-              controller: _messageController,
-              placeholder: const Text('Message Prism...'),
+            child: MoonTextInput(
+              controller: _controller,
+              hintText: 'Message Prism...',
+              textInputSize: MoonTextInputSize.md,
             ),
           ),
           const SizedBox(width: 8),
-          Button.primary(
-            onPressed: () {},
-            child: const Icon(RadixIcons.arrowUp),
+          MoonFilledButton(
+            onTap: () {},
+            buttonSize: MoonButtonSize.sm,
+            label: const Icon(Icons.arrow_upward_rounded, size: 18),
           ),
         ],
       ),
     );
   }
-}
-
-class _Msg {
-  final String role;
-  final String text;
-  const _Msg({required this.role, required this.text});
 }

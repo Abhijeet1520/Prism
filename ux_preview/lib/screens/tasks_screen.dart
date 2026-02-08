@@ -1,4 +1,7 @@
-import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:moon_design/moon_design.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -8,228 +11,279 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
+  List<dynamic> _tasks = [];
   int _viewTab = 0;
+  final _statusFilters = ['all', 'todo', 'in_progress', 'done'];
+  String _activeFilter = 'all';
 
-  static const _tasks = [
-    _Task(title: 'Set up Drift database schema', priority: 'High', status: 'In Progress', project: 'Prism', dueDate: 'Today'),
-    _Task(title: 'Implement LangChain.dart adapter', priority: 'High', status: 'To Do', project: 'Prism', dueDate: 'Tomorrow'),
-    _Task(title: 'Design chat UI with shadcn_flutter', priority: 'Medium', status: 'To Do', project: 'Prism', dueDate: 'Jan 20'),
-    _Task(title: 'Add Ollama LAN discovery', priority: 'Medium', status: 'Backlog', project: 'Prism', dueDate: 'Jan 25'),
-    _Task(title: 'Write unit tests for AI engine', priority: 'Low', status: 'Backlog', project: 'Prism', dueDate: 'Jan 30'),
-    _Task(title: 'Update portfolio projects section', priority: 'Medium', status: 'To Do', project: 'Portfolio', dueDate: 'Jan 22'),
-    _Task(title: 'Research on-device summarization', priority: 'Low', status: 'Done', project: 'Prism', dueDate: 'Completed'),
-    _Task(title: 'Configure GitHub Actions CI', priority: 'High', status: 'Done', project: 'Prism', dueDate: 'Completed'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadMockData();
+  }
+
+  Future<void> _loadMockData() async {
+    final json = await rootBundle.loadString('assets/mock_data/tasks/tasks.json');
+    setState(() => _tasks = jsonDecode(json) as List);
+  }
+
+  List<dynamic> get _filteredTasks {
+    if (_activeFilter == 'all') return _tasks;
+    return _tasks.where((t) => t['status'] == _activeFilter).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      headers: [
-        AppBar(
-          title: const Text('Tasks'),
-          trailing: [
-            Button.primary(
-              leading: const Icon(RadixIcons.plus),
-              onPressed: () {},
-              child: const Text('Add Task'),
-            ),
-          ],
-        ),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // View toggle and filters
-            Row(
-              children: [
-                TabList(
-                  index: _viewTab,
-                  onChanged: (i) => setState(() => _viewTab = i),
-                  children: const [
-                    TabItem(child: Text('List')),
-                    TabItem(child: Text('Kanban')),
-                    TabItem(child: Text('Calendar')),
-                  ],
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: 200,
-                  child: TextField(
-                    placeholder: const Text('Filter tasks...'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _viewTab == 0 ? _buildListView() : (_viewTab == 1 ? _buildKanbanView() : _buildCalendarPlaceholder()),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    final colors = context.moonColors!;
 
-  Widget _buildListView() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Header row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                const SizedBox(width: 40),
-                Expanded(flex: 3, child: Text('Task', style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.mutedForeground))),
-                Expanded(child: Text('Priority', style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.mutedForeground))),
-                Expanded(child: Text('Status', style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.mutedForeground))),
-                Expanded(child: Text('Project', style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.mutedForeground))),
-                Expanded(child: Text('Due', style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.mutedForeground))),
-              ],
-            ),
+    return Column(
+      children: [
+        // Toolbar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: colors.goten,
+            border: Border(bottom: BorderSide(color: colors.beerus)),
           ),
-          const Divider(),
-          for (final task in _tasks)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 40,
-                    child: Checkbox(
-                      state: task.status == 'Done' ? CheckboxState.checked : CheckboxState.unchecked,
-                      onChanged: (_) {},
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      task.title,
+          child: Row(
+            children: [
+              // View tabs
+              MoonTabBar(
+                tabBarSize: MoonTabBarSize.sm,
+                isExpanded: false,
+                tabs: const [
+                  MoonTab(label: Text('List')),
+                  MoonTab(label: Text('Kanban')),
+                ],
+                onTabChanged: (i) => setState(() => _viewTab = i),
+              ),
+              const Spacer(),
+              // Filter chips
+              ...List.generate(_statusFilters.length, (i) {
+                final f = _statusFilters[i];
+                final active = _activeFilter == f;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: MoonChip(
+                    chipSize: MoonChipSize.sm,
+                    isActive: active,
+                    backgroundColor: active ? colors.piccolo.withValues(alpha: 0.12) : Colors.transparent,
+                    activeColor: colors.piccolo,
+                    label: Text(
+                      f == 'all' ? 'All' : f.replaceAll('_', ' '),
                       style: TextStyle(
-                        decoration: task.status == 'Done' ? TextDecoration.lineThrough : null,
+                        fontSize: 12,
+                        color: active ? colors.piccolo : colors.trunks,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
+                    onTap: () => setState(() => _activeFilter = f),
                   ),
-                  Expanded(child: _priorityBadge(task.priority)),
-                  Expanded(child: _statusBadge(task.status)),
-                  Expanded(child: Text(task.project, style: const TextStyle(fontSize: 13))),
-                  Expanded(child: Text(task.dueDate, style: const TextStyle(fontSize: 13, color: Colors.gray))),
-                ],
+                );
+              }),
+              const SizedBox(width: 8),
+              MoonFilledButton(
+                onTap: () {},
+                buttonSize: MoonButtonSize.sm,
+                label: const Text('Add Task'),
+                leading: const Icon(Icons.add, size: 16),
               ),
-            ),
-        ],
-      ),
+            ],
+          ),
+        ),
+        // Content
+        Expanded(
+          child: _tasks.isEmpty
+              ? Center(child: MoonCircularLoader(color: colors.piccolo))
+              : _viewTab == 0
+                  ? _buildListView(colors)
+                  : _buildKanbanView(colors),
+        ),
+      ],
     );
   }
 
-  Widget _buildKanbanView() {
-    final columns = ['Backlog', 'To Do', 'In Progress', 'Done'];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final col in columns)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                children: [
-                  SurfaceCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Row(
-                        children: [
-                          Text(col, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          const Spacer(),
-                          OutlineBadge(
-                            child: Text('${_tasks.where((t) => t.status == col).length}'),
+  Widget _buildListView(MoonColors colors) {
+    final tasks = _filteredTasks;
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: tasks.length,
+      itemBuilder: (context, i) {
+        final task = tasks[i] as Map<String, dynamic>;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colors.goten,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: colors.beerus, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              MoonCheckbox(
+                value: task['status'] == 'done',
+                onChanged: (_) {},
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task['title'] as String,
+                      style: TextStyle(
+                        color: colors.bulma,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        decoration: task['status'] == 'done' ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (task['dueDate'] != null)
+                          Text(
+                            (task['dueDate'] as String).substring(0, 10),
+                            style: TextStyle(color: colors.trunks, fontSize: 11),
+                          ),
+                        if (task['estimatedHours'] != null) ...[
+                          Text(' \u00b7 ', style: TextStyle(color: colors.trunks, fontSize: 11)),
+                          Text(
+                            '${task['estimatedHours']}h est.',
+                            style: TextStyle(color: colors.trunks, fontSize: 11),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          for (final task in _tasks.where((t) => t.status == col))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Card(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(task.title, style: const TextStyle(fontSize: 13)),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        _priorityBadge(task.priority),
-                                        const Spacer(),
-                                        Text(task.dueDate, style: const TextStyle(fontSize: 11, color: Colors.gray)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              MoonTag(
+                tagSize: MoonTagSize.x2s,
+                backgroundColor: _priorityColor(colors, task['priority'] as String),
+                label: Text(
+                  task['priority'] as String,
+                  style: const TextStyle(fontSize: 10, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 8),
+              MoonTag(
+                tagSize: MoonTagSize.x2s,
+                backgroundColor: _statusTagColor(colors, task['status'] as String),
+                label: Text(
+                  (task['status'] as String).replaceAll('_', ' '),
+                  style: const TextStyle(fontSize: 10, color: Colors.white),
+                ),
+              ),
+            ],
           ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildCalendarPlaceholder() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(RadixIcons.calendar, size: 48),
-          SizedBox(height: 16),
-          Text('Calendar View', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          SizedBox(height: 8),
-          Text('Task timeline and calendar integration', style: TextStyle(color: Colors.gray)),
-        ],
+  Widget _buildKanbanView(MoonColors colors) {
+    final columns = ['todo', 'in_progress', 'done'];
+    final labels = ['To Do', 'In Progress', 'Done'];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(columns.length, (ci) {
+          final colTasks = _tasks.where((t) => t['status'] == columns[ci]).toList();
+          return Container(
+            width: 280,
+            margin: EdgeInsets.only(right: ci < columns.length - 1 ? 12 : 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Column header
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Text(
+                        labels[ci],
+                        style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      const SizedBox(width: 6),
+                      MoonTag(
+                        tagSize: MoonTagSize.x2s,
+                        backgroundColor: colors.beerus,
+                        label: Text('${colTasks.length}', style: TextStyle(fontSize: 10, color: colors.bulma)),
+                      ),
+                    ],
+                  ),
+                ),
+                // Cards
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: colTasks.length,
+                    itemBuilder: (context, i) {
+                      final task = colTasks[i] as Map<String, dynamic>;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.goten,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colors.beerus, width: 0.5),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              task['title'] as String,
+                              style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w500, fontSize: 13),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                MoonTag(
+                                  tagSize: MoonTagSize.x2s,
+                                  backgroundColor: _priorityColor(colors, task['priority'] as String),
+                                  label: Text(task['priority'] as String, style: const TextStyle(fontSize: 9, color: Colors.white)),
+                                ),
+                                const Spacer(),
+                                if (task['dueDate'] != null)
+                                  Text(
+                                    (task['dueDate'] as String).substring(5, 10),
+                                    style: TextStyle(color: colors.trunks, fontSize: 10),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
 
-  Widget _priorityBadge(String priority) {
+  Color _priorityColor(MoonColors colors, String priority) {
     return switch (priority) {
-      'High' => DestructiveBadge(child: Text(priority)),
-      'Medium' => PrimaryBadge(child: Text(priority)),
-      _ => OutlineBadge(child: Text(priority)),
+      'critical' => colors.chichi,
+      'high' => const Color(0xFFEF4444),
+      'medium' => colors.krillin,
+      'low' => colors.roshi,
+      _ => colors.trunks,
     };
   }
 
-  Widget _statusBadge(String status) {
+  Color _statusTagColor(MoonColors colors, String status) {
     return switch (status) {
-      'Done' => PrimaryBadge(child: Text(status)),
-      'In Progress' => SecondaryBadge(child: Text(status)),
-      _ => OutlineBadge(child: Text(status)),
+      'done' => colors.roshi,
+      'in_progress' => colors.piccolo,
+      'todo' => colors.trunks,
+      _ => colors.beerus,
     };
   }
-}
-
-class _Task {
-  final String title;
-  final String priority;
-  final String status;
-  final String project;
-  final String dueDate;
-
-  const _Task({
-    required this.title,
-    required this.priority,
-    required this.status,
-    required this.project,
-    required this.dueDate,
-  });
 }
