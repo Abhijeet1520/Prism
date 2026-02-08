@@ -1,6 +1,6 @@
 # 05 — UI/UX Specification
 
-> Screen-by-screen specification for Gemmie. Defines layout, navigation, interactions, and component behavior for every major screen. All designs follow Material 3 guidelines with adaptive layouts for phone, tablet, and desktop.
+> Screen-by-screen specification for Prism. Defines layout, navigation, interactions, and component behavior for every major screen. All designs follow Moon Design guidelines with adaptive layouts for phone, tablet, and desktop.
 
 ---
 
@@ -10,17 +10,19 @@
 - [2. Navigation Structure](#2-navigation-structure)
 - [3. Home / Onboarding](#3-home--onboarding)
 - [4. Chat Screen](#4-chat-screen)
-- [5. Tools Tab](#5-tools-tab)
-- [6. File Explorer](#6-file-explorer)
-- [7. Settings Screen](#7-settings-screen)
-- [8. Persona Editor](#8-persona-editor)
-- [9. Code Editor](#9-code-editor)
-- [10. Sheets Editor](#10-sheets-editor)
-- [11. Document Editor](#11-document-editor)
-- [12. Diff Viewer](#12-diff-viewer)
-- [13. Permission Dialogs](#13-permission-dialogs)
-- [14. Model Manager](#14-model-manager)
-- [15. Adaptive Layout Breakpoints](#15-adaptive-layout-breakpoints)
+- [5. Brain Screen](#5-brain-screen)
+- [6. Apps Hub Screen](#6-apps-hub-screen)
+- [7. Tools (via Apps Hub)](#7-tools-via-apps-hub)
+- [8. File Explorer (via Apps Hub)](#8-file-explorer-via-apps-hub)
+- [9. Settings Screen](#9-settings-screen)
+- [10. Persona Editor](#10-persona-editor)
+- [11. Code Editor](#11-code-editor)
+- [12. Sheets Editor](#12-sheets-editor)
+- [13. Document Editor](#13-document-editor)
+- [14. Diff Viewer](#14-diff-viewer)
+- [15. Permission Dialogs](#15-permission-dialogs)
+- [16. Model Manager](#16-model-manager)
+- [17. Adaptive Layout Breakpoints](#17-adaptive-layout-breakpoints)
 
 ---
 
@@ -28,29 +30,42 @@
 
 ### Theme
 
-| Token | Light | Dark |
-|-------|-------|------|
-| **Primary** | Teal 500 | Teal 200 |
-| **Secondary** | Amber 600 | Amber 200 |
-| **Surface** | White | Grey 900 |
-| **Error** | Red 500 | Red 300 |
-| **On Primary** | White | Grey 900 |
-| **Background** | Grey 50 | Grey 950 |
+<!-- UPDATED: Switched from Material 3 tokens to Moon Design 1.1.0 token system -->
 
-> Final colors TBD — user-configurable accent color with Material 3 dynamic color support.
+> Moon Design uses Dragon Ball-named tokens. Access via `context.moonColors!.piccolo` etc.
+
+| Token | Name | Hex | Usage |
+|-------|------|-----|-------|
+| **piccolo** | Primary/accent | #818CF8 (indigo-400) | Buttons, links, active states |
+| **goten** | Surface | #16162A | Cards, sheets, elevated surfaces |
+| **gohan** | Background/scaffold | #0C0C16 | Page background |
+| **bulma** | Text primary | #E2E2EC | Headings, body text |
+| **trunks** | Text secondary | #7A7A90 | Captions, hints, metadata |
+| **beerus** | Border/divider | #252540 | Dividers, card outlines |
+| **goku** | Deepest background | #060610 | Status bar, system areas |
+| **chichi** | Error | #EF4444 | Error states, destructive actions |
+| **roshi** | Success | #22C55E | Success states, confirmations |
+| **krillin** | Warning | #F59E0B | Warnings, caution states |
+| **whis** | Info | #3B82F6 | Informational states, badges |
+
+> User-configurable accent color may override `piccolo` in future.
 
 ### Typography
 
-| Style | Font | Size | Weight | Usage |
-|-------|------|------|--------|-------|
-| Display Large | System default | 57sp | 400 | Splash / empty states |
-| Headline Medium | System default | 28sp | 400 | Screen titles |
-| Title Large | System default | 22sp | 500 | Section headers |
-| Title Medium | System default | 16sp | 500 | Card titles, list items |
-| Body Large | System default | 16sp | 400 | Chat messages, file content |
-| Body Medium | System default | 14sp | 400 | Secondary text |
-| Label Large | System default | 14sp | 500 | Buttons, tabs |
-| Code | JetBrains Mono / Fira Code | 14sp | 400 | Code blocks, code editor |
+<!-- UPDATED: Switched from Material Design typography to Moon Design MoonTextStyle system -->
+
+> Moon Design uses `MoonTextStyle` with numeric size tokens (text8 through text80).
+
+| MoonTextStyle | Size | Weight | Usage |
+|---------------|------|--------|-------|
+| text80 | 80px | 700 | Splash / hero empty states |
+| text40 | 40px | 700 | Screen titles |
+| text24 | 24px | 600 | Section headers |
+| text16 | 16px | 600 | Card titles, list items |
+| text14 | 14px | 400 | Chat messages, body text |
+| text12 | 12px | 400 | Secondary text, captions |
+| text10 | 10px | 500 | Labels, tabs, badges |
+| Code | JetBrains Mono / Fira Code | 14px | 400 | Code blocks, code editor |
 
 ### Iconography
 
@@ -94,14 +109,14 @@
 │                                                            │
 │  Phone: Bottom Navigation Bar                              │
 │  ┌──────────┬──────────┬──────────┬──────────┐            │
-│  │  💬 Chat │ 🔧 Tools │ 📁 Files │ ⚙ Settings│           │
+│  │  💬 Chat │ 🧠 Brain │ 🚀 Apps  │ ⚙ Settings│           │
 │  └──────────┴──────────┴──────────┴──────────┘            │
 │                                                            │
 │  Tablet/Desktop: Navigation Rail (left side)               │
 │  ┌──┐                                                      │
 │  │💬│ Chat                                                 │
-│  │🔧│ Tools                                                │
-│  │📁│ Files                                                │
+│  │🧠│ Brain                                                │
+│  │🚀│ Apps Hub                                             │
 │  │⚙│ Settings                                             │
 │  └──┘                                                      │
 └────────────────────────────────────────────────────────────┘
@@ -119,23 +134,31 @@ Chat Tab
 │       ├── Conversation Info (slide panel)
 │       └── Export Dialog
 │
-Tools Tab
-├── Tools Grid (categories)
-│   └── Tool Detail
-│       ├── Tool Config / Usage
-│       └── Tool Execution View
+Brain Tab                              <!-- UPDATED: was Tools Tab -->
+├── Knowledge Items (PARA grid/list)
+│   ├── Search & Filter (Projects, Areas, Resources, Archive)
+│   ├── [+] New Knowledge Item
+│   └── Knowledge Item Detail
+│       ├── Edit Item
+│       └── Tags & Metadata
 │
-Files Tab
-├── File Browser (tree + breadcrumb)
-│   ├── File Viewer (based on type)
-│   │   ├── Document Viewer → Document Editor
-│   │   ├── Sheet Viewer → Sheets Editor
-│   │   ├── Code Viewer → Code Editor
-│   │   ├── Image Viewer
-│   │   └── Persona Viewer → Persona Editor
-│   ├── File History → Diff Viewer
-│   ├── File Info Panel
-│   └── Trash (special folder)
+Apps Hub Tab                           <!-- UPDATED: was Files Tab -->
+├── Apps Grid (launcher)
+│   ├── Tools → Tools Grid (categories)
+│   │   └── Tool Detail → Tool Config / Execution
+│   ├── Files → File Browser (tree + breadcrumb)
+│   │   ├── File Viewer (based on type)
+│   │   │   ├── Document Viewer → Document Editor
+│   │   │   ├── Sheet Viewer → Sheets Editor
+│   │   │   ├── Code Viewer → Code Editor
+│   │   │   ├── Image Viewer
+│   │   │   └── Persona Viewer → Persona Editor
+│   │   ├── File History → Diff Viewer
+│   │   ├── File Info Panel
+│   │   └── Trash (special folder)
+│   ├── Tasks (future)
+│   ├── Finance (future)
+│   └── Gateway (future)
 │
 Settings Tab
 ├── Settings Home
@@ -160,7 +183,7 @@ Settings Tab
 
 ```
 ┌─────────────────────────────────────┐
-│          Welcome to Gemmie          │
+│          Welcome to Prism          │
 │                                     │
 │     [App Logo / Animation]          │
 │                                     │
@@ -250,7 +273,7 @@ Settings Tab
 │  │ 📎 budget_q1.csv             │   │
 │  └───────────────────────────────┘   │
 │                                      │
-│  ┌─ Gemmie (gemma-3b) ──────────┐   │
+│  ┌─ Prism (gemma-3b) ──────────┐   │
 │  │ I'll analyze the spreadsheet. │   │
 │  │                               │   │
 │  │ ┌─ 🔧 Tool: File Read ─────┐ │   │
@@ -336,7 +359,60 @@ Settings Tab
 
 ---
 
-## 5. Tools Tab
+## 5. Brain Screen
+
+<!-- NEW: Brain is a primary tab providing PARA-method knowledge management -->
+
+### Purpose
+
+Central knowledge hub using the PARA method for organizing information.
+
+### Layout
+
+- Top: Search bar + filter chips (All, Projects, Areas, Resources, Archive)
+- Content: Card grid/list of knowledge items
+- FAB: Create new item
+- Each card shows: title, category (PARA), excerpt, last modified, tags
+
+### PARA Categories
+
+| Category | Icon | Description |
+|----------|------|-------------|
+| Projects | 🎯 | Active goals with deadlines |
+| Areas | 🔄 | Ongoing responsibilities |
+| Resources | 📚 | Reference materials & topics of interest |
+| Archive | 📦 | Completed or inactive items |
+
+---
+
+## 6. Apps Hub Screen
+
+<!-- NEW: Apps Hub provides a launcher for secondary features -->
+
+### Purpose
+
+Central launcher for utility features that don't need primary tab space.
+
+### Layout
+
+- Grid of feature cards (2 columns on mobile, 3+ on desktop)
+- Each card: icon, title, description, tap to navigate
+
+### Available Apps
+
+| App | Icon | Description |
+|-----|------|-------------|
+| Tools | 🛠️ | AI-powered tools (search, calculator, etc.) |
+| Files | 📁 | Virtual filesystem & file explorer |
+| Tasks | ✅ | Task management (future) |
+| Finance | 💰 | Financial tracking (future) |
+| Gateway | 🌐 | API gateway management (future) |
+
+---
+
+## 7. Tools (via Apps Hub)
+
+<!-- NOTE: Tools are now accessed via Apps Hub tab, not as a standalone tab -->
 
 ### Tools Grid
 
@@ -417,7 +493,9 @@ Settings Tab
 
 ---
 
-## 6. File Explorer
+## 8. File Explorer (via Apps Hub)
+
+<!-- NOTE: File Explorer is now accessed via Apps Hub tab, not as a standalone tab -->
 
 ### File Browser
 
@@ -498,7 +576,7 @@ Settings Tab
 
 ---
 
-## 7. Settings Screen
+## 9. Settings Screen
 
 ### Settings Home
 
@@ -532,7 +610,7 @@ Settings Tab
 │  ┌─────────────────────────────────┐ │
 │  │ 🔐 Privacy & Data            [→]│ │
 │  │ 📜 Licenses                   [→]│ │
-│  │ ℹ️  About Gemmie               [→]│ │
+│  │ ℹ️  About Prism               [→]│ │
 │  └─────────────────────────────────┘ │
 │                                      │
 │  App v0.1.0 · Made with 💚          │
@@ -588,7 +666,7 @@ Settings Tab
 
 ---
 
-## 8. Persona Editor
+## 10. Persona Editor
 
 ### Persona Overview
 
@@ -608,7 +686,7 @@ Settings Tab
 │  │   Tone, style & behavior     [→]│  │
 │  │                                 │  │
 │  │ 💭 Memory       12 entries      │  │
-│  │   What Gemmie remembers      [→]│  │
+│  │   What Prism remembers      [→]│  │
 │  │                                 │  │
 │  │ 📏 Rules        8 rules         │  │
 │  │   Behavioral constraints     [→]│  │
@@ -618,7 +696,7 @@ Settings Tab
 │  └─────────────────────────────────┘  │
 │                                      │
 │  ┌─ Quick Preview ─────────────────┐ │
-│  │ "Hi! I'm Gemmie. I keep things │ │
+│  │ "Hi! I'm Prism. I keep things │ │
 │  │  concise and casual. I'll ask   │ │
 │  │  before touching your files."   │ │
 │  └─────────────────────────────────┘ │
@@ -670,7 +748,7 @@ Settings Tab
 
 ---
 
-## 9. Code Editor
+## 11. Code Editor
 
 ### Code Editor Screen
 
@@ -718,7 +796,7 @@ Settings Tab
 
 ---
 
-## 10. Sheets Editor
+## 12. Sheets Editor
 
 ```
 ┌──────────────────────────────────────┐
@@ -748,7 +826,7 @@ Settings Tab
 
 ---
 
-## 11. Document Editor
+## 13. Document Editor
 
 ```
 ┌──────────────────────────────────────┐
@@ -790,7 +868,7 @@ Settings Tab
 
 ---
 
-## 12. Diff Viewer
+## 14. Diff Viewer
 
 ### Side-by-Side Diff
 
@@ -864,7 +942,7 @@ Settings Tab
 
 ---
 
-## 13. Permission Dialogs
+## 15. Permission Dialogs
 
 ### Permission Request Dialog
 
@@ -873,7 +951,7 @@ Settings Tab
 │  🔐 Permission Request                 │
 │  ────────────────────────────────────  │
 │                                        │
-│  Gemmie (gemma-3b) wants to:          │
+│  Prism (gemma-3b) wants to:          │
 │                                        │
 │  ✏️  Write to: spec.md                 │
 │  📁 In: Documents/Project Alpha       │
@@ -922,7 +1000,7 @@ Settings Tab
 
 ---
 
-## 14. Model Manager
+## 16. Model Manager
 
 ```
 ┌──────────────────────────────────────┐
@@ -962,7 +1040,7 @@ Settings Tab
 
 ---
 
-## 15. Adaptive Layout Breakpoints
+## 17. Adaptive Layout Breakpoints
 
 ### Phone (< 600dp)
 

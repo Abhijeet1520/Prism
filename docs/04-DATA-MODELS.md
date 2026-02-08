@@ -1,6 +1,6 @@
 # 04 — Data Models
 
-> This document defines all data structures, schemas, and entity relationships used in Gemmie. Each schema maps to a domain entity in the architecture and may have corresponding Isar collections, DTOs, or API request/response models.
+> This document defines all data structures, schemas, and entity relationships used in Prism. Each schema maps to a domain entity in the architecture and may have corresponding Isar collections, DTOs, or API request/response models.
 
 ---
 
@@ -130,7 +130,7 @@ Attachment:
   fileName:        String                     # Original file name
   mimeType:        String                     # e.g., "image/png", "text/csv"
   sizeBytes:       int
-  storagePath:     String                     # Path in Gemmie's storage
+  storagePath:     String                     # Path in Prism's storage
   thumbnailPath:   String?                    # Thumbnail for images
 ```
 
@@ -306,12 +306,12 @@ OllamaServerConfig:
 
 ## 5. Virtual Filesystem
 
-### GemmieFile
+### PrismFile
 
 ```yaml
-GemmieFile:
+PrismFile:
   id:              String (UUID v4)
-  folderId:        String                     # FK to GemmieFolder (parent)
+  folderId:        String                     # FK to PrismFolder (parent)
   name:            String                     # File name with extension
   type:            FileType                   # document | sheet | script | persona | note | image | binary
   content:         Uint8List                  # Encrypted content blob
@@ -330,12 +330,12 @@ GemmieFile:
   checksum:        String                     # SHA-256 of decrypted content (for sync)
 ```
 
-### GemmieFolder
+### PrismFolder
 
 ```yaml
-GemmieFolder:
+PrismFolder:
   id:              String (UUID v4)
-  parentId:        String?                    # FK to parent GemmieFolder (null = root)
+  parentId:        String?                    # FK to parent PrismFolder (null = root)
   name:            String                     # Folder name
   createdAt:       DateTime
   updatedAt:       DateTime
@@ -413,7 +413,7 @@ RootFolders:
 ```yaml
 FileVersion:
   id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
+  fileId:          String                     # FK to PrismFile
   versionNumber:   int                        # Sequential (1, 2, 3, ...)
   content:         Uint8List?                 # Full snapshot (every 10th version) — encrypted
   delta:           Uint8List?                 # Compressed diff from previous version — encrypted
@@ -499,7 +499,7 @@ PermissionTier:
 ```yaml
 PermissionGrant:
   id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
+  fileId:          String                     # FK to PrismFile
   operation:       OperationType              # read | write | delete | execute
   scope:           GrantScope                 # thisTime | thisSession | always
   grantedAt:       DateTime
@@ -516,7 +516,7 @@ PermissionGrant:
 ```yaml
 PermissionRequest:
   id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
+  fileId:          String                     # FK to PrismFile
   fileName:        String                     # Display name (for UI)
   filePath:        String                     # Full virtual path
   operation:       OperationType              # What operation is requested
@@ -575,11 +575,11 @@ Persona:
   name:            String                     # e.g., "Professional", "Creative", "Default"
   isDefault:       bool                       # Is this the default persona
   isActive:        bool                       # Currently selected
-  soulFileId:      String                     # FK to GemmieFile (soul.md)
-  personalityFileId: String                   # FK to GemmieFile (personality.md)
-  memoryFileId:    String                     # FK to GemmieFile (memory.md)
-  rulesFileId:     String                     # FK to GemmieFile (rules.md)
-  knowledgeFileId: String?                    # FK to GemmieFile (knowledge.md) — optional
+  soulFileId:      String                     # FK to PrismFile (soul.md)
+  personalityFileId: String                   # FK to PrismFile (personality.md)
+  memoryFileId:    String                     # FK to PrismFile (memory.md)
+  rulesFileId:     String                     # FK to PrismFile (rules.md)
+  knowledgeFileId: String?                    # FK to PrismFile (knowledge.md) — optional
   createdAt:       DateTime
   updatedAt:       DateTime
 ```
@@ -588,7 +588,7 @@ Persona:
 
 ```yaml
 SoulConfig:
-  agentName:       String                     # Default: "Gemmie"
+  agentName:       String                     # Default: "Prism"
   coreIdentity:    String                     # Free-text identity statement
   values:          List<String>               # Core values (helpfulness, honesty, etc.)
   constraints:     List<String>               # Hard constraints (never share user data, etc.)
@@ -686,7 +686,7 @@ ToolResult:
 ToolArtifact:
   type:            ArtifactType               # file | image | download
   name:            String
-  path:            String?                    # Path in Gemmie storage
+  path:            String?                    # Path in Prism storage
   mimeType:        String
   sizeBytes:       int
 ```
@@ -743,7 +743,7 @@ ExecutionResult:
 ```yaml
 Script:
   id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile (stored in Scripts folder)
+  fileId:          String                     # FK to PrismFile (stored in Scripts folder)
   name:            String                     # Script name
   description:     String?                    # What this script does
   language:        String                     # Programming language
@@ -810,7 +810,7 @@ SyncConfig:
 
 ```yaml
 SyncState:
-  fileId:          String                     # FK to GemmieFile
+  fileId:          String                     # FK to PrismFile
   localVersion:    int                        # Local version number
   remoteVersion:   int                        # Remote version number
   status:          SyncStatus                 # synced | pending | uploading | downloading | conflict | error
@@ -823,7 +823,7 @@ SyncState:
 ```yaml
 ConflictEntry:
   id:              String (UUID v4)
-  fileId:          String                     # FK to GemmieFile
+  fileId:          String                     # FK to PrismFile
   localContent:    Uint8List                  # Local version content (encrypted)
   remoteContent:   Uint8List                  # Remote version content (encrypted)
   localModifiedAt: DateTime
@@ -865,7 +865,7 @@ SyncStatus:
        │ 5 (soul, personality, memory, rules, knowledge)  │
        ▼                                                  │
 ┌──────────────┐←─────────────────────────────────────────┘
-│  GemmieFile  │←─────────┐
+│  PrismFile  │←─────────┐
 └──────┬───────┘          │
        │                  │ (file in folder)
        │ *                │
@@ -877,7 +877,7 @@ SyncStatus:
        │                  │
        ▼                  │
 ┌──────────────┐    ┌─────┴────────┐
-│  DiffResult  │    │ GemmieFolder │──→ (self: parent)
+│  DiffResult  │    │ PrismFolder │──→ (self: parent)
 └──────────────┘    └──────────────┘
                           │
                           │

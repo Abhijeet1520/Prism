@@ -1,6 +1,6 @@
 # 08 — Development Roadmap
 
-> Phased delivery plan for Gemmie, including milestones, dependencies, Gallery module porting timeline, and effort estimates.
+> Phased delivery plan for Prism, including milestones, dependencies, Gallery module porting timeline, and effort estimates.
 
 ---
 
@@ -63,7 +63,7 @@ Week 13-16 ── Phase 6: Advanced Features
 
 | ID | Task | Effort | Output |
 |----|------|--------|--------|
-| 0.1 | Create Flutter project (`flutter create gemmie`) | 1h | Project skeleton |
+| 0.1 | Create Flutter project (`flutter create prism`) | 1h | Project skeleton |
 | 0.2 | Configure project structure per 03-ARCHITECTURE.md | 4h | Clean Architecture folders |
 | 0.3 | Set up Riverpod 2.x with code generation | 2h | Providers configured |
 | 0.4 | Set up GoRouter navigation skeleton | 2h | Route definitions |
@@ -71,8 +71,8 @@ Week 13-16 ── Phase 6: Advanced Features
 | 0.6 | Set up Isar database with initial schemas | 4h | DB layer |
 | 0.7 | Configure platform-specific keystore wrappers | 4h | Secure storage |
 | 0.8 | Set up CI pipeline (GitHub Actions) | 4h | Build + test on push |
-| 0.9 | Create shared design tokens / theme | 4h | `AppTheme`, `AppColors`, `AppTypography` |
-| 0.10 | README, LICENSE, CONTRIBUTING.md in `gennie/` | 2h | Repo docs |
+| 0.9 | Create shared design tokens / theme | 4h | `AppTheme`, `AppColors`, `AppTypography` — now Moon Design tokens (piccolo, goten, gohan, bulma, trunks, beerus, etc.) |
+| 0.10 | README, LICENSE, CONTRIBUTING.md in `prism/` | 2h | Repo docs |
 
 ### Deliverable
 
@@ -90,7 +90,7 @@ Week 13-16 ── Phase 6: Advanced Features
 
 | ID | Task | Effort | Output |
 |----|------|--------|--------|
-| 1.1 | Implement bottom navigation (4 tabs) | 4h | TabBar scaffold |
+| 1.1 | Implement bottom navigation (4 tabs: Chat, Brain, Apps Hub, Settings) | 4h | TabBar scaffold |
 | 1.2 | Conversation list screen | 12h | List with create/delete/rename |
 | 1.3 | Chat screen — message bubbles | 16h | User + AI messages, markdown rendering |
 | 1.4 | Chat screen — input bar (text, attachments) | 8h | Multi-line input, send button |
@@ -120,7 +120,7 @@ Week 13-16 ── Phase 6: Advanced Features
 
 | ID | Task | Effort | Output |
 |----|------|--------|--------|
-| 2.1 | Integrate LangChain.dart core (`langchain_core`, `langchain`) | 4h | Base abstractions + GemmieProvider wrapper |
+| 2.1 | Integrate LangChain.dart core (`langchain_core`, `langchain`) | 4h | Base abstractions + PrismProvider wrapper |
 | 2.2 | OpenAI provider (`langchain_openai`) | 8h | Chat + streaming + tool calling |
 | 2.3 | Google Gemini provider (`langchain_google`) | 8h | Chat + streaming + tool calling |
 | 2.4 | Anthropic Claude provider (`langchain_anthropic`) | 8h | Chat + streaming + tool calling |
@@ -156,7 +156,7 @@ Week 13-16 ── Phase 6: Advanced Features
 
 | ID | Task | Effort | Output |
 |----|------|--------|--------|
-| 3.1 | Tool registry & invocation framework | 12h | `GemmieTool` interface, registry |
+| 3.1 | Tool registry & invocation framework | 12h | `PrismTool` interface, registry |
 | 3.2 | Built-in tools: web search, calculator, unit converter | 16h | 3 tools working |
 | 3.3 | Built-in tools: date/time, text transform, JSON formatter | 8h | 3 tools working |
 | 3.4 | Tool result rendering in chat (tables, code blocks) | 8h | Rich tool output |
@@ -166,7 +166,7 @@ Week 13-16 ── Phase 6: Advanced Features
 | 3.8 | Code editor UI (syntax highlighting, output panel) | 16h | Full code editor screen |
 | 3.9 | Script management (save, load, parameters) | 12h | Script library |
 | 3.10 | Remote execution connector (Modal, Daytona, SSH) | 16h | Remote code runner |
-| 3.11 | Tools tab UI (grid, categories, search) | 8h | Tools discovery screen |
+| 3.11 | Apps Hub > Tools UI (grid, categories, search) | 8h | Tools discovery screen |
 | 3.12 | AI tool calling integration (function calling) | 12h | AI invokes tools via function call API |
 
 ### Exit Criteria
@@ -187,7 +187,7 @@ Week 13-16 ── Phase 6: Advanced Features
 
 | ID | Task | Effort | Output |
 |----|------|--------|--------|
-| 4.1 | Virtual filesystem core (GemmieFile, GemmieFolder) | 16h | CRUD on files/folders |
+| 4.1 | Virtual filesystem core (PrismFile, PrismFolder) | 16h | CRUD on files/folders |
 | 4.2 | File explorer UI (tree view, context menu) | 16h | Browse, create, rename, delete |
 | 4.3 | Markdown editor with live preview | 16h | Full MD editing experience |
 | 4.4 | Spreadsheet/grid editor | 20h | Cell editing, formulas, CSV |
@@ -288,7 +288,7 @@ The AI Edge Gallery (Kotlin/Compose) contains modules worth porting to Flutter. 
 
 1. **Study** the Kotlin source in `gallery/Android/src/`
 2. **Extract** the interface contracts and data models
-3. **Rewrite** in Dart following Gemmie's architecture (NOT a 1:1 port)
+3. **Rewrite** in Dart following Prism's architecture (NOT a 1:1 port)
 4. **Test** against the same inputs/outputs as the Gallery version
 5. **Document** differences and improvements
 

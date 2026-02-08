@@ -1,10 +1,10 @@
-# Gemmie — Documentation Index
+# Prism — Documentation Index
 
-> **Gemmie** is a cross-platform AI personal assistant app that empowers users to run AI models locally or connect to cloud AI providers, manage files with enterprise-grade security, execute code in multiple languages, and interact with a fully customizable agent persona.
+> **Prism** is a cross-platform AI personal assistant app that empowers users to run AI models locally or connect to cloud AI providers, manage files with enterprise-grade security, execute code in multiple languages, and interact with a fully customizable agent persona.
 
 **Status:** Requirements Phase
 **Platform:** Flutter (Android, iOS, Web, Desktop)
-**Working Title:** Gemmie (subject to change)
+**Working Title:** Prism
 
 ---
 
@@ -34,7 +34,8 @@ Every user requirement is mapped to one or more functional requirements (FR), wh
 | Personal assistant app | FR-01 (Chat) | Chat Module | Chat Screen |
 | Run AI models locally | FR-02 (Model Management) | Models Module | Model Manager |
 | Connect using AI API tools | FR-03 (Cloud AI APIs) | Provider Module (LangChain.dart) | Settings > Providers |
-| Tools tab for AI interaction | FR-04 (Tools System) | Tools Module | Tools Tab |
+| Tools tab for AI interaction | FR-04 (Tools System) | Tools Module | Apps Hub > Tools |
+| PARA-method knowledge management | FR-13 (Brain / Knowledge) | Brain Module | Brain Tab |
 | Settings with profiles & tokens | FR-05 (Settings & Profiles) | Settings Module | Settings Screen |
 | Organized file storage | FR-06 (File Storage) | Storage Module | File Explorer |
 | MD format data storage | FR-06 (File Storage) | Storage Module | File Viewer |

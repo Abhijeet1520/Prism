@@ -1,6 +1,6 @@
 # 03 — Architecture
 
-> This document defines the system architecture, module breakdown, provider abstraction patterns, plugin systems, storage engine, and diff engine for Gemmie. It serves as the technical blueprint for implementation.
+> This document defines the system architecture, module breakdown, provider abstraction patterns, plugin systems, storage engine, and diff engine for Prism. It serves as the technical blueprint for implementation.
 
 ---
 
@@ -44,10 +44,10 @@
 │                                                                      │
 │  Screens (Widgets)  ←→  Controllers/Notifiers  ←→  Riverpod Providers│
 │                                                                      │
-│  • ChatScreen, ToolsScreen, FileExplorer, SettingsScreen, etc.       │
+│  • ChatScreen, BrainScreen, AppsHubScreen, SettingsScreen, etc.      │
 │  • Widget-level state via StateNotifier / AsyncNotifier               │
 │  • Navigation via GoRouter                                           │
-│  • Theming via Material 3 tokens                                     │
+│  • Theming via Moon Design tokens                                    │
 ├──────────────────────────────────────────────────────────────────────┤
 │                          DOMAIN LAYER                                │
 │                                                                      │
@@ -90,12 +90,17 @@ lib/
 │   ├── errors/                        #   Error types, failure classes
 │   ├── extensions/                    #   Dart/Flutter extension methods
 │   ├── utils/                         #   Formatting, validation, helpers
-│   └── theme/                         #   Material 3 theme data, colors, typography
+│   └── theme/                         #   Moon Design theme data, colors, typography
 │
 ├── features/                          # Feature modules (each follows Clean Architecture)
 │   ├── chat/                          #   FR-01: Chat & Conversation
 │   │   ├── data/                      #     repositories, data sources, DTOs
 │   │   ├── domain/                    #     entities, use cases, repository interfaces
+│   │   └── presentation/             #     screens, widgets, controllers
+│   │
+│   ├── brain/                         #   FR-13: PARA Knowledge Management
+│   │   ├── data/                      #     repositories, data sources, DTOs
+│   │   ├── domain/                    #     entities (Project, Area, Resource, Archive)
 │   │   └── presentation/             #     screens, widgets, controllers
 │   │
 │   ├── models/                        #   FR-02: Model Management
@@ -176,11 +181,12 @@ lib/
 | Module | Domain Entities | External Dependencies | Cross-Module Dependencies |
 |--------|----------------|----------------------|--------------------------|
 | **chat** | Conversation, Message, Attachment | None | providers, tools, persona, permissions |
+| **brain** | Project, Area, Resource, ArchiveItem | None | storage, permissions, sync |
 | **models** | AIModel, ModelConfig, DownloadState | llama_sdk (FFI), LiteRT (platform channels), Ollama (via `ollama_dart`), HuggingFace API | settings (tokens) |
 | **providers** | Provider, ProviderConfig, TokenUsage | LangChain.dart (`langchain_openai`, `langchain_google`, `langchain_anthropic`, `langchain_ollama`, `langchain_mistralai`) | settings (API keys) |
 | **tools** | Tool, ToolInvocation, ToolResult | Per-tool external deps | permissions, executor, storage |
 | **settings** | UserProfile, AppPreferences, CredentialEntry | Platform Keystore | None (dependency of others) |
-| **storage** | GemmieFile, GemmieFolder, FileMetadata | Isar DB | permissions, versioning |
+| **storage** | PrismFile, PrismFolder, FileMetadata | Isar DB | permissions, versioning |
 | **versioning** | FileVersion, Diff, DiffHunk | None | storage |
 | **permissions** | PermissionTier, PermissionRequest, AuditEntry | None | storage |
 | **persona** | Persona, SoulConfig, PersonalityConfig, Memory | None | storage, versioning, permissions |
@@ -192,14 +198,14 @@ lib/
 
 ## 4. Provider Abstraction Layer
 
-Gemmie uses **LangChain.dart** (`langchain_core`) as its provider abstraction layer instead of a custom interface. This gives us battle-tested abstractions, 10+ pre-built provider integrations, and the `Runnable` composability pattern.
+Prism uses **LangChain.dart** (`langchain_core`) as its provider abstraction layer instead of a custom interface. This gives us battle-tested abstractions, 10+ pre-built provider integrations, and the `Runnable` composability pattern.
 
 ### Core Abstraction: BaseChatModel
 
 LangChain.dart's `BaseChatModel` serves as the unified provider interface:
 
 ```dart
-/// LangChain.dart provides this — we wrap it for Gemmie-specific concerns.
+/// LangChain.dart provides this — we wrap it for Prism-specific concerns.
 /// See: langchain_core/lib/src/chat_models/base.dart
 ///
 /// Key methods:
@@ -212,12 +218,12 @@ LangChain.dart's `BaseChatModel` serves as the unified provider interface:
 ///   final result = await chain.invoke('user query');
 ```
 
-### Gemmie Provider Wrapper
+### Prism Provider Wrapper
 
 ```dart
-/// Wraps a LangChain BaseChatModel with Gemmie-specific concerns:
+/// Wraps a LangChain BaseChatModel with Prism-specific concerns:
 /// credential management, rate limiting, cost tracking, health checks.
-class GemmieProvider {
+class PrismProvider {
   final String id;
   final String displayName;
   final BaseChatModel chatModel;
@@ -225,16 +231,16 @@ class GemmieProvider {
   final ProviderConfig config;
 
   /// All providers use LangChain.dart under the hood
-  factory GemmieProvider.openai(ProviderConfig config) =>
-    GemmieProvider._(
+  factory PrismProvider.openai(ProviderConfig config) =>
+    PrismProvider._(
       id: 'openai',
       displayName: 'OpenAI',
       chatModel: ChatOpenAI(apiKey: config.apiKey),
       // ...
     );
 
-  factory GemmieProvider.ollama(ProviderConfig config) =>
-    GemmieProvider._(
+  factory PrismProvider.ollama(ProviderConfig config) =>
+    PrismProvider._(
       id: 'ollama',
       displayName: 'Ollama',
       chatModel: ChatOllama(baseUrl: config.baseUrl),
@@ -250,13 +256,13 @@ class GemmieProvider {
 ```dart
 /// Registry for dynamically adding/removing providers
 class ProviderRegistry {
-  final Map<String, GemmieProvider> _providers = {};
+  final Map<String, PrismProvider> _providers = {};
 
-  void register(GemmieProvider provider);
+  void register(PrismProvider provider);
   void unregister(String providerId);
-  GemmieProvider? getProvider(String providerId);
-  List<GemmieProvider> get allProviders;
-  List<GemmieProvider> getProvidersWithCapability(Capability cap);
+  PrismProvider? getProvider(String providerId);
+  List<PrismProvider> get allProviders;
+  List<PrismProvider> getProvidersWithCapability(Capability cap);
 }
 ```
 
@@ -264,7 +270,7 @@ class ProviderRegistry {
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                   GemmieProvider (wrapper)                           │
+│                   PrismProvider (wrapper)                           │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────────┤
 │ ChatOpenAI│ChatGoogle│ChatAnthr.│ChatOllama│ChatMistr.│  llama_sdk   │
 │ (langchain│(langchain│(langchain│(langchain│(langchain│  (FFI)       │
@@ -291,7 +297,7 @@ class ProviderRegistry {
 ### Adding a New Provider
 
 1. Check if LangChain.dart already has a package for it (likely yes)
-2. If yes: add `langchain_<provider>` dependency, create `GemmieProvider.<provider>()` factory
+2. If yes: add `langchain_<provider>` dependency, create `PrismProvider.<provider>()` factory
 3. If no (custom/self-hosted): use `langchain_openai` with custom `baseUrl` (most self-hosted solutions are OpenAI-compatible)
 4. Register in `ProviderRegistry` during app initialization
 5. Add credentials schema to settings
@@ -305,7 +311,7 @@ class ProviderRegistry {
 
 ```dart
 /// Core interface all tools must implement.
-abstract class GemmieTool {
+abstract class PrismTool {
   /// Unique tool identifier
   String get id;
 
@@ -367,7 +373,7 @@ class ToolContext {
 │                                          │
 │  enable(toolId) / disable(toolId)        │
 │  getEnabledTools() → for AI context      │
-│  getToolsByCategory() → for Tools tab    │
+│  getToolsByCategory() → for Apps Hub     │
 └──────────────────────────────────────────┘
 ```
 
@@ -759,7 +765,7 @@ Diff is computed (FR-07) showing exact proposed change
 Permission check (FR-08) — persona files are Tier 2 (gated)
     │
     ▼
-User sees notification: "Gemmie wants to update its memory"
+User sees notification: "Prism wants to update its memory"
     │
     ▼
 User reviews diff → Accept / Modify / Reject
@@ -836,24 +842,24 @@ Check for remote changes since last sync
 │                        App Shell                                │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                   Bottom Navigation                      │   │
-│  │  [💬 Chat]  [🔧 Tools]  [📁 Files]  [⚙ Settings]       │   │
+│  │  [💬 Chat]  [🧠 Brain]  [🚀 Apps Hub]  [⚙ Settings]    │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
-│  Chat Tab                Tools Tab         Files Tab             │
-│  ├─ ConversationList     ├─ ToolsGrid      ├─ FileBrowser       │
-│  ├─ ChatScreen           ├─ ToolDetail      ├─ FileViewer        │
-│  │  └─ ModelSelector     │  └─ ToolConfig   ├─ DiffViewer        │
-│  └─ ConversationSearch   └─ ToolExecution   ├─ FileHistory       │
-│                                              ├─ CodeEditor       │
-│  Settings Tab                                ├─ SheetEditor      │
-│  ├─ SettingsHome                             └─ DocumentEditor   │
-│  ├─ ProfileEditor                                                │
-│  ├─ ProviderSetup         Overlays / Modals                      │
-│  ├─ TokenManager          ├─ PermissionDialog                    │
-│  ├─ PersonaEditor         ├─ ConfirmationDialog                  │
-│  ├─ SyncSettings          ├─ DiffReviewDialog                    │
-│  ├─ StorageManager        ├─ ModelDownloadSheet                  │
-│  └─ AboutPage             └─ ErrorDialog                         │
+│  Chat Tab                Brain Tab          Apps Hub Tab         │
+│  ├─ ConversationList     ├─ BrainHome        ├─ AppsHubGrid     │
+│  ├─ ChatScreen           ├─ ProjectsView     │  (launcher for:) │
+│  │  └─ ModelSelector     ├─ AreasView        ├─ Tools           │
+│  └─ ConversationSearch   ├─ ResourcesView    │  ├─ ToolsGrid    │
+│                          └─ ArchiveView      │  ├─ ToolDetail   │
+│  Settings Tab                                │  └─ ToolExec     │
+│  ├─ SettingsHome          Overlays / Modals   ├─ Files           │
+│  ├─ ProfileEditor         ├─ PermissionDialog │  ├─ FileBrowser  │
+│  ├─ ProviderSetup         ├─ ConfirmDialog    │  ├─ FileViewer   │
+│  ├─ TokenManager          ├─ DiffReviewDialog │  ├─ DiffViewer   │
+│  ├─ PersonaEditor         ├─ ModelDownload    │  └─ FileHistory  │
+│  ├─ SyncSettings          └─ ErrorDialog      ├─ Tasks           │
+│  ├─ StorageManager                            ├─ Finance         │
+│  └─ AboutPage                                 └─ Gateway         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -910,8 +916,9 @@ For reusability and testability, these modules should be extracted into independ
 
 | Package | Contains | Public API |
 |---------|----------|-----------|
-| `gemmie_ai_providers` | Provider interface + all adapters | `AIProvider`, `ProviderRegistry`, adapters |
-| `gemmie_storage` | Virtual filesystem + encryption + Isar | `FileService`, `FolderService`, encryption utils |
-| `gemmie_diff` | Diff engine (Myers + word-level) | `DiffEngine`, `DiffHunk`, `FileVersion` |
-| `gemmie_executor` | Code execution sandbox + remote bridge | `CodeExecutor`, `SandboxManager`, `ExecutorRegistry` |
-| `gemmie_persona` | Persona file management + system prompt builder | `PersonaService`, `SystemPromptBuilder` |
+| `prism_ai_providers` | Provider interface + all adapters | `AIProvider`, `ProviderRegistry`, adapters |
+| `prism_storage` | Virtual filesystem + encryption + Isar | `FileService`, `FolderService`, encryption utils |
+| `prism_diff` | Diff engine (Myers + word-level) | `DiffEngine`, `DiffHunk`, `FileVersion` |
+| `prism_executor` | Code execution sandbox + remote bridge | `CodeExecutor`, `SandboxManager`, `ExecutorRegistry` |
+| `prism_brain` | PARA knowledge management (Projects, Areas, Resources, Archive) | `BrainService`, `ProjectRepository`, `AreaRepository` |
+| `prism_persona` | Persona file management + system prompt builder | `PersonaService`, `SystemPromptBuilder` |

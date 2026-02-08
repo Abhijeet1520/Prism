@@ -1,6 +1,6 @@
 # 07 — Security Specification
 
-> This document provides a comprehensive security design for Gemmie, covering encryption, credential management, code execution sandboxing, the permission model, data flow security, and threat mitigation strategies.
+> This document provides a comprehensive security design for Prism, covering encryption, credential management, code execution sandboxing, the permission model, data flow security, and threat mitigation strategies.
 
 ---
 
@@ -224,7 +224,7 @@ Mitigations:
 ### Sandbox Architecture
 
 ```
-┌───── Host App (Gemmie) ─────────────────────────┐
+┌───── Host App (Prism) ─────────────────────────┐
 │                                                  │
 │  ┌──── Sandbox Boundary ──────────────────────┐  │
 │  │                                            │  │
@@ -278,7 +278,7 @@ Mitigations:
 #### Remote Execution
 ```
 - Code runs in user's own infrastructure (Modal, Daytona, SSH)
-- Gemmie's responsibility: encrypt code in transit, validate responses
+- Prism's responsibility: encrypt code in transit, validate responses
 - Sandbox security is the user's remote environment's responsibility
 - Connection: HTTPS / WSS only
 ```
@@ -304,7 +304,7 @@ Mitigations:
 Permission = (Subject, Object, Operation, Decision)
 
 Subject:    "user" | "ai:{model-id}"
-Object:     GemmieFile | GemmieFolder
+Object:     PrismFile | PrismFolder
 Operation:  read | write | delete | execute
 Decision:   allow | deny | askUser
 ```
