@@ -1367,6 +1367,32 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
         ProviderType.mock => 'Demo',
       };
 
+  /// Extract a human-readable sub-group label from the model ID prefix.
+  String _subGroupLabel(String modelId) {
+    final prefix = modelId.split('/').first.toLowerCase();
+    return switch (prefix) {
+      'openrouter' => 'OpenRouter',
+      'openai' => 'OpenAI',
+      'gemini' => 'Google Gemini',
+      'anthropic' => 'Anthropic',
+      'mistral' => 'Mistral',
+      'custom' => 'Custom',
+      _ => prefix[0].toUpperCase() + prefix.substring(1),
+    };
+  }
+
+  IconData _subGroupIcon(String modelId) {
+    final prefix = modelId.split('/').first.toLowerCase();
+    return switch (prefix) {
+      'openrouter' => Icons.hub_rounded,
+      'openai' => Icons.cloud_outlined,
+      'gemini' => Icons.auto_awesome_rounded,
+      'anthropic' => Icons.psychology_rounded,
+      'mistral' => Icons.air_rounded,
+      _ => Icons.cloud_outlined,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     // Filter by search
@@ -1385,13 +1411,13 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
       groups.putIfAbsent(m.provider, () => []).add(m);
     }
 
-    // Order: mock first (demo), then local, ollama, cloud, gemini, custom
+    // Order: mock first (demo), then local, gemini, ollama, cloud APIs, custom
     final order = [
       ProviderType.mock,
       ProviderType.local,
+      ProviderType.gemini,
       ProviderType.ollama,
       ProviderType.openai,
-      ProviderType.gemini,
       ProviderType.custom,
     ];
     final sortedKeys =
@@ -1474,6 +1500,37 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
                     shrinkWrap: true,
                     children: [
                       for (final type in sortedKeys) ...[
+                        // For openai provider type, sub-group by model ID prefix
+                        if (type == ProviderType.openai) ...[
+                          // Sub-group cloud API models by provider prefix
+                          for (final entry in _subGroupCloudModels(groups[type]!).entries) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, bottom: 6),
+                              child: Row(
+                                children: [
+                                  Icon(_subGroupIcon(entry.key),
+                                      size: 14, color: widget.textSecondary),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    entry.value.$1.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: widget.textSecondary,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Divider(
+                                        height: 1, color: widget.borderColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ...entry.value.$2.map((m) => _buildModelTile(m)),
+                          ],
+                        ] else ...[
                         Padding(
                           padding: const EdgeInsets.only(top: 4, bottom: 6),
                           child: Row(
@@ -1498,81 +1555,83 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
                             ],
                           ),
                         ),
-                        ...groups[type]!.map((m) {
-                          final isActive = m.id == widget.activeModelId;
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () => widget.onSelect(m),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
-                              margin: const EdgeInsets.only(bottom: 2),
-                              decoration: BoxDecoration(
-                                color: isActive
-                                    ? widget.accentColor
-                                        .withValues(alpha: 0.08)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    isActive
-                                        ? Icons.radio_button_checked
-                                        : Icons.radio_button_off,
-                                    size: 18,
-                                    color: isActive
-                                        ? widget.accentColor
-                                        : widget.textSecondary,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(m.name,
-                                            style: TextStyle(
-                                              color: widget.textPrimary,
-                                              fontSize: 13,
-                                              fontWeight: isActive
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w400,
-                                            )),
-                                        Text(
-                                          '${m.contextWindow ~/ 1024}K ctx',
-                                          style: TextStyle(
-                                              color: widget.textSecondary,
-                                              fontSize: 10),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (isActive)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF10B981)
-                                            .withValues(alpha: 0.12),
-                                        borderRadius:
-                                            BorderRadius.circular(4),
-                                      ),
-                                      child: const Text('active',
-                                          style: TextStyle(
-                                              fontSize: 9,
-                                              color: Color(0xFF10B981))),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
+                        ...groups[type]!.map((m) => _buildModelTile(m)),
+                        ],
                       ],
                     ],
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Sub-group cloud API models by their ID prefix (openrouter, openai, anthropic, etc.)
+  /// Returns a map of prefix → (label, models)
+  Map<String, (String, List<ModelConfig>)> _subGroupCloudModels(List<ModelConfig> models) {
+    final subGroups = <String, (String, List<ModelConfig>)>{};
+    for (final m in models) {
+      final prefix = m.id.split('/').first.toLowerCase();
+      final label = _subGroupLabel(m.id);
+      if (!subGroups.containsKey(prefix)) {
+        subGroups[prefix] = (label, []);
+      }
+      subGroups[prefix] = (label, [...subGroups[prefix]!.$2, m]);
+    }
+    return subGroups;
+  }
+
+  Widget _buildModelTile(ModelConfig m) {
+    final isActive = m.id == widget.activeModelId;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => widget.onSelect(m),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 2),
+        decoration: BoxDecoration(
+          color: isActive
+              ? widget.accentColor.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isActive ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 18,
+              color: isActive ? widget.accentColor : widget.textSecondary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(m.name,
+                      style: TextStyle(
+                        color: widget.textPrimary,
+                        fontSize: 13,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      )),
+                  Text(
+                    '${m.contextWindow ~/ 1024}K ctx',
+                    style: TextStyle(color: widget.textSecondary, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+            if (isActive)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text('active',
+                    style: TextStyle(fontSize: 9, color: Color(0xFF10B981))),
+              ),
+          ],
+        ),
       ),
     );
   }
