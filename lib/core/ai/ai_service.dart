@@ -498,6 +498,21 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
 
   // ─── Streaming with Tools (OpenAI function calling) ───
 
+  /// Inject tool-calling behavior instructions into the system prompt.
+  /// Appends to an existing system message or creates one.
+  List<PrismMessage> _injectToolInstructions(List<PrismMessage> messages) {
+    if (messages.isEmpty) return messages;
+
+    if (messages.first.role == 'system') {
+      final updated = PrismMessage.system(
+        '${messages.first.content}\n\n$_toolCallingInstructions',
+      );
+      return [updated, ...messages.skip(1)];
+    }
+
+    return [PrismMessage.system(_toolCallingInstructions), ...messages];
+  }
+
   /// A sealed result type for streaming with tools.
   /// Yields either content tokens (String) or a tool call request.
   Stream<ToolStreamEvent> generateStreamWithTools(
@@ -542,6 +557,20 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
 
   /// Stream from an OpenAI-compatible API with tools support.
   /// Parses both content deltas and tool_calls deltas from SSE.
+  /// Tool-calling behavior instructions injected into the system prompt
+  /// so the AI proactively fills parameters instead of asking the user.
+  static const _toolCallingInstructions = '''
+When using tools, ALWAYS fill in ALL parameters with reasonable values based on the conversation context. Do NOT ask the user what to put in each field — just call the tool with your best guess. The user will review your request before it executes and can edit any values.
+
+Examples of proactive behavior:
+- User says "add grocery to my list" → call add_task with title="Grocery shopping", priority="medium"
+- User says "log 50 for lunch" → call log_expense with amount=50, category="dining", description="Lunch", type="expense"
+- User says "note about project ideas" → call create_note with a sensible title and content based on context
+- User says "show my tasks" → call list_tasks immediately with status="all"
+- User says "how much did I spend" → call summarize_finances immediately
+
+Never respond with "what title should I use?" or "what priority?" — just pick reasonable defaults and call the tool.''';
+
   Stream<ToolStreamEvent> _generateAPIWithTools(
     List<PrismMessage> messages,
     ModelConfig config,
@@ -552,6 +581,9 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
       yield ToolStreamContent('No API endpoint configured.');
       return;
     }
+
+    // Inject tool-calling behavior instructions into the system prompt
+    final messagesWithToolInstructions = _injectToolInstructions(messages);
 
     final isOpenRouter = baseUrl.contains('openrouter.ai');
     String modelId = config.id;
@@ -588,7 +620,7 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
       }
 
       // Build message objects — handle tool role and tool_calls
-      final apiMessages = messages.map((m) {
+      final apiMessages = messagesWithToolInstructions.map((m) {
         final msg = <String, dynamic>{
           'role': m.role,
           'content': m.content,
@@ -717,7 +749,8 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
 
               // Check for finish_reason
               final finishReason = choices[0]['finish_reason'] as String?;
-              if (finishReason == 'tool_calls' && hasToolCalls) {
+              if ((finishReason == 'tool_calls' || finishReason == 'stop') &&
+                  hasToolCalls && toolCallsAccumulator.isNotEmpty) {
                 // Emit all accumulated tool calls
                 final allCalls = toolCallsAccumulator.entries.toList()
                   ..sort((a, b) => a.key.compareTo(b.key));
@@ -735,6 +768,9 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
                     rawToolCalls: allCalls.map((e) => e.value).toList(),
                   );
                 }
+                // Clear after emitting so we don't double-emit
+                toolCallsAccumulator.clear();
+                hasToolCalls = false;
               }
             }
           } catch (_) {}

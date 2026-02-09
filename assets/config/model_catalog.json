@@ -1,11 +1,12 @@
 {
-  "version": "1.0.0",
-  "lastUpdated": "2026-02-09",
+  "version": "1.1.0",
+  "lastUpdated": "2026-02-10",
   "sources": {
     "bartowski": "https://huggingface.co/bartowski",
     "unsloth": "https://huggingface.co/unsloth",
     "Qwen": "https://huggingface.co/Qwen",
-    "TheBloke": "https://huggingface.co/TheBloke"
+    "TheBloke": "https://huggingface.co/TheBloke",
+    "lmstudio-community": "https://huggingface.co/lmstudio-community"
   },
   "models": [
     {
@@ -16,7 +17,7 @@
       "sizeBytes": 838860800,
       "description": "Compact and fast. Great for basic chat and tasks.",
       "category": "small",
-      "contextWindow": 8192,
+      "contextWindow": 32768,
       "supportsVision": false,
       "supportsTools": false,
       "requiresAuth": false
@@ -29,20 +30,33 @@
       "sizeBytes": 2831155200,
       "description": "Balanced size and quality. Good general assistant.",
       "category": "general",
-      "contextWindow": 8192,
-      "supportsVision": false,
+      "contextWindow": 32768,
+      "supportsVision": true,
       "supportsTools": true,
       "requiresAuth": false
     },
     {
+      "name": "Gemma 2 2B",
+      "repo": "bartowski/gemma-2-2b-it-GGUF",
+      "fileName": "gemma-2-2b-it-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 1536000000,
+      "description": "Previous gen Gemma. Well-tested and stable.",
+      "category": "small",
+      "contextWindow": 8192,
+      "supportsVision": false,
+      "supportsTools": false,
+      "requiresAuth": false
+    },
+    {
       "name": "Phi-4 Mini 3.8B",
-      "repo": "unsloth/Phi-4-mini-instruct-GGUF",
+      "repo": "bartowski/Phi-4-mini-instruct-GGUF",
       "fileName": "Phi-4-mini-instruct-Q4_K_M.gguf",
       "branch": "main",
       "sizeBytes": 2621440000,
       "description": "Microsoft's compact model. Strong reasoning.",
       "category": "general",
-      "contextWindow": 4096,
+      "contextWindow": 16384,
       "supportsVision": false,
       "supportsTools": true,
       "requiresAuth": false
@@ -55,7 +69,7 @@
       "sizeBytes": 1153433600,
       "description": "Efficient multilingual model from Alibaba.",
       "category": "small",
-      "contextWindow": 4096,
+      "contextWindow": 32768,
       "supportsVision": false,
       "supportsTools": false,
       "requiresAuth": false
@@ -68,7 +82,7 @@
       "sizeBytes": 2097152000,
       "description": "Strong multilingual reasoning in compact size.",
       "category": "general",
-      "contextWindow": 4096,
+      "contextWindow": 32768,
       "supportsVision": false,
       "supportsTools": true,
       "requiresAuth": false
@@ -81,7 +95,7 @@
       "sizeBytes": 796917760,
       "description": "Meta's small model. Fast on mobile devices.",
       "category": "small",
-      "contextWindow": 4096,
+      "contextWindow": 131072,
       "supportsVision": false,
       "supportsTools": false,
       "requiresAuth": false
@@ -94,7 +108,7 @@
       "sizeBytes": 2097152000,
       "description": "Meta's balanced model. Good for most tasks.",
       "category": "general",
-      "contextWindow": 4096,
+      "contextWindow": 131072,
       "supportsVision": false,
       "supportsTools": true,
       "requiresAuth": false
@@ -114,26 +128,26 @@
     },
     {
       "name": "SmolLM2 1.7B",
-      "repo": "unsloth/SmolLM2-1.7B-Instruct-GGUF",
+      "repo": "bartowski/SmolLM2-1.7B-Instruct-GGUF",
       "fileName": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
       "branch": "main",
       "sizeBytes": 1073741824,
       "description": "HuggingFace's efficient compact model.",
       "category": "small",
-      "contextWindow": 4096,
+      "contextWindow": 8192,
       "supportsVision": false,
       "supportsTools": false,
       "requiresAuth": false
     },
     {
       "name": "Mistral 7B v0.3",
-      "repo": "unsloth/mistral-7b-instruct-v0.3-GGUF",
-      "fileName": "mistral-7b-instruct-v0.3-Q4_K_M.gguf",
+      "repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+      "fileName": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
       "branch": "main",
       "sizeBytes": 4368709120,
       "description": "Powerful 7B model. Needs 6GB+ RAM.",
       "category": "large",
-      "contextWindow": 8192,
+      "contextWindow": 32768,
       "supportsVision": false,
       "supportsTools": true,
       "requiresAuth": false

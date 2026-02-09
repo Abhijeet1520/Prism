@@ -46,13 +46,20 @@ class PrismToolRegistry {
   }
 
   /// Convert a single [ToolSpec] to OpenAI function-calling format.
+  /// Strips empty 'required' arrays as Gemini rejects them.
   static Map<String, dynamic> toolSpecToOpenAI(ToolSpec tool) {
+    final params = Map<String, dynamic>.from(tool.inputJsonSchema);
+    // Gemini's OpenAI-compatible endpoint rejects empty required arrays
+    final req = params['required'];
+    if (req is List && req.isEmpty) {
+      params.remove('required');
+    }
     return {
       'type': 'function',
       'function': {
         'name': tool.name,
         'description': tool.description,
-        'parameters': tool.inputJsonSchema,
+        'parameters': params,
       },
     };
   }
@@ -179,7 +186,6 @@ class PrismToolRegistry {
           'description': 'Filter by status (default: all)',
         },
       },
-      'required': [],
     },
   );
 
@@ -241,8 +247,13 @@ class PrismToolRegistry {
         'Get a summary of the current month\'s finances — total income, expenses, and breakdown by category.',
     inputJsonSchema: {
       'type': 'object',
-      'properties': {},
-      'required': [],
+      'properties': {
+        'month': {
+          'type': 'string',
+          'description':
+              'Month to summarize in YYYY-MM format (default: current month)',
+        },
+      },
     },
   );
 
@@ -371,7 +382,6 @@ class PrismToolRegistry {
               'Filter by app package name (e.g. "com.google.android.apps.banking")',
         },
       },
-      'required': [],
     },
   );
 

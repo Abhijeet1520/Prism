@@ -567,6 +567,60 @@ class ProvidersSection extends ConsumerWidget {
                   ),
                 ),
               ),
+
+              // Custom HuggingFace Repo button
+              InkWell(
+                onTap: () => showHuggingFaceRepoDialog(
+                  context: context,
+                  ref: ref,
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  accentColor: accentColor,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: accentColor.withValues(alpha: 0.3), width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(Icons.add_rounded,
+                            size: 18, color: accentColor),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Custom HuggingFace Repo',
+                                style: TextStyle(
+                                    color: textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13)),
+                            Text('Download from any GGUF repository',
+                                style: TextStyle(
+                                    color: textSecondary, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 14, color: textSecondary),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -788,4 +842,412 @@ void showDownloadConfirmation(
       ],
     ),
   );
+}
+
+// ─── Custom HuggingFace Repo Dialog ──────────────────
+
+void showHuggingFaceRepoDialog({
+  required BuildContext context,
+  required WidgetRef ref,
+  required Color cardColor,
+  required Color borderColor,
+  required Color textPrimary,
+  required Color textSecondary,
+  required Color accentColor,
+}) {
+  showDialog(
+    context: context,
+    builder: (ctx) => _HuggingFaceRepoDialog(
+      cardColor: cardColor,
+      borderColor: borderColor,
+      textPrimary: textPrimary,
+      textSecondary: textSecondary,
+      accentColor: accentColor,
+    ),
+  );
+}
+
+class _HuggingFaceRepoDialog extends ConsumerStatefulWidget {
+  final Color cardColor, borderColor, textPrimary, textSecondary, accentColor;
+
+  const _HuggingFaceRepoDialog({
+    required this.cardColor,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+  });
+
+  @override
+  ConsumerState<_HuggingFaceRepoDialog> createState() =>
+      _HuggingFaceRepoDialogState();
+}
+
+class _HuggingFaceRepoDialogState extends ConsumerState<_HuggingFaceRepoDialog> {
+  final _repoController = TextEditingController();
+  HuggingFaceModelInfo? _modelInfo;
+  String? _error;
+  bool _loading = false;
+  String? _selectedFile;
+
+  @override
+  void dispose() {
+    _repoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchModelInfo() async {
+    final repo = _repoController.text.trim();
+    if (repo.isEmpty) {
+      setState(() => _error = 'Please enter a repository name');
+      return;
+    }
+    if (!repo.contains('/')) {
+      setState(() => _error = 'Format: owner/repo-name  (e.g., unsloth/gemma-3-1b-it-GGUF)');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _modelInfo = null;
+      _selectedFile = null;
+    });
+
+    try {
+      final info = await ref
+          .read(modelManagerProvider.notifier)
+          .fetchHuggingFaceModelInfo(repo);
+      if (mounted) {
+        setState(() {
+          _modelInfo = info;
+          _loading = false;
+          if (info != null && !info.hasGgufFiles) {
+            _error = 'No GGUF files found in this repository';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceFirst('Exception: ', '');
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadSelected() async {
+    if (_selectedFile == null || _modelInfo == null) return;
+
+    final repo = _repoController.text.trim();
+    final file = _modelInfo!.ggufFiles.firstWhere((f) => f.filename == _selectedFile);
+
+    Navigator.of(context).pop();
+
+    await ref.read(modelManagerProvider.notifier).downloadCustomModel(
+          repo: repo,
+          fileName: file.filename,
+          sizeBytes: file.size,
+          contextWindow: _modelInfo!.contextLength ?? 4096,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF16162A) : Colors.white;
+
+    return AlertDialog(
+      backgroundColor: bgColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Icon(Icons.hub_outlined, size: 22, color: widget.accentColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('Custom HuggingFace Repo',
+                style: TextStyle(
+                    color: widget.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 340,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Enter the repository path (e.g., unsloth/gemma-3-1b-it-GGUF)',
+                  style: TextStyle(color: widget.textSecondary, fontSize: 12)),
+              const SizedBox(height: 12),
+
+              // Repo input
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _repoController,
+                      style: TextStyle(color: widget.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'owner/repo-name',
+                        hintStyle: TextStyle(
+                            color: widget.textSecondary.withValues(alpha: 0.5)),
+                        prefixIcon: Icon(Icons.search,
+                            size: 18, color: widget.textSecondary),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: widget.borderColor.withValues(alpha: 0.3),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onSubmitted: (_) => _fetchModelInfo(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _loading ? null : _fetchModelInfo,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: widget.accentColor,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Text('Fetch'),
+                  ),
+                ],
+              ),
+
+              // Error message
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 16, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(_error!,
+                            style: const TextStyle(
+                                color: Color(0xFFEF4444), fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Model info
+              if (_modelInfo != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: widget.accentColor.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: widget.accentColor.withValues(alpha: 0.15)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(_modelInfo!.modelId,
+                                style: TextStyle(
+                                    color: widget.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14)),
+                          ),
+                          if (_modelInfo!.isGated)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('gated',
+                                  style: TextStyle(
+                                      fontSize: 10, color: Color(0xFFF59E0B))),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _InfoChip(
+                              icon: Icons.download_rounded,
+                              label: '${_modelInfo!.downloads}',
+                              color: widget.textSecondary),
+                          const SizedBox(width: 12),
+                          _InfoChip(
+                              icon: Icons.favorite_rounded,
+                              label: '${_modelInfo!.likes}',
+                              color: widget.textSecondary),
+                          const SizedBox(width: 12),
+                          if (_modelInfo!.contextLength != null)
+                            _InfoChip(
+                                icon: Icons.memory_rounded,
+                                label: _modelInfo!.contextLengthLabel,
+                                color: widget.textSecondary),
+                        ],
+                      ),
+                      if (_modelInfo!.architecture != null) ...[
+                        const SizedBox(height: 6),
+                        Text('Architecture: ${_modelInfo!.architecture}',
+                            style: TextStyle(
+                                color: widget.textSecondary, fontSize: 11)),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // GGUF files list
+                if (_modelInfo!.hasGgufFiles) ...[
+                  const SizedBox(height: 12),
+                  Text('Select GGUF file to download:',
+                      style: TextStyle(
+                          color: widget.textPrimary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12)),
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _modelInfo!.ggufFiles.length,
+                      itemBuilder: (_, i) {
+                        final file = _modelInfo!.ggufFiles[i];
+                        final isSelected = _selectedFile == file.filename;
+                        return GestureDetector(
+                          onTap: () =>
+                              setState(() => _selectedFile = file.filename),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? widget.accentColor.withValues(alpha: 0.1)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected
+                                    ? widget.accentColor
+                                    : widget.borderColor,
+                                width: isSelected ? 1 : 0.5,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isSelected
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_off,
+                                  size: 16,
+                                  color: isSelected
+                                      ? widget.accentColor
+                                      : widget.textSecondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    file.filename,
+                                    style: TextStyle(
+                                        color: widget.textPrimary,
+                                        fontSize: 11),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (file.quantization != null) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: widget.accentColor
+                                          .withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: Text(file.quantization!,
+                                        style: TextStyle(
+                                            color: widget.accentColor,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                ],
+                                const SizedBox(width: 6),
+                                Text(file.sizeLabel,
+                                    style: TextStyle(
+                                        color: widget.textSecondary,
+                                        fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child:
+              Text('Cancel', style: TextStyle(color: widget.textSecondary)),
+        ),
+        if (_modelInfo != null && _selectedFile != null)
+          FilledButton.icon(
+            onPressed: _downloadSelected,
+            style: FilledButton.styleFrom(backgroundColor: widget.accentColor),
+            icon: const Icon(Icons.download_rounded, size: 16),
+            label: const Text('Download'),
+          ),
+      ],
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _InfoChip(
+      {required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(color: color, fontSize: 11)),
+      ],
+    );
+  }
 }

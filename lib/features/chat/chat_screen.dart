@@ -5,13 +5,16 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:uuid/uuid.dart';
 
@@ -501,6 +504,9 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
   // ─── Tool approval state ─────────────────────────
   bool _isWaitingForToolApproval = false;
 
+  // ─── File attachment state ────────────────────────
+  final List<_AttachedFile> _attachedFiles = [];
+
   @override
   void initState() {
     super.initState();
@@ -541,6 +547,68 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
         listenFor: const Duration(seconds: 30),
         pauseFor: const Duration(seconds: 3),
       );
+    }
+  }
+
+  // ─── File Attachment ─────────────────────────────────
+
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'md', 'json', 'csv', 'xml'],
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    setState(() {
+      for (final file in result.files) {
+        if (file.path != null) {
+          // Check if already attached
+          if (!_attachedFiles.any((f) => f.path == file.path)) {
+            _attachedFiles.add(_AttachedFile(
+              path: file.path!,
+              name: file.name,
+              size: file.size,
+              extension: file.extension ?? '',
+            ));
+          }
+        }
+      }
+    });
+  }
+
+  void _removeAttachment(int index) {
+    setState(() {
+      _attachedFiles.removeAt(index);
+    });
+  }
+
+  void _clearAttachments() {
+    setState(() {
+      _attachedFiles.clear();
+    });
+  }
+
+  Future<String> _readFileContent(String path) async {
+    final file = File(path);
+    final ext = p.extension(path).toLowerCase();
+
+    // For images, we'll just note the file name (actual image handling would need vision model)
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(ext)) {
+      return '[Image: ${p.basename(path)}]';
+    }
+
+    // For text-based files, read content
+    try {
+      final content = await file.readAsString();
+      // Limit content length to avoid context overflow
+      if (content.length > 10000) {
+        return '${content.substring(0, 10000)}...\n[Truncated - file too large]';
+      }
+      return content;
+    } catch (_) {
+      return '[Could not read file: ${p.basename(path)}]';
     }
   }
 
@@ -654,33 +722,70 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
   // ─── Send Message ──────────────────────────────────
 
   Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty || _isStreaming) return;
+    if (_isStreaming) return;
+
+    // Allow sending with just files even if no text
+    if (text.trim().isEmpty && _attachedFiles.isEmpty) return;
 
     final db = ref.read(databaseProvider);
 
+    // Build message content including file attachments
+    final buffer = StringBuffer();
+
+    // Add file contents first
+    if (_attachedFiles.isNotEmpty) {
+      buffer.writeln('--- Attached Files ---');
+      for (final file in _attachedFiles) {
+        buffer.writeln('\n📎 ${file.name} (${file.sizeLabel}):');
+        final content = await _readFileContent(file.path);
+        buffer.writeln('```');
+        buffer.writeln(content);
+        buffer.writeln('```');
+      }
+      buffer.writeln('--- End Attachments ---\n');
+    }
+
+    // Add user text
+    if (text.trim().isNotEmpty) {
+      buffer.write(text.trim());
+    }
+
+    final messageContent = buffer.toString().trim();
+
+    // Create display message with file names for UI
+    final displayContent = _attachedFiles.isNotEmpty
+        ? '${_attachedFiles.map((f) => '📎 ${f.name}').join('\n')}\n\n${text.trim()}'.trim()
+        : text.trim();
+
     // Add user message
     setState(() {
-      _messages.add(_DisplayMessage(role: 'user', content: text));
+      _messages.add(_DisplayMessage(
+        role: 'user',
+        content: displayContent,
+        attachments: List.from(_attachedFiles),
+      ));
       _isStreaming = true;
       _streamingText = '';
+      _attachedFiles.clear();
     });
     _inputController.clear();
     _scrollToBottom();
 
-    // Persist user message
+    // Persist user message (with full content including file data)
     if (_conversationId != null) {
       await db.addMessage(
         uuid: const Uuid().v4(),
         conversationId: _conversationId!,
         role: 'user',
-        content: text,
+        content: messageContent,
       );
     }
 
     // Auto-title from first message
     if (_messages.length == 1 && _conversationId != null) {
+      final titleText = text.isNotEmpty ? text : _attachedFiles.first.name;
       final title =
-          text.length > 40 ? '${text.substring(0, 40)}...' : text;
+          titleText.length > 40 ? '${titleText.substring(0, 40)}...' : titleText;
       await db.updateConversationTitle(widget.conversationUuid, title);
       setState(() => _conversationTitle = title);
     }
@@ -704,6 +809,14 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
         return PrismMessage(
           role: 'assistant',
           content: m.content,
+          toolCalls: jsonDecode(m.toolCalls!) as Map<String, dynamic>,
+        );
+      }
+      // Convert tool_call display messages to assistant with toolCalls for API
+      if (m.role == 'tool_call' && m.toolCalls != null) {
+        return PrismMessage(
+          role: 'assistant',
+          content: '',
           toolCalls: jsonDecode(m.toolCalls!) as Map<String, dynamic>,
         );
       }
@@ -1226,19 +1339,125 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
                   ),
           ),
 
+          // Attached Files Preview
+          if (_attachedFiles.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              decoration: BoxDecoration(
+                color: cardColor,
+                border: Border(top: BorderSide(color: borderColor, width: 0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.attach_file_rounded,
+                          size: 14, color: textSecondary),
+                      const SizedBox(width: 4),
+                      Text('${_attachedFiles.length} file(s) attached',
+                          style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: _clearAttachments,
+                        child: Text('Clear all',
+                            style: TextStyle(
+                                color: accentColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 56,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _attachedFiles.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final file = _attachedFiles[index];
+                        return Container(
+                          width: 140,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: bgColor,
+                            borderRadius: BorderRadius.circular(10),
+                            border:
+                                Border.all(color: borderColor, width: 0.5),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(file.icon,
+                                    size: 16, color: accentColor),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(file.name,
+                                        style: TextStyle(
+                                            color: textPrimary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                    Text(file.sizeLabel,
+                                        style: TextStyle(
+                                            color: textSecondary, fontSize: 9)),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _removeAttachment(index),
+                                child: Icon(Icons.close_rounded,
+                                    size: 14, color: textSecondary),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Input Bar
           Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            padding: EdgeInsets.fromLTRB(
+                12, _attachedFiles.isNotEmpty ? 4 : 8, 12, 12),
             decoration: BoxDecoration(
               color: cardColor,
-              border: Border(top: BorderSide(color: borderColor, width: 0.5)),
+              border: _attachedFiles.isEmpty
+                  ? Border(top: BorderSide(color: borderColor, width: 0.5))
+                  : null,
             ),
             child: Row(
               children: [
                 IconButton(
-                  onPressed: () {},
+                  onPressed: _pickFiles,
                   icon: Icon(Icons.attach_file_rounded,
-                      size: 20, color: textSecondary),
+                      size: 20,
+                      color: _attachedFiles.isNotEmpty
+                          ? accentColor
+                          : textSecondary),
+                  style: _attachedFiles.isNotEmpty
+                      ? IconButton.styleFrom(
+                          backgroundColor: accentColor.withValues(alpha: 0.12),
+                        )
+                      : null,
                 ),
                 IconButton(
                   onPressed: _speechAvailable ? _toggleListening : null,
@@ -1269,7 +1488,9 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
                       decoration: InputDecoration(
                         hintText: _isWaitingForToolApproval
                             ? 'Waiting for tool approval...'
-                            : 'Type a message...',
+                            : _attachedFiles.isNotEmpty
+                                ? 'Add a message or send files...'
+                                : 'Type a message...',
                         hintStyle:
                             TextStyle(color: textSecondary, fontSize: 14),
                         border: InputBorder.none,
@@ -2421,6 +2642,8 @@ class _DisplayMessage {
   final Map<String, dynamic>? toolArgs;
   /// Tool approval status: 'pending', 'approved', 'denied', 'edited'
   String? toolApprovalStatus;
+  /// Attached files for user messages
+  final List<_AttachedFile>? attachments;
 
   _DisplayMessage({
     String? uuid,
@@ -2436,5 +2659,49 @@ class _DisplayMessage {
     this.toolName,
     this.toolArgs,
     this.toolApprovalStatus,
+    this.attachments,
   }) : uuid = uuid ?? const Uuid().v4();
+}
+
+// ─── Attached File Model ─────────────────────────────
+
+class _AttachedFile {
+  final String path;
+  final String name;
+  final int size;
+  final String extension;
+
+  const _AttachedFile({
+    required this.path,
+    required this.name,
+    required this.size,
+    required this.extension,
+  });
+
+  String get sizeLabel {
+    if (size < 1024) return '$size B';
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
+    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  bool get isImage => ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension.toLowerCase());
+  bool get isDocument => ['pdf', 'txt', 'md', 'json', 'csv', 'xml'].contains(extension.toLowerCase());
+
+  IconData get icon {
+    if (isImage) return Icons.image_rounded;
+    switch (extension.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf_rounded;
+      case 'txt':
+      case 'md':
+        return Icons.description_rounded;
+      case 'json':
+      case 'xml':
+        return Icons.code_rounded;
+      case 'csv':
+        return Icons.table_chart_rounded;
+      default:
+        return Icons.insert_drive_file_rounded;
+    }
+  }
 }

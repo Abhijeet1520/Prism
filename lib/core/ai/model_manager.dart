@@ -422,6 +422,188 @@ class ModelManagerNotifier extends Notifier<ModelManagerState> {
       return 0;
     }
   }
+
+  // ─── Custom HuggingFace Model Download ─────────────
+
+  /// Fetch model info from HuggingFace API.
+  /// Returns a map with 'id', 'modelId', 'siblings' (list of files), 'gguf' (if available), etc.
+  Future<HuggingFaceModelInfo?> fetchHuggingFaceModelInfo(String repo) async {
+    try {
+      final url = 'https://huggingface.co/api/models/$repo';
+      final headers = <String, dynamic>{};
+      if (state.hasToken) {
+        headers['Authorization'] = 'Bearer ${state.hfToken}';
+      }
+
+      final response = await _dio.get(
+        url,
+        options: Options(
+          headers: headers,
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw Exception('Access denied — model may be gated. Set a HuggingFace token.');
+      }
+      if (response.statusCode == 404) {
+        throw Exception('Model not found: $repo');
+      }
+      if (response.statusCode != 200) {
+        throw Exception('Failed to fetch model info (${response.statusCode})');
+      }
+
+      final data = response.data as Map<String, dynamic>;
+      return HuggingFaceModelInfo.fromJson(data);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError) {
+        throw Exception('No internet connection');
+      }
+      throw Exception('Failed to fetch model info: ${e.message}');
+    }
+  }
+
+  /// Download a custom model from HuggingFace.
+  /// Unlike `downloadModel`, this takes a repo string and fileName directly.
+  Future<void> downloadCustomModel({
+    required String repo,
+    required String fileName,
+    String? modelName,
+    int? sizeBytes,
+    int contextWindow = 4096,
+    bool supportsTools = false,
+    bool supportsVision = false,
+  }) async {
+    // Construct a temporary catalog entry for the download
+    final entry = ModelCatalogEntry(
+      name: modelName ?? p.basenameWithoutExtension(fileName),
+      repo: repo,
+      fileName: fileName,
+      sizeBytes: sizeBytes ?? 0,
+      description: 'Custom model from $repo',
+      contextWindow: contextWindow,
+      supportsTools: supportsTools,
+      supportsVision: supportsVision,
+    );
+
+    // Use existing download logic
+    await downloadModel(entry);
+  }
+}
+
+// ─── HuggingFace Model Info ──────────────────────────
+
+/// Parsed HuggingFace model info from API.
+class HuggingFaceModelInfo {
+  final String id;
+  final String modelId;
+  final String? author;
+  final int downloads;
+  final int likes;
+  final List<String> tags;
+  final List<HuggingFaceFile> siblings;
+  final int? contextLength;
+  final String? architecture;
+  final bool isPrivate;
+  final bool isGated;
+
+  const HuggingFaceModelInfo({
+    required this.id,
+    required this.modelId,
+    this.author,
+    required this.downloads,
+    required this.likes,
+    required this.tags,
+    required this.siblings,
+    this.contextLength,
+    this.architecture,
+    this.isPrivate = false,
+    this.isGated = false,
+  });
+
+  factory HuggingFaceModelInfo.fromJson(Map<String, dynamic> json) {
+    final siblings = (json['siblings'] as List<dynamic>? ?? [])
+        .map((s) => HuggingFaceFile.fromJson(s as Map<String, dynamic>))
+        .toList();
+
+    // Extract context length from gguf info if available
+    int? contextLen;
+    if (json['gguf'] != null && json['gguf']['context_length'] != null) {
+      contextLen = json['gguf']['context_length'] as int?;
+    }
+
+    // Extract architecture from gguf info
+    String? arch;
+    if (json['gguf'] != null && json['gguf']['architecture'] != null) {
+      arch = json['gguf']['architecture'] as String?;
+    }
+
+    return HuggingFaceModelInfo(
+      id: json['_id'] as String? ?? '',
+      modelId: json['modelId'] as String? ?? json['id'] as String? ?? '',
+      author: json['author'] as String?,
+      downloads: json['downloads'] as int? ?? 0,
+      likes: json['likes'] as int? ?? 0,
+      tags: (json['tags'] as List<dynamic>? ?? []).cast<String>(),
+      siblings: siblings,
+      contextLength: contextLen,
+      architecture: arch,
+      isPrivate: json['private'] as bool? ?? false,
+      isGated: json['gated'] != null && json['gated'] != false,
+    );
+  }
+
+  /// Get all GGUF files from siblings.
+  List<HuggingFaceFile> get ggufFiles =>
+      siblings.where((f) => f.isGguf).toList();
+
+  /// Check if this repo has any GGUF files.
+  bool get hasGgufFiles => ggufFiles.isNotEmpty;
+
+  /// Get a human-readable context length string.
+  String get contextLengthLabel {
+    if (contextLength == null) return 'Unknown';
+    if (contextLength! >= 1000000) {
+      return '${(contextLength! / 1000000).toStringAsFixed(1)}M';
+    }
+    if (contextLength! >= 1000) {
+      return '${(contextLength! / 1000).toStringAsFixed(0)}K';
+    }
+    return contextLength.toString();
+  }
+}
+
+/// A file in a HuggingFace repo's siblings list.
+class HuggingFaceFile {
+  final String filename;
+  final int? size; // May not always be present
+
+  const HuggingFaceFile({required this.filename, this.size});
+
+  factory HuggingFaceFile.fromJson(Map<String, dynamic> json) {
+    return HuggingFaceFile(
+      filename: json['rfilename'] as String? ?? '',
+      size: json['size'] as int?,
+    );
+  }
+
+  bool get isGguf => filename.toLowerCase().endsWith('.gguf');
+
+  /// Get quantization level from filename (e.g., 'Q4_K_M', 'Q8_0').
+  String? get quantization {
+    final match = RegExp(r'[_-](Q\d+[_\w]*|IQ\d+[_\w]*|F\d+|BF\d+)\.gguf', caseSensitive: false)
+        .firstMatch(filename);
+    return match?.group(1)?.toUpperCase();
+  }
+
+  /// Get a human-readable size label.
+  String get sizeLabel {
+    if (size == null) return 'Unknown size';
+    if (size! >= 1024 * 1024 * 1024) {
+      return '${(size! / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+    return '${(size! / (1024 * 1024)).toStringAsFixed(0)} MB';
+  }
 }
 
 // ─── Model Catalog Loader ────────────────────────────
