@@ -1,12 +1,12 @@
-/// Brain screen — personal knowledge base with notes and search.
+/// Brain Screen — PARA-method knowledge management with tabs and note grid.
 ///
-/// Grid/list of notes with full-text search, tags, and CRUD.
-/// Wired to [PrismDatabase] for live note data.
+/// Matches ux_preview design: PARA tabs (Projects/Areas/Resources/Archives),
+/// responsive grid with item cards, note detail panel on wide screens.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:moon_design/moon_design.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/database/database.dart';
@@ -18,117 +18,221 @@ class BrainScreen extends ConsumerStatefulWidget {
   ConsumerState<BrainScreen> createState() => _BrainScreenState();
 }
 
-class _BrainScreenState extends ConsumerState<BrainScreen> {
-  final _searchCtrl = TextEditingController();
+class _BrainScreenState extends ConsumerState<BrainScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
   String _searchQuery = '';
-  int? _selectedIndex;
+  Note? _selectedNote;
+
+  static const _paraTabs = [
+    ('Projects', Icons.rocket_launch_outlined),
+    ('Areas', Icons.layers_outlined),
+    ('Resources', Icons.bookmark_outline_rounded),
+    ('Archives', Icons.archive_outlined),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
-    _searchCtrl.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _createNote() async {
-    final db = ref.read(databaseProvider);
-    final uuid = const Uuid().v4();
-    await db.createNote(uuid: uuid, title: 'Untitled Note', content: '');
+  String get _currentCategory {
+    return switch (_tabController.index) {
+      0 => 'project',
+      1 => 'area',
+      2 => 'resource',
+      3 => 'archive',
+      _ => 'project',
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.moonColors!;
-    final db = ref.watch(databaseProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0C0C16) : const Color(0xFFF5F5FA);
+    final cardColor = isDark ? const Color(0xFF16162A) : Colors.white;
+    final borderColor =
+        isDark ? const Color(0xFF252540) : const Color(0xFFE2E2EC);
+    final textPrimary =
+        isDark ? const Color(0xFFE2E2EC) : const Color(0xFF1A1A2E);
+    final textSecondary =
+        isDark ? const Color(0xFF7A7A90) : const Color(0xFF6B6B80);
+    final accentColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: colors.gohan,
+      backgroundColor: bgColor,
       body: Column(
         children: [
-          // ── Header ─────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: colors.goten,
-              border: Border(bottom: BorderSide(color: colors.beerus)),
-            ),
+          // ─── Header ──────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
             child: Row(
               children: [
                 Text(
                   'Second Brain',
-                  style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w700, fontSize: 18),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
                 ),
                 const Spacer(),
-                MoonButton.icon(
-                  onTap: () {},
-                  icon: Icon(Icons.search, size: 20, color: colors.trunks),
-                  buttonSize: MoonButtonSize.sm,
+                IconButton(
+                  onPressed: () {
+                    // Toggle search
+                    setState(
+                        () => _searchQuery = _searchQuery.isEmpty ? ' ' : '');
+                  },
+                  icon: Icon(Icons.search_rounded,
+                      size: 20, color: textSecondary),
                 ),
                 const SizedBox(width: 4),
-                MoonFilledButton(
-                  onTap: _createNote,
-                  buttonSize: MoonButtonSize.sm,
-                  label: const Text('Add Note'),
-                  leading: const Icon(Icons.add, size: 16),
+                FilledButton.icon(
+                  onPressed: () => _createNote(context),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add New', style: TextStyle(fontSize: 13)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                  ),
                 ),
               ],
             ),
           ),
 
-          // ── Search ─────────────────────────────────────
+          // ─── Search Bar ──────────────────────────
+          if (_searchQuery.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor, width: 0.5),
+                ),
+                child: TextField(
+                  autofocus: true,
+                  onChanged: (q) => setState(() => _searchQuery = q),
+                  decoration: InputDecoration(
+                    hintText: 'Search notes...',
+                    hintStyle: TextStyle(color: textSecondary, fontSize: 13),
+                    prefixIcon: Icon(Icons.search_rounded,
+                        size: 18, color: textSecondary),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => _searchQuery = ''),
+                      icon: Icon(Icons.close_rounded,
+                          size: 16, color: textSecondary),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  style: TextStyle(color: textPrimary, fontSize: 13),
+                ),
+              ),
+            ),
+
+          // ─── PARA Tabs ───────────────────────────
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: MoonTextInput(
-              controller: _searchCtrl,
-              hintText: 'Search notes, tags...',
-              textInputSize: MoonTextInputSize.sm,
-              leading: Icon(Icons.search, size: 18, color: colors.trunks),
-              onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-              trailing: _searchQuery.isNotEmpty
-                  ? GestureDetector(
-                      onTap: () {
-                        _searchCtrl.clear();
-                        setState(() => _searchQuery = '');
-                      },
-                      child: Icon(Icons.close, size: 16, color: colors.trunks),
-                    )
-                  : null,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: borderColor, width: 0.5),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: false,
+                labelColor: accentColor,
+                unselectedLabelColor: textSecondary,
+                labelStyle: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
+                indicator: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                tabs: _paraTabs
+                    .map((t) => Tab(
+                          height: 36,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(t.$2, size: 14),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(t.$1,
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              ),
             ),
           ),
 
-          // ── Content ────────────────────────────────────
+          const SizedBox(height: 12),
+          Divider(height: 1, color: borderColor),
+
+          // ─── Content ─────────────────────────────
           Expanded(
-            child: StreamBuilder<List<Note>>(
-              stream: db.watchNotes(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: MoonCircularLoader(color: colors.piccolo));
-                }
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 700;
 
-                final allNotes = snapshot.data ?? [];
-                final notes = _searchQuery.isEmpty
-                    ? allNotes
-                    : allNotes.where((n) =>
-                        n.title.toLowerCase().contains(_searchQuery) ||
-                        n.content.toLowerCase().contains(_searchQuery) ||
-                        n.tags.toLowerCase().contains(_searchQuery)).toList();
+                return Row(
+                  children: [
+                    // Note Grid
+                    Expanded(
+                      child: _NoteGrid(
+                        category: _currentCategory,
+                        searchQuery:
+                            _searchQuery.trim().isEmpty ? '' : _searchQuery,
+                        selectedNote: _selectedNote,
+                        onSelect: (note) =>
+                            setState(() => _selectedNote = note),
+                        textPrimary: textPrimary,
+                        textSecondary: textSecondary,
+                        accentColor: accentColor,
+                        cardColor: cardColor,
+                        borderColor: borderColor,
+                      ),
+                    ),
 
-                if (notes.isEmpty) {
-                  return _EmptyState(colors: colors, hasSearch: _searchQuery.isNotEmpty, onCreate: _createNote);
-                }
-
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth > 700 && _selectedIndex != null && _selectedIndex! < notes.length) {
-                      return Row(
-                        children: [
-                          Expanded(child: _buildGrid(colors, notes)),
-                          VerticalDivider(width: 1, color: colors.beerus),
-                          SizedBox(width: 360, child: _NoteDetail(colors: colors, note: notes[_selectedIndex!])),
-                        ],
-                      );
-                    }
-                    return _buildGrid(colors, notes);
-                  },
+                    // Detail Panel (wide only)
+                    if (isWide && _selectedNote != null) ...[
+                      VerticalDivider(width: 1, color: borderColor),
+                      SizedBox(
+                        width: 360,
+                        child: _NoteDetail(
+                          note: _selectedNote!,
+                          onClose: () =>
+                              setState(() => _selectedNote = null),
+                          textPrimary: textPrimary,
+                          textSecondary: textSecondary,
+                          accentColor: accentColor,
+                          cardColor: cardColor,
+                          borderColor: borderColor,
+                        ),
+                      ),
+                    ],
+                  ],
                 );
               },
             ),
@@ -138,55 +242,194 @@ class _BrainScreenState extends ConsumerState<BrainScreen> {
     );
   }
 
-  Widget _buildGrid(MoonColors colors, List<Note> notes) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 340,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.4,
+  Future<void> _createNote(BuildContext context) async {
+    final db = ref.read(databaseProvider);
+    final accentColor = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF16162A) : Colors.white,
+        title: Text('New Note',
+            style: TextStyle(
+                color:
+                    isDark ? const Color(0xFFE2E2EC) : const Color(0xFF1A1A2E))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                  hintText: 'Title', border: OutlineInputBorder()),
+              style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFFE2E2EC)
+                      : const Color(0xFF1A1A2E)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: contentController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                  hintText: 'Content', border: OutlineInputBorder()),
+              style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFFE2E2EC)
+                      : const Color(0xFF1A1A2E)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: accentColor),
+            child: const Text('Save'),
+          ),
+        ],
       ),
-      itemCount: notes.length,
-      itemBuilder: (context, i) => _NoteCard(
-        colors: colors,
-        note: notes[i],
-        selected: _selectedIndex == i,
-        onTap: () => setState(() => _selectedIndex = i),
-      ),
+    );
+
+    if (confirmed == true && titleController.text.isNotEmpty) {
+      await db.createNote(
+        uuid: const Uuid().v4(),
+        title: titleController.text,
+        content: contentController.text,
+        tags: _currentCategory,
+      );
+    }
+  }
+}
+
+// ─── Note Grid ───────────────────────────────────────
+
+class _NoteGrid extends ConsumerWidget {
+  final String category;
+  final String searchQuery;
+  final Note? selectedNote;
+  final ValueChanged<Note> onSelect;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color accentColor;
+  final Color cardColor;
+  final Color borderColor;
+
+  const _NoteGrid({
+    required this.category,
+    required this.searchQuery,
+    required this.selectedNote,
+    required this.onSelect,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+    required this.cardColor,
+    required this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(databaseProvider);
+
+    return StreamBuilder<List<Note>>(
+      stream: db.watchNotes(),
+      builder: (context, snap) {
+        final allNotes = snap.data ?? [];
+        final filtered = allNotes.where((n) {
+          final matchesCategory = n.tags.toLowerCase().contains(category);
+          final matchesSearch = searchQuery.isEmpty ||
+              n.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
+              n.content.toLowerCase().contains(searchQuery.toLowerCase());
+          return matchesCategory && matchesSearch;
+        }).toList();
+
+        if (filtered.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.layers_outlined,
+                    size: 48, color: textSecondary.withValues(alpha: 0.3)),
+                const SizedBox(height: 12),
+                Text(
+                  'No ${category}s yet',
+                  style: TextStyle(fontSize: 14, color: textSecondary),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 340,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.5,
+          ),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final note = filtered[index];
+            final isSelected = note.id == selectedNote?.id;
+
+            return _NoteCard(
+              note: note,
+              isSelected: isSelected,
+              onTap: () => onSelect(note),
+              textPrimary: textPrimary,
+              textSecondary: textSecondary,
+              accentColor: accentColor,
+              cardColor: cardColor,
+              borderColor: borderColor,
+            );
+          },
+        );
+      },
     );
   }
 }
 
-// ─── Note Card ────────────────────────────────────────
+// ─── Note Card ───────────────────────────────────────
 
 class _NoteCard extends StatelessWidget {
-  final MoonColors colors;
   final Note note;
-  final bool selected;
+  final bool isSelected;
   final VoidCallback onTap;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color accentColor;
+  final Color cardColor;
+  final Color borderColor;
 
   const _NoteCard({
-    required this.colors,
     required this.note,
-    required this.selected,
+    required this.isSelected,
     required this.onTap,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+    required this.cardColor,
+    required this.borderColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final tags = note.tags.isNotEmpty ? note.tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList() : <String>[];
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: colors.goten,
+          color: cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? colors.piccolo : colors.beerus,
-            width: selected ? 1.5 : 0.5,
+            color: isSelected ? accentColor : borderColor,
+            width: isSelected ? 1.5 : 0.5,
           ),
         ),
         child: Column(
@@ -194,14 +437,17 @@ class _NoteCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(_sourceIcon(note.source), size: 16, color: colors.trunks),
+                Text('📝', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     note.title,
-                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                 ),
               ],
@@ -209,28 +455,36 @@ class _NoteCard extends StatelessWidget {
             const SizedBox(height: 8),
             Expanded(
               child: Text(
-                note.content.isNotEmpty ? note.content : 'Empty note',
+                note.content,
+                style: TextStyle(fontSize: 12, color: textSecondary),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: colors.trunks, fontSize: 12, height: 1.4),
               ),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                if (tags.isNotEmpty)
-                  ...tags.take(2).map((tag) => Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: MoonTag(
-                          tagSize: MoonTagSize.x2s,
-                          backgroundColor: colors.piccolo.withValues(alpha: 0.1),
-                          label: Text(tag, style: TextStyle(fontSize: 10, color: colors.piccolo)),
-                        ),
-                      )),
+                if (note.tags.isNotEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      note.tags.split(',').first.trim(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: accentColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
                 const Spacer(),
                 Text(
-                  _formatDate(note.updatedAt),
-                  style: TextStyle(color: colors.trunks, fontSize: 10),
+                  DateFormat('MMM d').format(note.updatedAt),
+                  style: TextStyle(fontSize: 10, color: textSecondary),
                 ),
               ],
             ),
@@ -239,127 +493,131 @@ class _NoteCard extends StatelessWidget {
       ),
     );
   }
-
-  IconData _sourceIcon(String source) {
-    return switch (source) {
-      'ai' => Icons.auto_awesome,
-      'import' => Icons.file_download_outlined,
-      _ => Icons.note_outlined,
-    };
-  }
-
-  String _formatDate(DateTime dt) {
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${months[dt.month - 1]} ${dt.day}';
-  }
 }
 
-// ─── Note Detail Panel ────────────────────────────────
+// ─── Note Detail Panel ───────────────────────────────
 
 class _NoteDetail extends StatelessWidget {
-  final MoonColors colors;
   final Note note;
-  const _NoteDetail({required this.colors, required this.note});
+  final VoidCallback onClose;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color accentColor;
+  final Color cardColor;
+  final Color borderColor;
 
-  @override
-  Widget build(BuildContext context) {
-    final tags = note.tags.isNotEmpty ? note.tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList() : <String>[];
-
-    return Container(
-      color: colors.goten,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: colors.beerus)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(note.title, style: TextStyle(color: colors.bulma, fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text('Source: ${note.source}', style: TextStyle(color: colors.trunks, fontSize: 12)),
-                if (tags.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: tags
-                        .map((tag) => MoonTag(
-                              tagSize: MoonTagSize.x2s,
-                              backgroundColor: colors.piccolo.withValues(alpha: 0.1),
-                              label: Text(tag, style: TextStyle(fontSize: 10, color: colors.piccolo)),
-                            ))
-                        .toList(),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                note.content.isNotEmpty ? note.content : 'This note is empty.',
-                style: TextStyle(color: colors.bulma, fontSize: 14, height: 1.6),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Empty State ──────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  final MoonColors colors;
-  final bool hasSearch;
-  final VoidCallback onCreate;
-
-  const _EmptyState({
-    required this.colors,
-    required this.hasSearch,
-    required this.onCreate,
+  const _NoteDetail({
+    required this.note,
+    required this.onClose,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+    required this.cardColor,
+    required this.borderColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            hasSearch ? Icons.search_off_rounded : Icons.auto_awesome_outlined,
-            size: 48,
-            color: colors.piccolo.withValues(alpha: 0.3),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+          child: Row(
+            children: [
+              Text('📝', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  note.title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onClose,
+                icon: Icon(Icons.close_rounded,
+                    size: 18, color: textSecondary),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            hasSearch ? 'No matching notes' : 'Your knowledge base is empty',
-            style: TextStyle(color: colors.trunks, fontSize: 16),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            hasSearch ? 'Try a different search' : 'Add notes to build your second brain',
-            style: TextStyle(color: colors.trunks, fontSize: 13),
-          ),
-          if (!hasSearch) ...[
-            const SizedBox(height: 16),
-            MoonFilledButton(
-              onTap: onCreate,
-              buttonSize: MoonButtonSize.sm,
-              label: const Text('Create Note'),
-              leading: const Icon(Icons.add, size: 16),
+        ),
+        Divider(height: 1, color: borderColor),
+
+        // Content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Meta info
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded,
+                        size: 12, color: textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('MMMM d, yyyy').format(note.updatedAt),
+                      style: TextStyle(fontSize: 12, color: textSecondary),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.source_outlined,
+                        size: 12, color: textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      note.source,
+                      style: TextStyle(fontSize: 12, color: textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Tags
+                if (note.tags.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: note.tags.split(',').map((tag) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          tag.trim(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: accentColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Content
+                SelectableText(
+                  note.content,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textPrimary,
+                    height: 1.6,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 }

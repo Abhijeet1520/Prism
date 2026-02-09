@@ -1,7 +1,7 @@
 name: prism
 description: "Privacy-first AI personal assistant powered by local and cloud LLMs."
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.2.0+1
 
 environment:
   sdk: ^3.10.8
@@ -12,6 +12,7 @@ dependencies:
 
   # ─── UI ───────────────────────────────────────────
   moon_design: ^1.1.0
+  flutter_markdown: ^0.7.7+1
 
   # ─── State Management ────────────────────────────
   flutter_riverpod: ^2.6.1
@@ -23,6 +24,10 @@ dependencies:
   # ─── AI / LLM ───────────────────────────────────
   langchain: ^0.8.1
   langchain_ollama: ^0.4.1
+  llama_sdk: ^0.0.5
+
+  # ─── Inter-App AI Hosting ────────────────────────
+  shelf: ^1.4.2
 
   # ─── Database ────────────────────────────────────
   drift: ^2.23.1
@@ -60,3 +65,4 @@ flutter:
 
   assets:
     - assets/mock_data/
+    - assets/models/

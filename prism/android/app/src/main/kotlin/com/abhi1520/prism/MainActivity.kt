@@ -1,4 +1,4 @@
-package com.example.prism
+package com.abhi1520.prism
 
 import io.flutter.embedding.android.FlutterActivity
 

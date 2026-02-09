@@ -40,7 +40,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _mobile(BuildContext context, int selected) {
     return Scaffold(
-      body: widget.child,
+      body: SafeArea(bottom: false, child: widget.child),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selected,
         onDestinationSelected: _onTap,
@@ -87,7 +87,7 @@ class _AppShellState extends State<AppShell> {
                 .toList(),
           ),
           VerticalDivider(width: 1, thickness: 1, color: colors.outline),
-          Expanded(child: widget.child),
+          Expanded(child: SafeArea(bottom: false, child: widget.child)),
         ],
       ),
     );
