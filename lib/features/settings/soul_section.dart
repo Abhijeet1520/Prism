@@ -40,7 +40,8 @@ class _SoulDocumentSectionState extends ConsumerState<SoulDocumentSection> {
     final soulState = ref.watch(soulDocumentProvider);
     final notifier = ref.read(soulDocumentProvider.notifier);
 
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
@@ -150,6 +151,7 @@ class _SoulDocumentSectionState extends ConsumerState<SoulDocumentSection> {
         ),
         SettingsDivider(color: widget.borderColor),
       ],
+    ),
     );
   }
 

@@ -541,6 +541,7 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
             content: m.content,
           )));
     });
+    _scrollToBottom();
   }
 
   Future<void> _toggleTemporary() async {

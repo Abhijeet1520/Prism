@@ -25,7 +25,8 @@ class PersonasSection extends ConsumerWidget {
     final state = ref.watch(personaManagerProvider);
     final notifier = ref.read(personaManagerProvider.notifier);
 
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
@@ -174,6 +175,7 @@ class PersonasSection extends ConsumerWidget {
           ),
         ],
       ],
+    ),
     );
   }
 

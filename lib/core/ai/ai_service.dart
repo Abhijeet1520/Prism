@@ -378,14 +378,46 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
           'temperature': config.temperature,
           'top_p': config.topP,
           'n_predict': config.maxTokens,
-          // Match maid's approach: use greedy sampling for more reliable output
           'greedy': true,
         }),
       );
+      // Give the model time to initialize before marking as loaded
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (_llamaModel == null) {
+        state = state.copyWith(
+            error: 'Model failed to initialize', loadProgress: null);
+        return;
+      }
       state = state.copyWith(isModelLoaded: true, loadProgress: 1.0);
-    } catch (e) {
+    } catch (e, stackTrace) {
       state = state.copyWith(
-          error: 'Failed to load model: $e', loadProgress: null);
+          error: 'Failed to load model: $e\n$stackTrace', loadProgress: null);
+      _llamaModel = null;
+    }
+  }
+
+  /// Ensure local model is loaded with current config before prompting.
+  /// Mirrors Maid's reloadModel() pattern.
+  void _ensureLocalModelLoaded() {
+    final config = state.activeModel;
+    if (config == null || config.provider != ProviderType.local) return;
+    if (_llamaModel != null) return; // already loaded
+    if (config.filePath == null) return;
+    try {
+      _llamaModel = llama.Llama(
+        llama.LlamaController.fromMap({
+          'model_path': config.filePath!,
+          'seed': DateTime.now().millisecondsSinceEpoch % 1000000,
+          'n_ctx': config.contextWindow,
+          'temperature': config.temperature,
+          'top_p': config.topP,
+          'n_predict': config.maxTokens,
+          'greedy': true,
+        }),
+      );
+      state = state.copyWith(isModelLoaded: true);
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to reload model: $e');
     }
   }
 
@@ -840,13 +872,15 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
   // ─── Local Model (llama_sdk) ───────────────────────
 
   Stream<String> _generateLocal(List<PrismMessage> messages) async* {
+    // Ensure model is loaded before prompting (mirrors Maid's reloadModel pattern)
+    _ensureLocalModelLoaded();
+
     if (_llamaModel == null) {
-      yield 'Model not loaded. Please select a local model first.';
+      yield '⚠️ Model not loaded. Please select a local model in Settings > AI Providers.';
       return;
     }
 
     // Build prompt for local models — format as chat template
-    // Many small GGUF models work better with a single formatted prompt
     final llamaMessages = messages
         .map((m) => llama.LlamaMessage.withRole(
               role: switch (m.role) {
@@ -866,8 +900,15 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
         _streamController.add(token);
         yield token;
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Log the full error for debugging
       yield '\n\n⚠️ Local model error: $e';
+      // Try to recover the model for next prompt
+      try {
+        _llamaModel?.stop();
+      } catch (_) {}
+      _llamaModel = null;
+      state = state.copyWith(isModelLoaded: false, error: 'Model error: $e\n$stackTrace');
       return;
     }
 
