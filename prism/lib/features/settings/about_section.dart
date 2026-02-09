@@ -72,6 +72,10 @@ class AboutSection extends StatelessWidget {
             _aboutRow(
                 'ML Kit', 'OCR, NER, Smart Reply', textPrimary, textSecondary),
             _aboutRow('License', 'AGPL-3.0', textPrimary, textSecondary),
+            const SizedBox(height: 12),
+            _aboutRow('Built by', 'Abhijeet', textPrimary, textSecondary),
+            _aboutRow('Portfolio', 'abhi1520.com', textPrimary, textSecondary),
+            _aboutRow('GitHub', 'Abhijeet1520', textPrimary, textSecondary),
           ],
         ),
       ),
