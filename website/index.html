@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prism — AI Personal Assistant</title>
+  <meta name="description" content="Your intelligent, privacy-first personal assistant. Powered by local and cloud LLMs. Built with Flutter." />
+  <meta name="theme-color" content="#0C0C16" />
+  <meta property="og:title" content="Prism — AI Personal Assistant" />
+  <meta property="og:description" content="Privacy-first AI assistant that runs on your device." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://prism.abhi1520.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep: #060610;
+      --bg-base: #0C0C16;
+      --surface: #16162A;
+      --border: #252540;
+      --text-primary: #E2E2EC;
+      --text-secondary: #7A7A90;
+      --accent: #818CF8;
+      --accent-glow: rgba(129, 140, 248, 0.15);
+      --green: #34D399;
+      --orange: #F97316;
+      --rose: #F43F5E;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+    /* ─── NAV ──────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(12, 12, 22, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 64px;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; }
+    .nav-logo-icon {
+      width: 32px; height: 32px; background: var(--accent);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a { color: var(--text-secondary); font-size: 14px; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text-primary); text-decoration: none; }
+    .nav-cta {
+      background: var(--accent); color: #fff; padding: 8px 20px;
+      border-radius: 8px; font-weight: 600; font-size: 14px; transition: opacity 0.2s;
+    }
+    .nav-cta:hover { opacity: 0.9; text-decoration: none; }
+
+    /* ─── HERO ─────────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      text-align: center; position: relative; padding: 120px 24px 80px;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 6px 16px; border-radius: 100px; font-size: 13px;
+      color: var(--text-secondary); margin-bottom: 24px;
+    }
+    .hero-badge span { color: var(--green); font-weight: 600; }
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 72px); font-weight: 800;
+      line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 20px;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--accent), #A78BFA, var(--rose));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 18px; color: var(--text-secondary);
+      max-width: 560px; margin: 0 auto 40px;
+    }
+    .hero-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--accent); color: #fff; padding: 14px 32px;
+      border-radius: 12px; font-weight: 600; font-size: 16px;
+      transition: transform 0.2s, box-shadow 0.2s; border: none; cursor: pointer;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px var(--accent-glow); text-decoration: none; }
+    .btn-secondary {
+      background: var(--surface); color: var(--text-primary); padding: 14px 32px;
+      border-radius: 12px; font-weight: 600; font-size: 16px;
+      border: 1px solid var(--border); transition: border-color 0.2s; cursor: pointer;
+    }
+    .btn-secondary:hover { border-color: var(--accent); text-decoration: none; }
+
+    /* ─── ORB ANIMATION ────────────────────────────────────── */
+    .orb-container { position: relative; width: 200px; height: 200px; margin: 0 auto 40px; }
+    .orb {
+      width: 200px; height: 200px; border-radius: 50%;
+      background: radial-gradient(circle at 40% 40%, var(--accent), #4F46E5, #1E1B4B);
+      box-shadow: 0 0 60px var(--accent-glow), 0 0 120px rgba(129, 140, 248, 0.08);
+      animation: orb-pulse 4s ease-in-out infinite, orb-float 6s ease-in-out infinite;
+    }
+    .orb::after {
+      content: ''; position: absolute; top: 20%; left: 25%;
+      width: 30%; height: 20%;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      filter: blur(8px);
+    }
+    @keyframes orb-pulse {
+      0%, 100% { box-shadow: 0 0 60px var(--accent-glow), 0 0 120px rgba(129,140,248,0.08); }
+      50% { box-shadow: 0 0 80px rgba(129,140,248,0.25), 0 0 160px rgba(129,140,248,0.12); }
+    }
+    @keyframes orb-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    /* ─── FEATURES ─────────────────────────────────────────── */
+    .features { padding: 100px 0; }
+    .section-label {
+      text-align: center; font-size: 13px; font-weight: 600;
+      color: var(--accent); text-transform: uppercase; letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      text-align: center; font-size: 36px; font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      text-align: center; color: var(--text-secondary);
+      font-size: 16px; max-width: 520px; margin: 0 auto 60px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .feature-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 16px;
+    }
+    .feature-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+    .feature-tag {
+      display: inline-block; padding: 3px 10px; border-radius: 6px;
+      font-size: 11px; font-weight: 600; margin-top: 12px;
+    }
+    .tag-ready { background: rgba(52,211,153,0.12); color: var(--green); }
+    .tag-preview { background: rgba(249,115,22,0.12); color: var(--orange); }
+    .tag-planned { background: rgba(122,122,144,0.12); color: var(--text-secondary); }
+
+    /* ─── PRIVACY ──────────────────────────────────────────── */
+    .privacy { padding: 100px 0; }
+    .privacy-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    .privacy-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 32px; text-align: center;
+    }
+    .privacy-card .icon { font-size: 36px; margin-bottom: 16px; }
+    .privacy-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .privacy-card p { color: var(--text-secondary); font-size: 14px; }
+
+    /* ─── TECH STACK ───────────────────────────────────────── */
+    .tech { padding: 100px 0; border-top: 1px solid var(--border); }
+    .tech-pills {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
+      margin-top: 40px;
+    }
+    .tech-pill {
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 10px 20px; border-radius: 100px; font-size: 14px;
+      font-weight: 500; display: flex; align-items: center; gap: 8px;
+    }
+    .tech-pill .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+
+    /* ─── ROADMAP ──────────────────────────────────────────── */
+    .roadmap { padding: 100px 0; }
+    .roadmap-timeline {
+      max-width: 700px; margin: 0 auto;
+      position: relative; padding-left: 40px;
+    }
+    .roadmap-timeline::before {
+      content: ''; position: absolute; left: 15px; top: 0; bottom: 0;
+      width: 2px; background: var(--border);
+    }
+    .roadmap-item {
+      position: relative; margin-bottom: 40px; padding-left: 24px;
+    }
+    .roadmap-dot {
+      position: absolute; left: -32px; top: 4px;
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid var(--accent); background: var(--bg-base);
+    }
+    .roadmap-dot.active { background: var(--accent); }
+    .roadmap-item h4 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .roadmap-item .version {
+      font-size: 12px; color: var(--accent); font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .roadmap-item p { color: var(--text-secondary); font-size: 14px; }
+
+    /* ─── CTA ──────────────────────────────────────────────── */
+    .cta {
+      padding: 100px 0; text-align: center;
+      background: linear-gradient(180deg, transparent, var(--accent-glow), transparent);
+    }
+    .cta h2 { font-size: 36px; font-weight: 700; margin-bottom: 16px; }
+    .cta p { color: var(--text-secondary); font-size: 16px; max-width: 480px; margin: 0 auto 32px; }
+
+    /* ─── FOOTER ───────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .footer-logo { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { color: var(--text-secondary); font-size: 13px; }
+    .footer-copy { color: var(--text-secondary); font-size: 13px; }
+
+    /* ─── RESPONSIVE ───────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .privacy-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <div class="nav-logo">
+        <div class="nav-logo-icon">✦</div>
+        Prism
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#tech">Tech Stack</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="https://github.com/abhi1520/prism" class="nav-cta">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div>
+      <div class="hero-badge">
+        <span>●</span> v0.1 Alpha — Open Source
+      </div>
+      <div class="orb-container"><div class="orb"></div></div>
+      <h1>Your AI,<br/><span class="gradient">Your Rules.</span></h1>
+      <p>Prism is a privacy-first AI personal assistant that runs models locally on your device. Chat, organize, track finances, manage knowledge — all without sending your data anywhere.</p>
+      <div class="hero-actions">
+        <a href="https://github.com/abhi1520/prism/releases" class="btn-primary">Download APK</a>
+        <a href="https://github.com/abhi1520/prism" class="btn-secondary">View Source</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-label">Features</div>
+      <h2 class="section-title">Everything in one place</h2>
+      <p class="section-sub">From daily briefings to deep conversations, Prism adapts to how you think and work.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(129,140,248,0.12);">💬</div>
+          <h3>AI Chat</h3>
+          <p>Multi-turn conversations with streaming responses. Switch between local and cloud models mid-conversation. Markdown rendering, code blocks, and conversation branching.</p>
+          <span class="feature-tag tag-preview">Preview</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(52,211,153,0.12);">🧠</div>
+          <h3>Brain — Knowledge Base</h3>
+          <p>Your personal second brain. Store documents, notes, and snippets. Full-text search with AI-powered retrieval (RAG) coming in v0.3.</p>
+          <span class="feature-tag tag-preview">Preview</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(249,115,22,0.12);">✅</div>
+          <h3>Task Management</h3>
+          <p>Organize tasks by category and priority. Natural language input — just tell Prism what you need to do and it creates the task.</p>
+          <span class="feature-tag tag-preview">Preview</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(244,63,94,0.12);">💰</div>
+          <h3>Finance Tracker</h3>
+          <p>Track expenses, income, and budgets. Scan receipts with OCR. Natural language logging — "Spent $42 on groceries" just works.</p>
+          <span class="feature-tag tag-preview">Preview</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(167,139,250,0.12);">🛠️</div>
+          <h3>AI Tools</h3>
+          <p>Composable tools the AI can use: update tasks, log transactions, create notes, schedule events, edit documents. Tools can call other tools.</p>
+          <span class="feature-tag tag-preview">Preview</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(6,182,212,0.12);">🎨</div>
+          <h3>Theme System</h3>
+          <p>7 accent color presets, AMOLED black mode, font scaling, compact mode. The app adapts to your aesthetic.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(245,158,11,0.12);">📷</div>
+          <h3>ML Kit Intelligence</h3>
+          <p>On-device OCR, receipt scanning, entity extraction (dates, amounts, addresses), smart reply suggestions, document scanning, barcode reading — all offline.</p>
+          <span class="feature-tag tag-planned">v0.2</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(34,197,94,0.12);">🤖</div>
+          <h3>Local Model Inference</h3>
+          <p>Run Gemma, Llama, Phi models directly on your device via llama.cpp. No internet required. Or connect to Ollama on your network.</p>
+          <span class="feature-tag tag-planned">v0.2</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(129,140,248,0.12);">🎙️</div>
+          <h3>Voice-First</h3>
+          <p>Designed for voice interaction. On-device speech recognition and text-to-speech. Say what you need — no typing required.</p>
+          <span class="feature-tag tag-planned">v0.3</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <section class="privacy" id="privacy">
+    <div class="container">
+      <div class="section-label">Privacy First</div>
+      <h2 class="section-title">Your data stays yours</h2>
+      <p class="section-sub">No telemetry, no cloud uploads, no tracking. Everything runs and stores locally by default.</p>
+
+      <div class="privacy-grid">
+        <div class="privacy-card">
+          <div class="icon">🔒</div>
+          <h3>Local Storage</h3>
+          <p>All conversations, documents, and settings stored on-device with AES-256 encryption.</p>
+        </div>
+        <div class="privacy-card">
+          <div class="icon">📱</div>
+          <h3>On-Device AI</h3>
+          <p>Run LLMs locally via llama.cpp. Your prompts never leave your phone.</p>
+        </div>
+        <div class="privacy-card">
+          <div class="icon">☁️</div>
+          <h3>Cloud Optional</h3>
+          <p>Connect to OpenAI, Gemini, or Claude only if you choose. Even then, nothing is stored server-side by Prism.</p>
+        </div>
+        <div class="privacy-card">
+          <div class="icon">📖</div>
+          <h3>Open Source</h3>
+          <p>AGPL-3.0 licensed. Audit the code, build from source, contribute. Full transparency.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <section class="tech" id="tech">
+    <div class="container">
+      <div class="section-label">Built With</div>
+      <h2 class="section-title">Modern tech, proven foundations</h2>
+      <div class="tech-pills">
+        <div class="tech-pill"><span class="dot" style="background: #027DFD;"></span> Flutter</div>
+        <div class="tech-pill"><span class="dot" style="background: #818CF8;"></span> Moon Design</div>
+        <div class="tech-pill"><span class="dot" style="background: #F97316;"></span> LangChain.dart</div>
+        <div class="tech-pill"><span class="dot" style="background: #34D399;"></span> llama.cpp</div>
+        <div class="tech-pill"><span class="dot" style="background: #06B6D4;"></span> Drift (SQLite)</div>
+        <div class="tech-pill"><span class="dot" style="background: #A78BFA;"></span> Google ML Kit</div>
+        <div class="tech-pill"><span class="dot" style="background: #22C55E;"></span> Riverpod</div>
+        <div class="tech-pill"><span class="dot" style="background: #F43F5E;"></span> Ollama</div>
+        <div class="tech-pill"><span class="dot" style="background: #F59E0B;"></span> ObjectBox</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section class="roadmap" id="roadmap">
+    <div class="container">
+      <div class="section-label">Roadmap</div>
+      <h2 class="section-title">Where we're headed</h2>
+      <p class="section-sub">Prism is under active development. Here's what's coming.</p>
+
+      <div class="roadmap-timeline">
+        <div class="roadmap-item">
+          <div class="roadmap-dot active"></div>
+          <div class="version">v0.1 — Current</div>
+          <h4>UX Preview</h4>
+          <p>Core app shell, themed UI, daily digest home screen, soul orb animation, mock data, 7 theme presets, splash screen, 5-tab navigation.</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot"></div>
+          <div class="version">v0.2 — Next</div>
+          <h4>AI Integration</h4>
+          <p>Local model loading (llama.cpp), Ollama support, cloud API providers (OpenAI, Gemini, Claude), ML Kit OCR &amp; entity extraction, real tool execution, persistent database (Drift).</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot"></div>
+          <div class="version">v0.3</div>
+          <h4>Voice &amp; Intelligence</h4>
+          <p>On-device speech recognition, text-to-speech, RAG with ObjectBox vector store, smart suggestions, document summarization.</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot"></div>
+          <div class="version">v0.4</div>
+          <h4>Integrations</h4>
+          <p>Calendar sync (Google/Apple), wake word detection, continuous listening, notification actions, file sharing.</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot"></div>
+          <div class="version">v0.5+</div>
+          <h4>Polish &amp; Scale</h4>
+          <p>Home screen widgets, multi-device encrypted sync, plugin system, accessibility (WCAG AA), performance optimization.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <div class="container">
+      <h2>Ready to try Prism?</h2>
+      <p>Download the alpha, explore the codebase, or join the community. Your AI, your rules.</p>
+      <div class="hero-actions">
+        <a href="https://github.com/abhi1520/prism/releases" class="btn-primary">Get Started</a>
+        <a href="https://github.com/abhi1520/prism" class="btn-secondary">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-logo">✦ Prism</div>
+        <div class="footer-links">
+          <a href="#features">Features</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="https://github.com/abhi1520/prism">GitHub</a>
+        </div>
+        <div class="footer-copy">© 2026 Abhi. AGPL-3.0</div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
