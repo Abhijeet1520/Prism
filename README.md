@@ -54,9 +54,9 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
 
 ### Home & Chat
 <p>
-  <img src="screenshots/Home section with welcome.jpg" alt="Home" width="240"/>
-  <img src="screenshots/Chat with showcasing available tools reply from model and tool calling.jpg" alt="Chat" width="240"/>
-  <img src="screenshots/Home section scrolled, showcasing tasks, ai status, schedule, finance.jpg" alt="Dashboard" width="240"/>
+  <img src="website/screenshots/Home section with welcome.jpg" alt="Home" width="240"/>
+  <img src="website/screenshots/Chat with showcasing available tools reply from model and tool calling.jpg" alt="Chat" width="240"/>
+  <img src="website/screenshots/Home section scrolled, showcasing tasks, ai status, schedule, finance.jpg" alt="Dashboard" width="240"/>
 </p>
 
 **Home** — Daily digest with AI status, tasks, and finance summary.
@@ -65,9 +65,9 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
 
 ### Second Brain
 <p>
-  <img src="screenshots/Brain with notes section.jpg" alt="Notes" width="240"/>
-  <img src="screenshots/Knowledge section open note showcasing editor.jpg" alt="Editor" width="240"/>
-  <img src="screenshots/Brain Persona section.jpg" alt="Personas" width="240"/>
+  <img src="website/screenshots/Brain with notes section.jpg" alt="Notes" width="240"/>
+  <img src="website/screenshots/Knowledge section open note showcasing editor.jpg" alt="Editor" width="240"/>
+  <img src="website/screenshots/Brain Persona section.jpg" alt="Personas" width="240"/>
 </p>
 
 **Notes** — Search, tag filters, FTS5 full-text search.
@@ -79,9 +79,9 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
 <summary><strong>📱 Apps Hub</strong> (click to expand)</summary>
 
 <p>
-  <img src="screenshots/Apps screen showcasing tasks, finance and other options.jpg" alt="Apps" width="240"/>
-  <img src="screenshots/Tasks section under apps with item moved in kanbanboard.jpg" alt="Kanban" width="240"/>
-  <img src="screenshots/Finance page showcasing transactions.jpg" alt="Finance" width="240"/>
+  <img src="website/screenshots/Apps screen showcasing tasks, finance and other options.jpg" alt="Apps" width="240"/>
+  <img src="website/screenshots/Tasks section under apps with item moved in kanbanboard.jpg" alt="Kanban" width="240"/>
+  <img src="website/screenshots/Finance page showcasing transactions.jpg" alt="Finance" width="240"/>
 </p>
 
 **Apps** — Central hub for Tasks, Finance, Files, Tools.
@@ -95,9 +95,9 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
 <summary><strong>🛠️ Tools & Gateway</strong> (click to expand)</summary>
 
 <p>
-  <img src="screenshots/Tools under Apps showcasing tools available for llm.jpg" alt="Tools" width="240"/>
-  <img src="screenshots/Gateway option enabled under app showcasing the server running.jpg" alt="Gateway" width="240"/>
-  <img src="screenshots/MCP Servers under Tools in Apps.jpg" alt="MCP" width="240"/>
+  <img src="website/screenshots/Tools under Apps showcasing tools available for llm.jpg" alt="Tools" width="240"/>
+  <img src="website/screenshots/Gateway option enabled under app showcasing the server running.jpg" alt="Gateway" width="240"/>
+  <img src="website/screenshots/MCP Servers under Tools in Apps.jpg" alt="MCP" width="240"/>
 </p>
 
 **Tools** — Function calling registry (add_task, log_expense, search_notes).
@@ -111,8 +111,8 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
 <summary><strong>⚙️ Settings</strong> (click to expand)</summary>
 
 <p>
-  <img src="screenshots/SettingsPage.jpg" alt="Settings" width="240"/>
-  <img src="screenshots/SettingsPage2-with data & storage.jpg" alt="Data" width="240"/>
+  <img src="website/screenshots/SettingsPage.jpg" alt="Settings" width="240"/>
+  <img src="website/screenshots/SettingsPage2-with data & storage.jpg" alt="Data" width="240"/>
 </p>
 
 **Settings** — Providers, themes, privacy.

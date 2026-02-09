@@ -1,0 +1,1089 @@
+/// Brain Screen — Simplified Notes-only Knowledge Base with Search & Tag Filters.
+///
+/// Three tabs: Knowledge (notes), Personas, Soul
+/// Knowledge panel features:
+/// - Search bar for filtering notes
+/// - Tag filter chips (extracted from all notes)
+/// - Responsive notes grid with detail panel
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../core/database/database.dart';
+import '../settings/personas_section.dart';
+import '../settings/soul_section.dart';
+
+const _uuid = Uuid();
+
+class BrainScreen extends ConsumerStatefulWidget {
+  const BrainScreen({super.key});
+
+  @override
+  ConsumerState<BrainScreen> createState() => _BrainScreenState();
+}
+
+class _BrainScreenState extends ConsumerState<BrainScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  static const _tabs = [
+    ('Knowledge', Icons.auto_stories_outlined),
+    ('Personas', Icons.person_outline_rounded),
+    ('Soul', Icons.auto_awesome_outlined),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0C0C16) : const Color(0xFFF5F5FA);
+    final cardColor = isDark ? const Color(0xFF16162A) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF252540) : const Color(0xFFE2E2EC);
+    final textPrimary = isDark ? const Color(0xFFE2E2EC) : const Color(0xFF1A1A2E);
+    final textSecondary = isDark ? const Color(0xFF7A7A90) : const Color(0xFF6B6B80);
+    final accentColor = Theme.of(context).colorScheme.primary;
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      body: Column(
+        children: [
+          // ─── Header ──────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Second Brain',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+                ),
+                const Spacer(),
+              ],
+            ),
+          ),
+
+          // ─── Tabs ────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: borderColor, width: 0.5),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                labelColor: accentColor,
+                unselectedLabelColor: textSecondary,
+                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
+                indicator: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                tabs: _tabs.map((t) => Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(t.$2, size: 16),
+                      const SizedBox(width: 6),
+                      Text(t.$1),
+                    ],
+                  ),
+                )).toList(),
+              ),
+            ),
+          ),
+
+          // ─── Tab Content ─────────────────────────
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Knowledge Tab
+                  _KnowledgePanel(
+                    isDark: isDark,
+                    cardColor: cardColor,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
+                  ),
+                  // Personas Tab
+                  PersonasSection(
+                    cardColor: cardColor,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
+                  ),
+                  // Soul Tab
+                  SoulDocumentSection(
+                    cardColor: cardColor,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// KNOWLEDGE PANEL — Notes with Search & Tag Filters
+// ============================================================================
+
+class _KnowledgePanel extends ConsumerStatefulWidget {
+  final bool isDark;
+  final Color cardColor;
+  final Color borderColor;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color accentColor;
+
+  const _KnowledgePanel({
+    required this.isDark,
+    required this.cardColor,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+  });
+
+  @override
+  ConsumerState<_KnowledgePanel> createState() => _KnowledgePanelState();
+}
+
+class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
+  String _searchQuery = '';
+  Set<String> _selectedTags = {};
+  Note? _selectedNote;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Extract all unique tags from notes
+  List<String> _extractAllTags(List<Note> notes) {
+    final tags = <String>{};
+    for (final note in notes) {
+      if (note.tags != null && note.tags!.isNotEmpty) {
+        for (final tag in note.tags!.split(',')) {
+          final trimmed = tag.trim();
+          if (trimmed.isNotEmpty) tags.add(trimmed);
+        }
+      }
+    }
+    return tags.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
+  /// Filter notes by search query and selected tags
+  List<Note> _filterNotes(List<Note> notes) {
+    return notes.where((note) {
+      // Search filter
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final matchesTitle = note.title.toLowerCase().contains(query);
+        final matchesContent = note.content?.toLowerCase().contains(query) ?? false;
+        final matchesTags = note.tags?.toLowerCase().contains(query) ?? false;
+        if (!matchesTitle && !matchesContent && !matchesTags) return false;
+      }
+      // Tag filter
+      if (_selectedTags.isNotEmpty) {
+        if (note.tags == null || note.tags!.isEmpty) return false;
+        final noteTags = note.tags!.split(',').map((t) => t.trim().toLowerCase()).toSet();
+        final hasTag = _selectedTags.any((selected) => noteTags.contains(selected.toLowerCase()));
+        if (!hasTag) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final db = ref.watch(databaseProvider);
+
+    return StreamBuilder<List<Note>>(
+      stream: db.watchNotes(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}', style: TextStyle(color: widget.textSecondary)));
+        }
+
+        final notes = snapshot.data ?? [];
+        final allTags = _extractAllTags(notes);
+        final filteredNotes = _filterNotes(notes);
+
+        // Check if selected note still exists after filtering
+        if (_selectedNote != null && !filteredNotes.any((n) => n.id == _selectedNote!.id)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedNote = null);
+          });
+        }
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 800;
+            final showDetailPanel = isWide && _selectedNote != null;
+
+            return Row(
+              children: [
+                // Main notes panel
+                Expanded(
+                  flex: showDetailPanel ? 3 : 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Search bar
+                      _buildSearchBar(),
+                      const SizedBox(height: 12),
+
+                      // Tag filters
+                      if (allTags.isNotEmpty) ...[
+                        _buildTagFilters(allTags),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Notes header with count and add button
+                      _buildNotesHeader(filteredNotes.length, notes.isEmpty),
+
+                      const SizedBox(height: 8),
+
+                      // Notes list
+                      Expanded(
+                        child: filteredNotes.isEmpty
+                            ? _buildEmptyState(notes.isEmpty)
+                            : _buildNotesList(filteredNotes, constraints),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Detail panel (wide screens only)
+                if (showDetailPanel) ...[
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 380,
+                    child: _NoteDetailPanel(
+                      note: _selectedNote!,
+                      isDark: widget.isDark,
+                      cardColor: widget.cardColor,
+                      borderColor: widget.borderColor,
+                      textPrimary: widget.textPrimary,
+                      textSecondary: widget.textSecondary,
+                      accentColor: widget.accentColor,
+                      onClose: () => setState(() => _selectedNote = null),
+                      onDelete: () => setState(() => _selectedNote = null),
+                      onUpdate: (updated) => setState(() => _selectedNote = updated),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: widget.borderColor, width: 0.5),
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: TextStyle(color: widget.textPrimary, fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Search notes...',
+          hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.6)),
+          prefixIcon: Icon(Icons.search_rounded, color: widget.textSecondary, size: 20),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear_rounded, color: widget.textSecondary, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        onChanged: (value) => setState(() => _searchQuery = value),
+      ),
+    );
+  }
+
+  Widget _buildTagFilters(List<String> allTags) {
+    return SizedBox(
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          // Clear filters button
+          if (_selectedTags.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ActionChip(
+                label: Text('Clear', style: TextStyle(fontSize: 12, color: widget.textSecondary)),
+                avatar: Icon(Icons.close_rounded, size: 14, color: widget.textSecondary),
+                backgroundColor: widget.borderColor.withValues(alpha: 0.3),
+                side: BorderSide.none,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                onPressed: () => setState(() => _selectedTags.clear()),
+              ),
+            ),
+          // Tag chips
+          ...allTags.map((tag) {
+            final isSelected = _selectedTags.contains(tag);
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text(tag, style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.white : widget.textPrimary,
+                )),
+                selected: isSelected,
+                selectedColor: widget.accentColor,
+                backgroundColor: widget.cardColor,
+                checkmarkColor: Colors.white,
+                side: BorderSide(color: isSelected ? widget.accentColor : widget.borderColor, width: 0.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedTags.add(tag);
+                    } else {
+                      _selectedTags.remove(tag);
+                    }
+                  });
+                },
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesHeader(int count, bool isEmpty) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '$count note${count == 1 ? '' : 's'}${_searchQuery.isNotEmpty || _selectedTags.isNotEmpty ? ' found' : ''}',
+          style: TextStyle(color: widget.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: widget.accentColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.add_rounded, color: widget.accentColor, size: 18),
+          ),
+          tooltip: 'Add Note',
+          onPressed: () => _showCreateNoteDialog(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(bool noNotes) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            noNotes ? Icons.note_alt_outlined : Icons.search_off_rounded,
+            size: 48,
+            color: widget.textSecondary.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            noNotes ? 'No notes yet' : 'No notes match your filters',
+            style: TextStyle(color: widget.textSecondary, fontSize: 14),
+          ),
+          if (noNotes) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _showCreateNoteDialog(),
+              icon: Icon(Icons.add_rounded, size: 18, color: widget.accentColor),
+              label: Text('Create your first note', style: TextStyle(color: widget.accentColor)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesList(List<Note> notes, BoxConstraints constraints) {
+    return ListView.builder(
+      itemCount: notes.length,
+      itemBuilder: (context, index) {
+        final note = notes[index];
+        final isSelected = _selectedNote?.id == note.id;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _NoteListItem(
+            note: note,
+            isSelected: isSelected,
+            cardColor: widget.cardColor,
+            borderColor: widget.borderColor,
+            textPrimary: widget.textPrimary,
+            textSecondary: widget.textSecondary,
+            accentColor: widget.accentColor,
+            onTap: () => setState(() => _selectedNote = note),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showCreateNoteDialog() async {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    final tagsCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.note_add_rounded, size: 20, color: widget.accentColor),
+            const SizedBox(width: 8),
+            Text('New Note', style: TextStyle(color: widget.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DialogTextField(
+                  controller: titleCtrl,
+                  label: 'Title',
+                  hint: 'Note title',
+                  multiline: false,
+                  textPrimary: widget.textPrimary,
+                  textSecondary: widget.textSecondary,
+                  borderColor: widget.borderColor,
+                  accentColor: widget.accentColor,
+                ),
+                const SizedBox(height: 12),
+                _DialogTextField(
+                  controller: contentCtrl,
+                  label: 'Content',
+                  hint: 'Write your note...',
+                  multiline: true,
+                  maxLines: 6,
+                  textPrimary: widget.textPrimary,
+                  textSecondary: widget.textSecondary,
+                  borderColor: widget.borderColor,
+                  accentColor: widget.accentColor,
+                ),
+                const SizedBox(height: 12),
+                _DialogTextField(
+                  controller: tagsCtrl,
+                  label: 'Tags',
+                  hint: 'comma, separated, tags',
+                  multiline: false,
+                  textPrimary: widget.textPrimary,
+                  textSecondary: widget.textSecondary,
+                  borderColor: widget.borderColor,
+                  accentColor: widget.accentColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: widget.textSecondary)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: widget.accentColor),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && titleCtrl.text.trim().isNotEmpty) {
+      final db = ref.read(databaseProvider);
+      await db.createNote(
+        uuid: _uuid.v4(),
+        title: titleCtrl.text.trim(),
+        content: contentCtrl.text,
+        tags: tagsCtrl.text.trim(),
+      );
+    }
+  }
+}
+
+// ============================================================================
+// NOTE LIST ITEM
+// ============================================================================
+
+class _NoteListItem extends StatelessWidget {
+  final Note note;
+  final bool isSelected;
+  final Color cardColor;
+  final Color borderColor;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  const _NoteListItem({
+    required this.note,
+    required this.isSelected,
+    required this.cardColor,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  List<String> get _tags {
+    if (note.tags == null || note.tags!.isEmpty) return [];
+    return note.tags!.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? accentColor : borderColor,
+            width: isSelected ? 1.5 : 0.5,
+          ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: accentColor.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))]
+              : null,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Main content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    note.title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Content preview
+                  Text(
+                    note.content ?? 'No content',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textSecondary,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // Tags
+                  if (_tags.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: _tags.take(3).map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          tag,
+                          style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w500),
+                        ),
+                      )).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Date on the right
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  DateFormat('MMM d').format(note.updatedAt),
+                  style: TextStyle(fontSize: 11, color: textSecondary.withValues(alpha: 0.7)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('yyyy').format(note.updatedAt),
+                  style: TextStyle(fontSize: 10, color: textSecondary.withValues(alpha: 0.5)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// NOTE DETAIL PANEL
+// ============================================================================
+
+class _NoteDetailPanel extends ConsumerStatefulWidget {
+  final Note note;
+  final bool isDark;
+  final Color cardColor;
+  final Color borderColor;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color accentColor;
+  final VoidCallback onClose;
+  final VoidCallback onDelete;
+  final ValueChanged<Note> onUpdate;
+
+  const _NoteDetailPanel({
+    required this.note,
+    required this.isDark,
+    required this.cardColor,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+    required this.onClose,
+    required this.onDelete,
+    required this.onUpdate,
+  });
+
+  @override
+  ConsumerState<_NoteDetailPanel> createState() => _NoteDetailPanelState();
+}
+
+class _NoteDetailPanelState extends ConsumerState<_NoteDetailPanel> {
+  late TextEditingController _titleController;
+  late TextEditingController _contentController;
+  late TextEditingController _tagsController;
+  bool _isEditing = false;
+  bool _hasChanges = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers();
+  }
+
+  @override
+  void didUpdateWidget(_NoteDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.note.id != widget.note.id) {
+      _initControllers();
+      _isEditing = false;
+      _hasChanges = false;
+    }
+  }
+
+  void _initControllers() {
+    _titleController = TextEditingController(text: widget.note.title);
+    _contentController = TextEditingController(text: widget.note.content ?? '');
+    _tagsController = TextEditingController(text: widget.note.tags ?? '');
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    _tagsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveChanges() async {
+    if (!_hasChanges) return;
+
+    final db = ref.read(databaseProvider);
+    await db.updateNote(
+      widget.note.uuid,
+      title: _titleController.text.trim(),
+      content: _contentController.text,
+      tags: _tagsController.text.trim(),
+    );
+
+    setState(() {
+      _isEditing = false;
+      _hasChanges = false;
+    });
+  }
+
+  Future<void> _deleteNote() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('Delete Note?', style: TextStyle(color: widget.textPrimary, fontSize: 16)),
+        content: Text(
+          'This action cannot be undone.',
+          style: TextStyle(color: widget.textSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: widget.textSecondary)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final db = ref.read(databaseProvider);
+      await db.deleteNote(widget.note.uuid);
+      widget.onDelete();
+    }
+  }
+
+  List<String> get _tags {
+    final text = _tagsController.text;
+    if (text.isEmpty) return [];
+    return text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: widget.borderColor, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with actions
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Note Details',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: widget.textPrimary,
+                    ),
+                  ),
+                ),
+                if (_isEditing) ...[
+                  IconButton(
+                    icon: Icon(Icons.check_rounded, color: Colors.green, size: 20),
+                    tooltip: 'Save',
+                    onPressed: _hasChanges ? _saveChanges : null,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: widget.textSecondary, size: 20),
+                    tooltip: 'Cancel',
+                    onPressed: () {
+                      _initControllers();
+                      setState(() {
+                        _isEditing = false;
+                        _hasChanges = false;
+                      });
+                    },
+                  ),
+                ] else ...[
+                  IconButton(
+                    icon: Icon(Icons.edit_rounded, color: widget.accentColor, size: 18),
+                    tooltip: 'Edit',
+                    onPressed: () => setState(() => _isEditing = true),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete_outline_rounded, color: Colors.red.withValues(alpha: 0.8), size: 18),
+                    tooltip: 'Delete',
+                    onPressed: _deleteNote,
+                  ),
+                ],
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: widget.textSecondary, size: 18),
+                  tooltip: 'Close',
+                  onPressed: widget.onClose,
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: widget.borderColor),
+
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  if (_isEditing)
+                    TextField(
+                      controller: _titleController,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: widget.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Title',
+                        hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: widget.borderColor),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      onChanged: (_) => setState(() => _hasChanges = true),
+                    )
+                  else
+                    Text(
+                      widget.note.title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: widget.textPrimary,
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+
+                  // Tags
+                  Text('Tags', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+                  const SizedBox(height: 6),
+                  if (_isEditing)
+                    TextField(
+                      controller: _tagsController,
+                      style: TextStyle(fontSize: 13, color: widget.textPrimary),
+                      decoration: InputDecoration(
+                        hintText: 'comma, separated, tags',
+                        hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5), fontSize: 13),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: widget.borderColor),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      onChanged: (_) => setState(() => _hasChanges = true),
+                    )
+                  else if (_tags.isNotEmpty)
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _tags.map((tag) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: widget.accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          tag,
+                          style: TextStyle(fontSize: 12, color: widget.accentColor, fontWeight: FontWeight.w500),
+                        ),
+                      )).toList(),
+                    )
+                  else
+                    Text('No tags', style: TextStyle(fontSize: 12, color: widget.textSecondary, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 16),
+
+                  // Content
+                  Text('Content', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+                  const SizedBox(height: 6),
+                  if (_isEditing)
+                    TextField(
+                      controller: _contentController,
+                      style: TextStyle(fontSize: 14, color: widget.textPrimary, height: 1.5),
+                      maxLines: null,
+                      minLines: 8,
+                      decoration: InputDecoration(
+                        hintText: 'Write your note...',
+                        hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: widget.borderColor),
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                      onChanged: (_) => setState(() => _hasChanges = true),
+                    )
+                  else
+                    Text(
+                      widget.note.content?.isNotEmpty == true ? widget.note.content! : 'No content',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: widget.note.content?.isNotEmpty == true ? widget.textPrimary : widget.textSecondary,
+                        fontStyle: widget.note.content?.isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
+                        height: 1.5,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+
+                  // Metadata
+                  Divider(color: widget.borderColor),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded, size: 12, color: widget.textSecondary.withValues(alpha: 0.6)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Updated ${DateFormat('MMM d, yyyy • h:mm a').format(widget.note.updatedAt)}',
+                        style: TextStyle(fontSize: 11, color: widget.textSecondary.withValues(alpha: 0.6)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today_rounded, size: 12, color: widget.textSecondary.withValues(alpha: 0.6)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Created ${DateFormat('MMM d, yyyy').format(widget.note.createdAt)}',
+                        style: TextStyle(fontSize: 11, color: widget.textSecondary.withValues(alpha: 0.6)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// DIALOG TEXT FIELD HELPER
+// ============================================================================
+
+class _DialogTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final bool multiline;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color borderColor;
+  final Color accentColor;
+  final int maxLines;
+
+  const _DialogTextField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.multiline,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.borderColor,
+    required this.accentColor,
+    this.maxLines = 3,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: textSecondary, fontSize: 11, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          maxLines: multiline ? maxLines : 1,
+          style: TextStyle(color: textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.5), fontSize: 13),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            filled: true,
+            fillColor: borderColor.withValues(alpha: 0.3),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: borderColor, width: 0.5),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: borderColor, width: 0.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: accentColor, width: 1),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

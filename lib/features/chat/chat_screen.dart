@@ -463,6 +463,7 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
   final _scrollController = ScrollController();
   int? _conversationId;
   String _conversationTitle = 'New Chat';
+  bool _isTemporary = false; // Ephemeral chat mode
   final List<_DisplayMessage> _messages = [];
   bool _isStreaming = false;
   String _streamingText = '';
@@ -530,6 +531,7 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
 
     _conversationId = conv.id;
     _conversationTitle = conv.title;
+    _isTemporary = conv.isTemporary;
 
     final msgs = await db.watchMessages(conv.id).first;
     setState(() {
@@ -539,6 +541,12 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
             content: m.content,
           )));
     });
+  }
+
+  Future<void> _toggleTemporary() async {
+    final db = ref.read(databaseProvider);
+    await db.toggleConversationTemporary(widget.conversationUuid);
+    setState(() => _isTemporary = !_isTemporary);
   }
 
   void _scrollToBottom() {
@@ -1071,6 +1079,15 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
                             TextStyle(fontSize: 11, color: textSecondary),
                       ),
                     ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _toggleTemporary,
+                  tooltip: _isTemporary ? "Temporary chat (won't save)" : 'Make temporary',
+                  icon: Icon(
+                    _isTemporary ? Icons.timer_rounded : Icons.timer_outlined,
+                    size: 20,
+                    color: _isTemporary ? accentColor : textSecondary,
                   ),
                 ),
                 IconButton(

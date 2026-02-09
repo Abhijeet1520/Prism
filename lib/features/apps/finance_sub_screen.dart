@@ -96,19 +96,40 @@ class _FinanceSubScreenState extends ConsumerState<FinanceSubScreen> {
                 ],
               ),
             ),
-            // Tab bar: Transactions / Budget
+            // Tab bar: Transactions / Budget + Add button
             Container(
+              padding: const EdgeInsets.only(right: 8),
               color: widget.cardColor,
               child: Row(
                 children: [
-                  _TabBtn(
-                    label: 'Transactions', isActive: _activeTab == 0,
-                    accent: accentColor, secondary: widget.textSecondary,
-                    onTap: () => setState(() => _activeTab = 0)),
-                  _TabBtn(
-                    label: 'Budget', isActive: _activeTab == 1,
-                    accent: accentColor, secondary: widget.textSecondary,
-                    onTap: () => setState(() => _activeTab = 1)),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(child: _TabBtn(
+                          label: 'Transactions', isActive: _activeTab == 0,
+                          accent: accentColor, secondary: widget.textSecondary,
+                          onTap: () => setState(() => _activeTab = 0))),
+                        Expanded(child: _TabBtn(
+                          label: 'Budget', isActive: _activeTab == 1,
+                          accent: accentColor, secondary: widget.textSecondary,
+                          onTap: () => setState(() => _activeTab = 1))),
+                      ],
+                    ),
+                  ),
+                  // Add Transaction button
+                  IconButton(
+                    onPressed: () => _showAddTransactionDialog(accentColor),
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.add_rounded, color: accentColor, size: 18),
+                    ),
+                    tooltip: 'Add Transaction',
+                    splashRadius: 20,
+                  ),
                 ],
               ),
             ),
@@ -427,6 +448,191 @@ class _FinanceSubScreenState extends ConsumerState<FinanceSubScreen> {
         );
       },
     );
+  }
+
+  // ─── Add Transaction Dialog ────────────────────────────────────
+
+  Future<void> _showAddTransactionDialog(Color accentColor) async {
+    final amountCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    String selectedType = 'expense';
+    String selectedCategory = 'food';
+    final categories = ['food', 'transport', 'entertainment', 'bills', 'shopping', 'income', 'health', 'education', 'other'];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: widget.cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.add_card_rounded, size: 20, color: accentColor),
+              const SizedBox(width: 8),
+              Text('Add Transaction', style: TextStyle(color: widget.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          content: SizedBox(
+            width: 350,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Type selector
+                  Text('Type', style: TextStyle(color: widget.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setDialogState(() => selectedType = 'expense'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: selectedType == 'expense' ? const Color(0xFFEF4444).withValues(alpha: 0.12) : widget.borderColor.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: selectedType == 'expense' ? Border.all(color: const Color(0xFFEF4444), width: 1) : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.remove_circle_outline_rounded, size: 16, color: selectedType == 'expense' ? const Color(0xFFEF4444) : widget.textSecondary),
+                                const SizedBox(width: 4),
+                                Text('Expense', style: TextStyle(color: selectedType == 'expense' ? const Color(0xFFEF4444) : widget.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setDialogState(() => selectedType = 'income'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: selectedType == 'income' ? const Color(0xFF10B981).withValues(alpha: 0.12) : widget.borderColor.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: selectedType == 'income' ? Border.all(color: const Color(0xFF10B981), width: 1) : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_circle_outline_rounded, size: 16, color: selectedType == 'income' ? const Color(0xFF10B981) : widget.textSecondary),
+                                const SizedBox(width: 4),
+                                Text('Income', style: TextStyle(color: selectedType == 'income' ? const Color(0xFF10B981) : widget.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Amount
+                  Text('Amount', style: TextStyle(color: widget.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: TextStyle(color: widget.textPrimary, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
+                      prefixText: '\$ ',
+                      prefixStyle: TextStyle(color: widget.textSecondary, fontSize: 14),
+                      filled: true,
+                      fillColor: widget.borderColor.withValues(alpha: 0.3),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Category
+                  Text('Category', style: TextStyle(color: widget.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: categories.map((cat) {
+                      final isActive = cat == selectedCategory;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() => selectedCategory = cat),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isActive ? accentColor.withValues(alpha: 0.12) : widget.borderColor.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(16),
+                            border: isActive ? Border.all(color: accentColor, width: 1) : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_categoryIcon(cat), size: 14, color: isActive ? accentColor : widget.textSecondary),
+                              const SizedBox(width: 4),
+                              Text(
+                                cat[0].toUpperCase() + cat.substring(1),
+                                style: TextStyle(fontSize: 12, color: isActive ? accentColor : widget.textSecondary, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Description
+                  Text('Description (optional)', style: TextStyle(color: widget.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: descCtrl,
+                    style: TextStyle(color: widget.textPrimary, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'What was this for?',
+                      hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
+                      filled: true,
+                      fillColor: widget.borderColor.withValues(alpha: 0.3),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: TextStyle(color: widget.textSecondary)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: accentColor),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
+      if (amount > 0) {
+        final db = ref.read(databaseProvider);
+        await db.logTransaction(
+          uuid: DateTime.now().millisecondsSinceEpoch.toString(),
+          amount: amount,
+          category: selectedCategory,
+          type: selectedType,
+          description: descCtrl.text.trim(),
+          source: 'manual',
+        );
+      }
+    }
   }
 }
 

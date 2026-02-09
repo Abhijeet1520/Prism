@@ -30,7 +30,7 @@ class PrismDatabase extends _$PrismDatabase {
         );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -51,6 +51,10 @@ class PrismDatabase extends _$PrismDatabase {
           await m.createTable(resources);
           await m.createTable(resourceAreas);
           await m.createTable(noteResources);
+        }
+        if (from < 4) {
+          // v3 → v4: Add isTemporary column to conversations
+          await m.addColumn(conversations, conversations.isTemporary);
         }
       },
       beforeOpen: (details) async {
@@ -84,10 +88,10 @@ class PrismDatabase extends _$PrismDatabase {
 
   // ─── Conversation queries ────────────────────────
 
-  /// Watch all non-archived conversations, newest first.
+  /// Watch all non-archived, non-temporary conversations, newest first.
   Stream<List<Conversation>> watchConversations() {
     return (select(conversations)
-          ..where((c) => c.isArchived.equals(false))
+          ..where((c) => c.isArchived.equals(false) & c.isTemporary.equals(false))
           ..orderBy([(c) => OrderingTerm.desc(c.updatedAt)]))
         .watch();
   }
@@ -105,6 +109,7 @@ class PrismDatabase extends _$PrismDatabase {
     String modelId = 'mock',
     String provider = 'mock',
     String systemPrompt = '',
+    bool isTemporary = false,
   }) {
     return into(conversations).insert(ConversationsCompanion.insert(
       uuid: uuid,
@@ -112,6 +117,7 @@ class PrismDatabase extends _$PrismDatabase {
       modelId: Value(modelId),
       provider: Value(provider),
       systemPrompt: Value(systemPrompt),
+      isTemporary: Value(isTemporary),
     ));
   }
 
@@ -134,6 +140,25 @@ class PrismDatabase extends _$PrismDatabase {
           .go();
       // Delete the conversation
       await (delete(conversations)..where((c) => c.uuid.equals(uuid))).go();
+    }
+  }
+
+  /// Delete all temporary conversations and their messages.
+  Future<void> deleteTemporaryConversations() async {
+    final tempConvs = await (select(conversations)
+          ..where((c) => c.isTemporary.equals(true)))
+        .get();
+    for (final conv in tempConvs) {
+      await deleteConversation(conv.uuid);
+    }
+  }
+
+  /// Toggle conversation temporary status.
+  Future<void> toggleConversationTemporary(String uuid) async {
+    final conv = await getConversation(uuid);
+    if (conv != null) {
+      await (update(conversations)..where((c) => c.uuid.equals(uuid)))
+          .write(ConversationsCompanion(isTemporary: Value(!conv.isTemporary)));
     }
   }
 

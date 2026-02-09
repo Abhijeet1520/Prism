@@ -26,6 +26,7 @@ class Conversations extends Table with AutoIncrementingPrimaryKey {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get isPinned => boolean().withDefault(const Constant(false))();
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
+  BoolColumn get isTemporary => boolean().withDefault(const Constant(false))(); // Ephemeral chats not saved to history
 }
 
 // ─── Messages ─────────────────────────────────────

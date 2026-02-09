@@ -274,6 +274,10 @@
       display: inline-block; padding: 4px 10px; border-radius: 6px;
       font-size: 11px; font-weight: 600; margin-top: 12px;
       background: rgba(129,140,248,0.12); color: var(--accent);
+      transition: background 0.2s, color 0.2s;
+    }
+    a.gallery-tag:hover {
+      background: rgba(129,140,248,0.25); text-decoration: none;
     }
 
     /* ─── CTA ──────────────────────────────────────────────── */
@@ -394,6 +398,116 @@
           <h3>100% Privacy</h3>
           <p>All inference runs on-device. Your data never leaves your phone. No telemetry, no cloud uploads.</p>
           <span class="feature-tag tag-ready">Ready</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section class="gallery" id="gallery">
+    <div class="container">
+      <div class="section-label">App Preview</div>
+      <h2 class="section-title">See Prism in Action</h2>
+      <p class="section-sub">Screenshots from the actual app — privacy-respecting productivity at your fingertips.</p>
+
+      <div class="gallery-grid">
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Home section with welcome.jpg" alt="Home Dashboard" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🏠 Home Dashboard</h3>
+            <p>Personalized greeting with daily digest. Quick access to AI status, tasks, and upcoming events.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/home/home_screen.dart" target="_blank" class="gallery-tag">home_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Chat with showcasing available tools reply from model and tool calling.jpg" alt="AI Chat" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>💬 AI Chat with Tools</h3>
+            <p>Real-time streaming chat with function calling. AI executes tasks, logs expenses, and searches notes.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/chat/chat_screen.dart" target="_blank" class="gallery-tag">chat_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Brain with notes section.jpg" alt="Knowledge Base" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🧠 Second Brain</h3>
+            <p>Notes with search bar and tag filters. FTS5 full-text search for instant retrieval.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/brain/brain_screen.dart" target="_blank" class="gallery-tag">brain_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Knowledge section open note showcasing editor.jpg" alt="Note Editor" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>📝 Note Editor</h3>
+            <p>Inline editing with tags. Quick capture and organize knowledge for AI-powered retrieval.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/brain/brain_screen.dart" target="_blank" class="gallery-tag">brain_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Tasks section under apps with item moved in kanbanboard.jpg" alt="Tasks Kanban" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>✅ Kanban Tasks</h3>
+            <p>Drag-and-drop task board. Todo, In Progress, Done — visual workflow management.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/tasks_sub_screen.dart" target="_blank" class="gallery-tag">tasks_sub_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Finance page showcasing transactions.jpg" alt="Finance" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>💰 Finance Tracker</h3>
+            <p>Expense and income tracking. AI can log transactions via natural language.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/finance_sub_screen.dart" target="_blank" class="gallery-tag">finance_sub_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Tools under Apps showcasing tools available for llm.jpg" alt="Tools" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🛠️ Function Tools</h3>
+            <p>All available AI capabilities: add_task, log_expense, search_notes, get_weather, and more.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/tools_sub_screen.dart" target="_blank" class="gallery-tag">tools_sub_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Gateway option enabled under app showcasing the server running.jpg" alt="Gateway" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🌐 Inter-App Gateway</h3>
+            <p>Local HTTP server for other apps. POST to localhost:8080 — OpenAI-compatible API.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/gateway_sub_screen.dart" target="_blank" class="gallery-tag">gateway_sub_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/SettingsPage.jpg" alt="Settings" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>⚙️ Settings</h3>
+            <p>Configure AI providers, themes, privacy settings. Export/import your data.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/settings/settings_screen.dart" target="_blank" class="gallery-tag">settings_screen.dart</a>
+          </div>
         </div>
       </div>
     </div>
@@ -527,116 +641,6 @@
         <div class="tech-pill"><span class="dot" style="background: #3B82F6;"></span> Drift (SQLite)</div>
         <div class="tech-pill"><span class="dot" style="background: #F59E0B;"></span> Google ML Kit</div>
         <div class="tech-pill"><span class="dot" style="background: #EC4899;"></span> llama_sdk 0.0.5</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- GALLERY -->
-  <section class="gallery" id="gallery">
-    <div class="container">
-      <div class="section-label">App Preview</div>
-      <h2 class="section-title">See Prism in Action</h2>
-      <p class="section-sub">Screenshots from the actual app — privacy-respecting productivity at your fingertips.</p>
-
-      <div class="gallery-grid">
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Home section with welcome.jpg" alt="Home Dashboard" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>🏠 Home Dashboard</h3>
-            <p>Personalized greeting with daily digest. Quick access to AI status, tasks, and upcoming events.</p>
-            <span class="gallery-tag">home_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Chat with showcasing available tools reply from model and tool calling.jpg" alt="AI Chat" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>💬 AI Chat with Tools</h3>
-            <p>Real-time streaming chat with function calling. AI executes tasks, logs expenses, and searches notes.</p>
-            <span class="gallery-tag">chat_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Brain with notes section.jpg" alt="Knowledge Base" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>🧠 Second Brain</h3>
-            <p>Notes with search bar and tag filters. FTS5 full-text search for instant retrieval.</p>
-            <span class="gallery-tag">brain_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Knowledge section open note showcasing editor.jpg" alt="Note Editor" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>📝 Note Editor</h3>
-            <p>Inline editing with tags. Quick capture and organize knowledge for AI-powered retrieval.</p>
-            <span class="gallery-tag">brain_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Tasks section under apps with item moved in kanbanboard.jpg" alt="Tasks Kanban" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>✅ Kanban Tasks</h3>
-            <p>Drag-and-drop task board. Todo, In Progress, Done — visual workflow management.</p>
-            <span class="gallery-tag">tasks_sub_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Finance page showcasing transactions.jpg" alt="Finance" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>💰 Finance Tracker</h3>
-            <p>Expense and income tracking. AI can log transactions via natural language.</p>
-            <span class="gallery-tag">finance_sub_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Tools under Apps showcasing tools available for llm.jpg" alt="Tools" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>🛠️ Function Tools</h3>
-            <p>All available AI capabilities: add_task, log_expense, search_notes, get_weather, and more.</p>
-            <span class="gallery-tag">tools_sub_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/Gateway option enabled under app showcasing the server running.jpg" alt="Gateway" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>🌐 Inter-App Gateway</h3>
-            <p>Local HTTP server for other apps. POST to localhost:8080 — OpenAI-compatible API.</p>
-            <span class="gallery-tag">gateway_sub_screen.dart</span>
-          </div>
-        </div>
-
-        <div class="gallery-item">
-          <div class="gallery-img-container">
-            <img src="../prism/screenshots/SettingsPage.jpg" alt="Settings" class="gallery-img" style="--crop-top: 30px;"/>
-          </div>
-          <div class="gallery-content">
-            <h3>⚙️ Settings</h3>
-            <p>Configure AI providers, themes, privacy settings. Export/import your data.</p>
-            <span class="gallery-tag">settings_screen.dart</span>
-          </div>
-        </div>
       </div>
     </div>
   </section>
