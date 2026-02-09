@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prism — AI Personal Assistant</title>
-  <meta name="description" content="Your intelligent, privacy-first personal assistant. Powered by local and cloud LLMs. Built with Flutter." />
+  <title>Prism — Your Offline AI Hub</title>
+  <meta name="description" content="A centralized, privacy-first AI platform for mobile — download models once, use everywhere. Powered by local and cloud LLMs." />
   <meta name="theme-color" content="#0C0C16" />
-  <meta property="og:title" content="Prism — AI Personal Assistant" />
-  <meta property="og:description" content="Privacy-first AI assistant that runs on your device." />
+  <meta property="og:title" content="Prism — Your Offline AI Hub" />
+  <meta property="og:description" content="Download AI models once, use everywhere. Privacy-first assistant with inter-app AI hosting." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://prism.abhi1520.com" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -278,9 +278,9 @@
         Prism
       </div>
       <div class="nav-links">
+        <a href="#problem">Problem</a>
         <a href="#features">Features</a>
         <a href="#privacy">Privacy</a>
-        <a href="#tech">Tech Stack</a>
         <a href="#roadmap">Roadmap</a>
         <a href="https://github.com/Abhijeet1520/Prism" class="nav-cta">GitHub</a>
       </div>
@@ -294,11 +294,68 @@
         <span>●</span> v0.2 Alpha — Open Source
       </div>
       <div class="orb-container"><div class="orb"></div></div>
-      <h1>Your AI,<br/><span class="gradient">Your Rules.</span></h1>
-      <p>Prism is a privacy-first AI personal assistant powered by local and cloud LLMs. Real-time streaming chat, intelligent tools, on-device ML, and a knowledge base — all built with Flutter.</p>
+      <h1>Your Offline<br/><span class="gradient">AI Hub.</span></h1>
+      <p>A centralized, privacy-first AI platform for mobile — download models once, use everywhere. One app to manage all your AI models, with inter-app sharing so other apps don't need to bundle their own.</p>
       <div class="hero-actions">
         <a href="https://github.com/Abhijeet1520/Prism/releases" class="btn-primary">Download APK</a>
         <a href="https://github.com/Abhijeet1520/Prism" class="btn-secondary">View Source</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="features" id="problem" style="padding-bottom: 40px;">
+    <div class="container">
+      <div class="section-label">The Problem</div>
+      <h2 class="section-title">Mobile AI is fragmented</h2>
+      <p class="section-sub">Today's mobile AI ecosystem is wasteful and inefficient.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(244,63,94,0.12);">📦</div>
+          <h3>Redundant Downloads</h3>
+          <p>Every AI app downloads its own models (100MB-4GB each). 5 apps with the same model = 5 copies wasting storage.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(249,115,22,0.12);">🔋</div>
+          <h3>Battery Drain</h3>
+          <p>Multiple apps running separate inference engines destroys battery life and heats up your device.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(139,92,246,0.12);">🚫</div>
+          <h3>No Interoperability</h3>
+          <p>Apps can't share AI capabilities. Each reinvents inference, chat history, and tooling from scratch.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOLUTION -->
+  <section class="features" style="padding-top: 40px;">
+    <div class="container">
+      <div class="section-label">The Solution</div>
+      <h2 class="section-title">Prism: Your AI Hub</h2>
+      <p class="section-sub">Download models once, share with all apps, keep your data private.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(52,211,153,0.12);">📁</div>
+          <h3>Single Model Repository</h3>
+          <p>Download GGUF models from Hugging Face once. They're available to all compatible apps via a local API.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(129,140,248,0.12);">🔗</div>
+          <h3>Inter-App AI Hosting</h3>
+          <p>Other apps can POST to localhost:8080 for AI inference. No SDK needed — OpenAI-compatible API.</p>
+          <span class="feature-tag tag-preview">Preview</span>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(34,197,94,0.12);">🔒</div>
+          <h3>100% Privacy</h3>
+          <p>All inference runs on-device. Your data never leaves your phone. No telemetry, no cloud uploads.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
       </div>
     </div>
   </section>
@@ -307,8 +364,8 @@
   <section class="features" id="features">
     <div class="container">
       <div class="section-label">Features</div>
-      <h2 class="section-title">Everything in one place</h2>
-      <p class="section-sub">From daily briefings to deep conversations, Prism adapts to how you think and work.</p>
+      <h2 class="section-title">Powerful AI, Built-in</h2>
+      <p class="section-sub">Chat, tools, knowledge base, and more — all in one unified interface.</p>
 
       <div class="features-grid">
         <div class="feature-card">
@@ -321,7 +378,7 @@
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(52,211,153,0.12);">🔌</div>
           <h3>Multi-Provider AI</h3>
-          <p>Connect to Ollama (local), OpenAI, Gemini, or use the mock provider. Seamless provider switching with unified interface.</p>
+          <p>Local GGUF models (Gemma, Llama, Phi), Ollama, OpenAI, Gemini, OpenRouter, Hugging Face — all seamlessly switchable.</p>
           <span class="feature-tag tag-ready">Ready</span>
         </div>
 
@@ -334,8 +391,8 @@
 
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(139,92,246,0.12);">🧠</div>
-          <h3>Knowledge Base (Brain)</h3>
-          <p>Store and search your notes with FTS5 full-text search. Perfect for building your second brain with AI-powered retrieval.</p>
+          <h3>Second Brain (PARA)</h3>
+          <p>Areas → Resources → Notes hierarchy with FTS5 search. Custom personas and a Soul document for AI personalization.</p>
           <span class="feature-tag tag-ready">Ready</span>
         </div>
 
@@ -356,7 +413,7 @@
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(59,130,246,0.12);">🗄️</div>
           <h3>Drift Database</h3>
-          <p>Local-first with reactive streams. 6 tables for conversations, messages, tasks, transactions, notes, and settings.</p>
+          <p>Local-first with reactive streams. 10 tables for conversations, messages, tasks, transactions, areas, resources, notes, and more.</p>
           <span class="feature-tag tag-ready">Ready</span>
         </div>
 
@@ -369,9 +426,16 @@
 
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(168,85,247,0.12);">🎙️</div>
-          <h3>Voice Input & TTS</h3>
-          <p>Speech-to-text for hands-free interaction. Text-to-speech for AI responses. Full integration with speech_to_text package.</p>
-          <span class="feature-tag tag-preview">Preview</span>
+          <h3>Voice Input</h3>
+          <p>Speech-to-text for hands-free interaction. Full integration with speech_to_text package for natural conversation.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(244,63,94,0.12);">⏱️</div>
+          <h3>Temporary Chats</h3>
+          <p>Ephemeral conversations that don't save to history. Perfect for quick questions you don't need to keep.</p>
+          <span class="feature-tag tag-ready">Ready</span>
         </div>
       </div>
     </div>
@@ -473,8 +537,8 @@
   <!-- CTA -->
   <section class="cta">
     <div class="container">
-      <h2>Ready to try Prism?</h2>
-      <p>Download the alpha, explore the codebase, or join the community. Your AI, your rules.</p>
+      <h2>One Hub for All Your AI</h2>
+      <p>Stop duplicating models across apps. Download the alpha, explore the source, and experience centralized offline AI.</p>
       <div class="hero-actions">
         <a href="https://github.com/Abhijeet1520/Prism/releases" class="btn-primary">Get Started</a>
         <a href="https://github.com/Abhijeet1520/Prism" class="btn-secondary">Star on GitHub</a>
@@ -491,9 +555,9 @@
           Prism
         </div>
         <div class="footer-links">
+          <a href="#problem">Problem</a>
           <a href="#features">Features</a>
           <a href="#privacy">Privacy</a>
-          <a href="#roadmap">Roadmap</a>
           <a href="https://github.com/Abhijeet1520/Prism">GitHub</a>
         </div>
         <div class="footer-copy">© 2026 Prism. AGPL-3.0</div>
