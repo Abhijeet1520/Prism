@@ -291,11 +291,11 @@
   <section class="hero">
     <div>
       <div class="hero-badge">
-        <span>●</span> v0.1 Alpha — Open Source
+        <span>●</span> v0.2 Alpha — Open Source
       </div>
       <div class="orb-container"><div class="orb"></div></div>
       <h1>Your AI,<br/><span class="gradient">Your Rules.</span></h1>
-      <p>Prism is a privacy-first AI personal assistant that runs models locally on your device. Chat, organize, track finances, manage knowledge — all without sending your data anywhere.</p>
+      <p>Prism is a privacy-first AI personal assistant powered by local and cloud LLMs. Real-time streaming chat, intelligent tools, on-device ML, and a knowledge base — all built with Flutter.</p>
       <div class="hero-actions">
         <a href="https://github.com/Abhijeet1520/Prism/releases" class="btn-primary">Download APK</a>
         <a href="https://github.com/Abhijeet1520/Prism" class="btn-secondary">View Source</a>
@@ -313,65 +313,65 @@
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(129,140,248,0.12);">💬</div>
-          <h3>AI Chat</h3>
-          <p>Multi-turn conversations with streaming responses. Switch between local and cloud models mid-conversation. Markdown rendering, code blocks, and conversation branching.</p>
-          <span class="feature-tag tag-preview">Preview</span>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(52,211,153,0.12);">🧠</div>
-          <h3>Brain — Knowledge Base</h3>
-          <p>Your personal second brain. Store documents, notes, and snippets. Full-text search with AI-powered retrieval (RAG) coming in v0.3.</p>
-          <span class="feature-tag tag-preview">Preview</span>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(249,115,22,0.12);">✅</div>
-          <h3>Task Management</h3>
-          <p>Organize tasks by category and priority. Natural language input — just tell Prism what you need to do and it creates the task.</p>
-          <span class="feature-tag tag-preview">Preview</span>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(244,63,94,0.12);">💰</div>
-          <h3>Finance Tracker</h3>
-          <p>Track expenses, income, and budgets. Scan receipts with OCR. Natural language logging — "Spent $42 on groceries" just works.</p>
-          <span class="feature-tag tag-preview">Preview</span>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(167,139,250,0.12);">🛠️</div>
-          <h3>AI Tools</h3>
-          <p>Composable tools the AI can use: update tasks, log transactions, create notes, schedule events, edit documents. Tools can call other tools.</p>
-          <span class="feature-tag tag-preview">Preview</span>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(6,182,212,0.12);">🎨</div>
-          <h3>Theme System</h3>
-          <p>7 accent color presets, AMOLED black mode, font scaling, compact mode. The app adapts to your aesthetic.</p>
+          <h3>Real-Time Streaming Chat</h3>
+          <p>Chat with AI models using LangChain.dart. Token-by-token streaming, conversation history, and model switching mid-chat.</p>
           <span class="feature-tag tag-ready">Ready</span>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(245,158,11,0.12);">📷</div>
-          <h3>ML Kit Intelligence</h3>
-          <p>On-device OCR, receipt scanning, entity extraction (dates, amounts, addresses), smart reply suggestions, document scanning, barcode reading — all offline.</p>
-          <span class="feature-tag tag-planned">v0.2</span>
+          <div class="feature-icon" style="background: rgba(52,211,153,0.12);">🔌</div>
+          <h3>Multi-Provider AI</h3>
+          <p>Connect to Ollama (local), OpenAI, Gemini, or use the mock provider. Seamless provider switching with unified interface.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(249,115,22,0.12);">🛠️</div>
+          <h3>Function Calling Tools</h3>
+          <p>AI can execute tools: add tasks, log expenses, search notes, create notes, and get weather. Full LangChain ToolSpec integration.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(139,92,246,0.12);">🧠</div>
+          <h3>Knowledge Base (Brain)</h3>
+          <p>Store and search your notes with FTS5 full-text search. Perfect for building your second brain with AI-powered retrieval.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(236,72,153,0.12);">📊</div>
+          <h3>Task & Finance Tracking</h3>
+          <p>Manage tasks with priority levels and due dates. Track expenses and income with category-based organization.</p>
+          <span class="feature-tag tag-ready">Ready</span>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(34,197,94,0.12);">🤖</div>
-          <h3>Local Model Inference</h3>
-          <p>Run Gemma, Llama, Phi models directly on your device via llama.cpp. No internet required. Or connect to Ollama on your network.</p>
-          <span class="feature-tag tag-planned">v0.2</span>
+          <h3>On-Device ML Kit</h3>
+          <p>OCR for text extraction, entity extraction for parsing, smart reply suggestions, and language identification — all offline.</p>
+          <span class="feature-tag tag-ready">Ready</span>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(129,140,248,0.12);">🎙️</div>
-          <h3>Voice-First</h3>
-          <p>Designed for voice interaction. On-device speech recognition and text-to-speech. Say what you need — no typing required.</p>
-          <span class="feature-tag tag-planned">v0.3</span>
+          <div class="feature-icon" style="background: rgba(59,130,246,0.12);">🗄️</div>
+          <h3>Drift Database</h3>
+          <p>Local-first with reactive streams. 6 tables for conversations, messages, tasks, transactions, notes, and settings.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(245,158,11,0.12);">🎨</div>
+          <h3>Adaptive Themes</h3>
+          <p>7 accent color presets, AMOLED dark mode, and responsive design. Built with Moon Design components for consistency.</p>
+          <span class="feature-tag tag-ready">Ready</span>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(168,85,247,0.12);">🎙️</div>
+          <h3>Voice Input & TTS</h3>
+          <p>Speech-to-text for hands-free interaction. Text-to-speech for AI responses. Full integration with speech_to_text package.</p>
+          <span class="feature-tag tag-preview">Preview</span>
         </div>
       </div>
     </div>
@@ -387,18 +387,18 @@
       <div class="privacy-grid">
         <div class="privacy-card">
           <div class="icon">🔒</div>
-          <h3>Local Storage</h3>
-          <p>All conversations, documents, and settings stored on-device with AES-256 encryption.</p>
+          <h3>Local by Default</h3>
+          <p>All data stored on your device using Drift SQLite. No cloud uploads unless you explicitly choose a cloud AI provider.</p>
         </div>
         <div class="privacy-card">
-          <div class="icon">📱</div>
-          <h3>On-Device AI</h3>
-          <p>Run LLMs locally via llama.cpp. Your prompts never leave your phone.</p>
+          <div class="icon">🏠</div>
+          <h3>Run Models On-Device</h3>
+          <p>Use Ollama or llama.cpp for true local inference. Your conversations never leave your phone.</p>
         </div>
         <div class="privacy-card">
-          <div class="icon">☁️</div>
-          <h3>Cloud Optional</h3>
-          <p>Connect to OpenAI, Gemini, or Claude only if you choose. Even then, nothing is stored server-side by Prism.</p>
+          <div class="icon">🛡️</div>
+          <h3>No Telemetry</h3>
+          <p>Zero analytics, zero tracking, zero server calls. Open source and fully auditable.</p>
         </div>
         <div class="privacy-card">
           <div class="icon">📖</div>
@@ -415,15 +415,15 @@
       <div class="section-label">Built With</div>
       <h2 class="section-title">Modern tech, proven foundations</h2>
       <div class="tech-pills">
-        <div class="tech-pill"><span class="dot" style="background: #027DFD;"></span> Flutter</div>
-        <div class="tech-pill"><span class="dot" style="background: #818CF8;"></span> Moon Design</div>
-        <div class="tech-pill"><span class="dot" style="background: #F97316;"></span> LangChain.dart</div>
-        <div class="tech-pill"><span class="dot" style="background: #34D399;"></span> llama.cpp</div>
-        <div class="tech-pill"><span class="dot" style="background: #06B6D4;"></span> Drift (SQLite)</div>
-        <div class="tech-pill"><span class="dot" style="background: #A78BFA;"></span> Google ML Kit</div>
-        <div class="tech-pill"><span class="dot" style="background: #22C55E;"></span> Riverpod</div>
-        <div class="tech-pill"><span class="dot" style="background: #F43F5E;"></span> Ollama</div>
-        <div class="tech-pill"><span class="dot" style="background: #F59E0B;"></span> ObjectBox</div>
+        <div class="tech-pill"><span class="dot" style="background: #02569B;"></span> Flutter</div>
+        <div class="tech-pill"><span class="dot" style="background: #818CF8;"></span> Moon Design 1.1.0</div>
+        <div class="tech-pill"><span class="dot" style="background: #F97316;"></span> Riverpod 2.6</div>
+        <div class="tech-pill"><span class="dot" style="background: #34D399;"></span> GoRouter 14.8</div>
+        <div class="tech-pill"><span class="dot" style="background: #8B5CF6;"></span> LangChain.dart</div>
+        <div class="tech-pill"><span class="dot" style="background: #06B6D4;"></span> Ollama</div>
+        <div class="tech-pill"><span class="dot" style="background: #3B82F6;"></span> Drift (SQLite)</div>
+        <div class="tech-pill"><span class="dot" style="background: #F59E0B;"></span> Google ML Kit</div>
+        <div class="tech-pill"><span class="dot" style="background: #EC4899;"></span> llama_sdk 0.0.5</div>
       </div>
     </div>
   </section>
@@ -433,38 +433,38 @@
     <div class="container">
       <div class="section-label">Roadmap</div>
       <h2 class="section-title">Where we're headed</h2>
-      <p class="section-sub">Prism is under active development. Here's what's coming.</p>
+      <p class="section-sub">Track our progress from initial UI to a fully-featured AI assistant.</p>
 
       <div class="roadmap-timeline">
         <div class="roadmap-item">
           <div class="roadmap-dot active"></div>
-          <div class="version">v0.1 — Current</div>
+          <div class="version">v0.1 — Completed</div>
           <h4>UX Preview</h4>
-          <p>Core app shell, themed UI, daily digest home screen, soul orb animation, mock data, 7 theme presets, splash screen, 5-tab navigation.</p>
+          <p>Core app shell, themed UI, daily digest home screen, soul orb animation, 7 theme presets, splash screen, 5-tab navigation.</p>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot active"></div>
+          <div class="version">v0.2 — Current</div>
+          <h4>Core Intelligence</h4>
+          <p>Real-time streaming chat, tool calling, Drift database, ML Kit on-device intelligence, and multi-provider AI backend.</p>
         </div>
         <div class="roadmap-item">
           <div class="roadmap-dot"></div>
-          <div class="version">v0.2 — Next</div>
-          <h4>AI Integration</h4>
-          <p>Local model loading (llama.cpp), Ollama support, cloud API providers (OpenAI, Gemini, Claude), ML Kit OCR &amp; entity extraction, real tool execution, persistent database (Drift).</p>
-        </div>
-        <div class="roadmap-item">
-          <div class="roadmap-dot"></div>
-          <div class="version">v0.3</div>
-          <h4>Voice &amp; Intelligence</h4>
-          <p>On-device speech recognition, text-to-speech, RAG with ObjectBox vector store, smart suggestions, document summarization.</p>
+          <div class="version">v0.3 — Next</div>
+          <h4>Voice &amp; RAG</h4>
+          <p>Full voice input/output, retrieval-augmented generation (RAG) for knowledge base queries, and smart proactive suggestions.</p>
         </div>
         <div class="roadmap-item">
           <div class="roadmap-dot"></div>
           <div class="version">v0.4</div>
-          <h4>Integrations</h4>
-          <p>Calendar sync (Google/Apple), wake word detection, continuous listening, notification actions, file sharing.</p>
+          <h4>Calendar &amp; Integrations</h4>
+          <p>Calendar sync (Google/Apple), wake word detection ("Hey Prism"), continuous listening, and notification actions.</p>
         </div>
         <div class="roadmap-item">
           <div class="roadmap-dot"></div>
-          <div class="version">v0.5+</div>
-          <h4>Polish &amp; Scale</h4>
-          <p>Home screen widgets, multi-device encrypted sync, plugin system, accessibility (WCAG AA), performance optimization.</p>
+          <div class="version">v0.5</div>
+          <h4>Ecosystem</h4>
+          <p>Home screen widgets, encrypted multi-device sync, plugin system for third-party extensions.</p>
         </div>
       </div>
     </div>
@@ -486,14 +486,20 @@
   <footer>
     <div class="container">
       <div class="footer-inner">
-        <div class="footer-logo">✦ Prism</div>
+        <div class="footer-logo">
+          <div style="width: 24px; height: 24px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px;">✦</div>
+          Prism
+        </div>
         <div class="footer-links">
           <a href="#features">Features</a>
           <a href="#privacy">Privacy</a>
           <a href="#roadmap">Roadmap</a>
           <a href="https://github.com/Abhijeet1520/Prism">GitHub</a>
         </div>
-        <div class="footer-copy">© 2026 Abhi. AGPL-3.0</div>
+        <div class="footer-copy">© 2026 Prism. AGPL-3.0</div>
+      </div>
+      <div style="text-align: center; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 13px;">
+        Made with ❤️ by <a href="https://abhi1520.com">Abhijeet1520</a>
       </div>
     </div>
   </footer>
