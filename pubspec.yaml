@@ -53,6 +53,7 @@ dependencies:
 
   # ─── Notification Access (Android) ───────────────
   notification_listener_service: ^0.3.5
+  wakelock_plus: ^1.4.0
 
 dev_dependencies:
   flutter_test:

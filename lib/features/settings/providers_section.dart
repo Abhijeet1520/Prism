@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/ai/ai_service.dart';
@@ -716,6 +717,23 @@ class ProvidersSection extends ConsumerWidget {
               style: TextStyle(color: textSecondary, fontSize: 11),
             ),
           ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: Icon(Icons.hub_outlined, size: 16, color: accentColor),
+            label: Text('Open Gateway',
+                style: TextStyle(color: accentColor, fontSize: 13)),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: borderColor),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => context.go('/apps?tab=4'),
+          ),
+        ),
       ],
     );
   }

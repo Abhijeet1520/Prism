@@ -8,9 +8,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'ai_service.dart';
 import 'api_playground_html.dart';
@@ -57,6 +59,10 @@ class AIHostState {
 class AIHostNotifier extends Notifier<AIHostState> {
   HttpServer? _server;
 
+  /// Pre-encoded HTML bytes + length — avoids re-encoding on every request.
+  static final Uint8List _htmlBytes = Uint8List.fromList(utf8.encode(apiPlaygroundHtml));
+  static final String _htmlLength = _htmlBytes.length.toString();
+
   @override
   AIHostState build() {
     ref.onDispose(stop);
@@ -83,9 +89,15 @@ class AIHostNotifier extends Notifier<AIHostState> {
 
       _server = await shelf_io.serve(
         handler,
-        InternetAddress.anyIPv4,
+        InternetAddress.anyIPv6, // accept both IPv4 and IPv6
         port,
       );
+      _server!.autoCompress = false;
+
+      // Keep the device awake so the server can respond even when
+      // the user switches to a browser to open the API Playground.
+      WakelockPlus.enable();
+
       state = state.copyWith(
         isRunning: true,
         port: port,
@@ -101,6 +113,7 @@ class AIHostNotifier extends Notifier<AIHostState> {
   Future<void> stop() async {
     await _server?.close(force: true);
     _server = null;
+    WakelockPlus.disable();
     state = state.copyWith(isRunning: false, accessCode: '');
   }
 
@@ -132,10 +145,16 @@ class AIHostNotifier extends Notifier<AIHostState> {
 
     // ── Public routes (no auth) ──
 
-    // Root — serve API Playground HTML
+    // Root — serve API Playground HTML (pre-encoded bytes for speed)
     if ((path.isEmpty || path == '/') && method == 'GET') {
-      return Response.ok(apiPlaygroundHtml,
-          headers: {'content-type': 'text/html; charset=utf-8'});
+      return Response.ok(
+        _htmlBytes,
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'content-length': _htmlLength,
+          'cache-control': 'public, max-age=3600',
+        },
+      );
     }
 
     // Health check
@@ -213,6 +232,7 @@ class AIHostNotifier extends Notifier<AIHostState> {
               'object': 'model',
               'owned_by': 'prism',
               'provider': m.provider.name,
+              'active': m.id == aiState.activeModel?.id,
             })
         .toList();
 
@@ -233,7 +253,49 @@ class AIHostNotifier extends Notifier<AIHostState> {
           .toList();
 
       final aiNotifier = ref.read(aiServiceProvider.notifier);
+      final aiState = ref.read(aiServiceProvider);
       final stream = body['stream'] == true;
+
+      // ── Resolve which model to use ──
+      // The gateway should prefer the model the caller asked for.
+      // If "auto" or omitted, use whatever is already active — but prefer
+      // a local model over a cloud model to avoid routing to Google/OpenAI.
+      final requestedModelId = (body['model'] as String?) ?? 'auto';
+
+      if (requestedModelId != 'auto') {
+        // Caller asked for a specific model — switch if needed
+        final target = aiState.availableModels
+            .where((m) => m.id == requestedModelId)
+            .firstOrNull;
+        if (target != null && target.id != aiState.activeModel?.id) {
+          await aiNotifier.selectModel(target);
+        }
+      } else if (aiState.activeModel == null ||
+          (aiState.activeModel!.provider == ProviderType.gemini ||
+           aiState.activeModel!.provider == ProviderType.openai ||
+           aiState.activeModel!.provider == ProviderType.custom)) {
+        // "auto" but current model is a cloud provider — try to find a local one
+        final localModel = aiState.availableModels
+            .where((m) => m.provider == ProviderType.local)
+            .firstOrNull;
+        if (localModel != null) {
+          await aiNotifier.selectModel(localModel);
+        }
+      }
+
+      // Verify a model is loaded
+      final currentModel = ref.read(aiServiceProvider).activeModel;
+      if (currentModel == null) {
+        return Response.internalServerError(
+          body: jsonEncode({
+            'error': {
+              'message': 'No model available. Load a model in the Prism app first.',
+              'type': 'server_error',
+            }
+          }),
+          headers: {'content-type': 'application/json'},
+        );
+      }
 
       state = state.copyWith(requestCount: state.requestCount + 1);
 

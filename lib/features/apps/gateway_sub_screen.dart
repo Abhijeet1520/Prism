@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/ai/ai_host_server.dart';
 
@@ -79,7 +80,7 @@ class GatewaySubScreen extends ConsumerWidget {
                 if (host.isRunning) ...[
                   const SizedBox(height: 12),
                   _infoRow('Endpoint',
-                      'http://localhost:${host.port}/v1/chat/completions'),
+                      'http://127.0.0.1:${host.port}/v1/chat/completions'),
                   const SizedBox(height: 6),
                   _infoRow('Port', '${host.port}'),
                   const SizedBox(height: 6),
@@ -240,8 +241,12 @@ class GatewaySubScreen extends ConsumerWidget {
                   const SizedBox(height: 10),
                   InkWell(
                     onTap: () {
+                      final url = Uri.parse('http://127.0.0.1:${host.port}');
+                      launchUrl(url, mode: LaunchMode.externalApplication);
+                    },
+                    onLongPress: () {
                       Clipboard.setData(ClipboardData(
-                          text: 'http://localhost:${host.port}'));
+                          text: 'http://127.0.0.1:${host.port}'));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Playground URL copied'),
@@ -262,20 +267,22 @@ class GatewaySubScreen extends ConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.link_rounded,
+                          Icon(Icons.open_in_browser_rounded,
                               size: 16, color: accentColor),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'http://localhost:${host.port}',
+                              'http://127.0.0.1:${host.port}',
                               style: TextStyle(
                                   color: accentColor,
                                   fontSize: 13,
                                   fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w500),
+                                  fontWeight: FontWeight.w500,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: accentColor.withValues(alpha: 0.4)),
                             ),
                           ),
-                          Icon(Icons.copy_rounded,
+                          Icon(Icons.open_in_new_rounded,
                               size: 14, color: textSecondary),
                         ],
                       ),
