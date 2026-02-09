@@ -14,6 +14,7 @@ import 'package:llama_sdk/llama_sdk.dart' as llama;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'persona_manager.dart';
+import 'soul_document.dart';
 
 // ─── Provider Types ──────────────────────────────────
 
@@ -361,19 +362,32 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
     }
   }
 
-  /// Inject the active persona's system prompt into the message list.
+  /// Inject the active persona's system prompt and soul document into the message list.
   List<PrismMessage> _injectPersonaPrompt(List<PrismMessage> messages) {
     try {
       final personaState = ref.read(personaManagerProvider);
       final systemPrompt = personaState.activePersona?.systemPrompt ?? '';
-      if (systemPrompt.isEmpty) return messages;
+
+      // Build soul context
+      String soulContext = '';
+      try {
+        final soulState = ref.read(soulDocumentProvider);
+        soulContext = soulState.toContextString();
+      } catch (_) {}
+
+      final fullSystemPrompt = [
+        if (systemPrompt.isNotEmpty) systemPrompt,
+        if (soulContext.isNotEmpty) soulContext,
+      ].join('\n\n');
+
+      if (fullSystemPrompt.isEmpty) return messages;
 
       // Don't double-inject if there's already a system message
       if (messages.isNotEmpty && messages.first.role == 'system') {
         return messages;
       }
 
-      return [PrismMessage.system(systemPrompt), ...messages];
+      return [PrismMessage.system(fullSystemPrompt), ...messages];
     } catch (_) {
       // Persona manager not yet initialized
       return messages;

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'appearance_section.dart';
 import 'providers_section.dart';
 import 'personas_section.dart';
+import 'soul_section.dart';
 import 'voice_section.dart';
 import 'privacy_section.dart';
 import 'data_section.dart';
@@ -29,6 +30,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ('Appearance', Icons.palette_outlined),
     ('AI Providers', Icons.model_training_outlined),
     ('Personas', Icons.person_outline_rounded),
+    ('Soul', Icons.auto_awesome_outlined),
     ('Voice & Input', Icons.mic_outlined),
     ('Privacy', Icons.shield_outlined),
     ('Data', Icons.storage_outlined),
@@ -198,25 +200,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             accentColor: accentColor),
-        3 => VoiceSection(
+        3 => SoulDocumentSection(
             cardColor: cardColor,
             borderColor: borderColor,
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             accentColor: accentColor),
-        4 => PrivacySection(
+        4 => VoiceSection(
             cardColor: cardColor,
             borderColor: borderColor,
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             accentColor: accentColor),
-        5 => DataSection(
+        5 => PrivacySection(
             cardColor: cardColor,
             borderColor: borderColor,
             textPrimary: textPrimary,
             textSecondary: textSecondary,
             accentColor: accentColor),
-        6 => AboutSection(
+        6 => DataSection(
+            cardColor: cardColor,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            accentColor: accentColor),
+        7 => AboutSection(
             cardColor: cardColor,
             borderColor: borderColor,
             textPrimary: textPrimary,

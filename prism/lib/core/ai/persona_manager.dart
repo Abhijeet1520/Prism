@@ -58,6 +58,19 @@ class PersonaTraits {
       );
 }
 
+class PersonaExample {
+  final String user;
+  final String assistant;
+  const PersonaExample({required this.user, required this.assistant});
+
+  Map<String, dynamic> toJson() => {'user': user, 'assistant': assistant};
+  factory PersonaExample.fromJson(Map<String, dynamic> json) =>
+      PersonaExample(
+        user: json['user'] as String? ?? '',
+        assistant: json['assistant'] as String? ?? '',
+      );
+}
+
 class Persona {
   final String id;
   final String name;
@@ -66,6 +79,8 @@ class Persona {
   final String systemPrompt;
   final bool isBuiltIn;
   final PersonaTraits traits;
+  final List<String> tags;
+  final List<PersonaExample> examples;
 
   const Persona({
     required this.id,
@@ -75,6 +90,8 @@ class Persona {
     this.systemPrompt = '',
     this.isBuiltIn = false,
     this.traits = const PersonaTraits(),
+    this.tags = const [],
+    this.examples = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -85,6 +102,8 @@ class Persona {
         'systemPrompt': systemPrompt,
         'isBuiltIn': isBuiltIn,
         'traits': traits.toJson(),
+        'tags': tags,
+        'examples': examples.map((e) => e.toJson()).toList(),
       };
 
   factory Persona.fromJson(Map<String, dynamic> json) => Persona(
@@ -97,6 +116,12 @@ class Persona {
         traits: json['traits'] != null
             ? PersonaTraits.fromJson(json['traits'] as Map<String, dynamic>)
             : const PersonaTraits(),
+        tags: (json['tags'] as List?)?.cast<String>() ?? const [],
+        examples: (json['examples'] as List?)
+                ?.map((e) =>
+                    PersonaExample.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
       );
 
   Persona copyWith({
@@ -107,6 +132,8 @@ class Persona {
     String? systemPrompt,
     bool? isBuiltIn,
     PersonaTraits? traits,
+    List<String>? tags,
+    List<PersonaExample>? examples,
   }) =>
       Persona(
         id: id ?? this.id,
@@ -116,6 +143,8 @@ class Persona {
         systemPrompt: systemPrompt ?? this.systemPrompt,
         isBuiltIn: isBuiltIn ?? this.isBuiltIn,
         traits: traits ?? this.traits,
+        tags: tags ?? this.tags,
+        examples: examples ?? this.examples,
       );
 
   /// Export persona as JSON string for sharing.
