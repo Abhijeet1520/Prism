@@ -188,7 +188,7 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
   Set<String> _selectedTags = {};
   int? _expandedNoteIndex;
   final TextEditingController _searchController = TextEditingController();
-  
+
   // Controllers for inline editing
   TextEditingController? _titleController;
   TextEditingController? _contentController;
@@ -203,7 +203,7 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
     _tagsController?.dispose();
     super.dispose();
   }
-  
+
   void _initEditControllers(Note note) {
     _titleController?.dispose();
     _contentController?.dispose();
@@ -446,7 +446,7 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
       itemBuilder: (context, index) {
         final note = notes[index];
         final isExpanded = _expandedNoteIndex == index;
-        
+
         return Column(
           children: [
             // Note header row
@@ -578,7 +578,7 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
             onChanged: (_) => setState(() => _hasChanges = true),
           ),
           const SizedBox(height: 10),
-          
+
           // Content
           Text('Content', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
           const SizedBox(height: 4),
@@ -597,7 +597,7 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
             onChanged: (_) => setState(() => _hasChanges = true),
           ),
           const SizedBox(height: 10),
-          
+
           // Tags
           Text('Tags', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
           const SizedBox(height: 4),
@@ -615,10 +615,10 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
             onChanged: (_) => setState(() => _hasChanges = true),
           ),
           const SizedBox(height: 12),
-          
+
           Divider(color: widget.borderColor, height: 1),
           const SizedBox(height: 8),
-          
+
           // Action buttons
           Row(
             children: [
@@ -769,465 +769,6 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
         tags: tagsCtrl.text.trim(),
       );
     }
-  }
-}
-
-// ============================================================================
-// NOTE LIST ITEM
-// ============================================================================
-
-class _NoteListItem extends StatelessWidget {
-  final Note note;
-  final bool isSelected;
-  final Color cardColor;
-  final Color borderColor;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color accentColor;
-  final VoidCallback onTap;
-
-  const _NoteListItem({
-    required this.note,
-    required this.isSelected,
-    required this.cardColor,
-    required this.borderColor,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.accentColor,
-    required this.onTap,
-  });
-
-  List<String> get _tags {
-    if (note.tags == null || note.tags!.isEmpty) return [];
-    return note.tags!.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? accentColor : borderColor,
-            width: isSelected ? 1.5 : 0.5,
-          ),
-          boxShadow: isSelected
-              ? [BoxShadow(color: accentColor.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))]
-              : null,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Main content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    note.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Content preview
-                  Text(
-                    note.content ?? 'No content',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: textSecondary,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  // Tags
-                  if (_tags.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: _tags.take(3).map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          tag,
-                          style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w500),
-                        ),
-                      )).toList(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-            // Date on the right
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  DateFormat('MMM d').format(note.updatedAt),
-                  style: TextStyle(fontSize: 11, color: textSecondary.withValues(alpha: 0.7)),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  DateFormat('yyyy').format(note.updatedAt),
-                  style: TextStyle(fontSize: 10, color: textSecondary.withValues(alpha: 0.5)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// NOTE DETAIL PANEL
-// ============================================================================
-
-class _NoteDetailPanel extends ConsumerStatefulWidget {
-  final Note note;
-  final bool isDark;
-  final Color cardColor;
-  final Color borderColor;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color accentColor;
-  final VoidCallback onClose;
-  final VoidCallback onDelete;
-  final ValueChanged<Note> onUpdate;
-
-  const _NoteDetailPanel({
-    required this.note,
-    required this.isDark,
-    required this.cardColor,
-    required this.borderColor,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.accentColor,
-    required this.onClose,
-    required this.onDelete,
-    required this.onUpdate,
-  });
-
-  @override
-  ConsumerState<_NoteDetailPanel> createState() => _NoteDetailPanelState();
-}
-
-class _NoteDetailPanelState extends ConsumerState<_NoteDetailPanel> {
-  late TextEditingController _titleController;
-  late TextEditingController _contentController;
-  late TextEditingController _tagsController;
-  bool _isEditing = false;
-  bool _hasChanges = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initControllers();
-  }
-
-  @override
-  void didUpdateWidget(_NoteDetailPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.note.id != widget.note.id) {
-      _initControllers();
-      _isEditing = false;
-      _hasChanges = false;
-    }
-  }
-
-  void _initControllers() {
-    _titleController = TextEditingController(text: widget.note.title);
-    _contentController = TextEditingController(text: widget.note.content ?? '');
-    _tagsController = TextEditingController(text: widget.note.tags ?? '');
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _contentController.dispose();
-    _tagsController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveChanges() async {
-    if (!_hasChanges) return;
-
-    final db = ref.read(databaseProvider);
-    await db.updateNote(
-      widget.note.uuid,
-      title: _titleController.text.trim(),
-      content: _contentController.text,
-      tags: _tagsController.text.trim(),
-    );
-
-    setState(() {
-      _isEditing = false;
-      _hasChanges = false;
-    });
-  }
-
-  Future<void> _deleteNote() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: widget.cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text('Delete Note?', style: TextStyle(color: widget.textPrimary, fontSize: 16)),
-        content: Text(
-          'This action cannot be undone.',
-          style: TextStyle(color: widget.textSecondary, fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: TextStyle(color: widget.textSecondary)),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      final db = ref.read(databaseProvider);
-      await db.deleteNote(widget.note.uuid);
-      widget.onDelete();
-    }
-  }
-
-  List<String> get _tags {
-    final text = _tagsController.text;
-    if (text.isEmpty) return [];
-    return text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: widget.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: widget.borderColor, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with actions
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Note Details',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: widget.textPrimary,
-                    ),
-                  ),
-                ),
-                if (_isEditing) ...[
-                  IconButton(
-                    icon: Icon(Icons.check_rounded, color: Colors.green, size: 20),
-                    tooltip: 'Save',
-                    onPressed: _hasChanges ? _saveChanges : null,
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, color: widget.textSecondary, size: 20),
-                    tooltip: 'Cancel',
-                    onPressed: () {
-                      _initControllers();
-                      setState(() {
-                        _isEditing = false;
-                        _hasChanges = false;
-                      });
-                    },
-                  ),
-                ] else ...[
-                  IconButton(
-                    icon: Icon(Icons.edit_rounded, color: widget.accentColor, size: 18),
-                    tooltip: 'Edit',
-                    onPressed: () => setState(() => _isEditing = true),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.delete_outline_rounded, color: Colors.red.withValues(alpha: 0.8), size: 18),
-                    tooltip: 'Delete',
-                    onPressed: _deleteNote,
-                  ),
-                ],
-                IconButton(
-                  icon: Icon(Icons.close_rounded, color: widget.textSecondary, size: 18),
-                  tooltip: 'Close',
-                  onPressed: widget.onClose,
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: widget.borderColor),
-
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  if (_isEditing)
-                    TextField(
-                      controller: _titleController,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: widget.textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Title',
-                        hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: widget.borderColor),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      onChanged: (_) => setState(() => _hasChanges = true),
-                    )
-                  else
-                    Text(
-                      widget.note.title,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: widget.textPrimary,
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-
-                  // Tags
-                  Text('Tags', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
-                  const SizedBox(height: 6),
-                  if (_isEditing)
-                    TextField(
-                      controller: _tagsController,
-                      style: TextStyle(fontSize: 13, color: widget.textPrimary),
-                      decoration: InputDecoration(
-                        hintText: 'comma, separated, tags',
-                        hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5), fontSize: 13),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: widget.borderColor),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      onChanged: (_) => setState(() => _hasChanges = true),
-                    )
-                  else if (_tags.isNotEmpty)
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: _tags.map((tag) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: widget.accentColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          tag,
-                          style: TextStyle(fontSize: 12, color: widget.accentColor, fontWeight: FontWeight.w500),
-                        ),
-                      )).toList(),
-                    )
-                  else
-                    Text('No tags', style: TextStyle(fontSize: 12, color: widget.textSecondary, fontStyle: FontStyle.italic)),
-                  const SizedBox(height: 16),
-
-                  // Content
-                  Text('Content', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
-                  const SizedBox(height: 6),
-                  if (_isEditing)
-                    TextField(
-                      controller: _contentController,
-                      style: TextStyle(fontSize: 14, color: widget.textPrimary, height: 1.5),
-                      maxLines: null,
-                      minLines: 8,
-                      decoration: InputDecoration(
-                        hintText: 'Write your note...',
-                        hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: widget.borderColor),
-                        ),
-                        contentPadding: const EdgeInsets.all(12),
-                      ),
-                      onChanged: (_) => setState(() => _hasChanges = true),
-                    )
-                  else
-                    Text(
-                      widget.note.content?.isNotEmpty == true ? widget.note.content! : 'No content',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: widget.note.content?.isNotEmpty == true ? widget.textPrimary : widget.textSecondary,
-                        fontStyle: widget.note.content?.isNotEmpty == true ? FontStyle.normal : FontStyle.italic,
-                        height: 1.5,
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-
-                  // Metadata
-                  Divider(color: widget.borderColor),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time_rounded, size: 12, color: widget.textSecondary.withValues(alpha: 0.6)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Updated ${DateFormat('MMM d, yyyy • h:mm a').format(widget.note.updatedAt)}',
-                        style: TextStyle(fontSize: 11, color: widget.textSecondary.withValues(alpha: 0.6)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today_rounded, size: 12, color: widget.textSecondary.withValues(alpha: 0.6)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Created ${DateFormat('MMM d, yyyy').format(widget.note.createdAt)}',
-                        style: TextStyle(fontSize: 11, color: widget.textSecondary.withValues(alpha: 0.6)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
