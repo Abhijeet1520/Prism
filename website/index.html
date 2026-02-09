@@ -238,6 +238,44 @@
     }
     .roadmap-item p { color: var(--text-secondary); font-size: 14px; }
 
+    /* ─── GALLERY ──────────────────────────────────────────── */
+    .gallery { padding: 100px 0; border-top: 1px solid var(--border); }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px; margin-top: 48px;
+    }
+    .gallery-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .gallery-item:hover { border-color: var(--accent); transform: translateY(-4px); }
+    .gallery-img-container {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      overflow: hidden;
+      background: var(--bg-deep);
+    }
+    .gallery-img {
+      width: 100%;
+      height: calc(100% + var(--crop-top, 30px));
+      object-fit: cover;
+      object-position: center top;
+      margin-top: calc(-1 * var(--crop-top, 30px));
+    }
+    .gallery-content { padding: 20px; }
+    .gallery-item h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .gallery-item p { color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+    .gallery-tag {
+      display: inline-block; padding: 4px 10px; border-radius: 6px;
+      font-size: 11px; font-weight: 600; margin-top: 12px;
+      background: rgba(129,140,248,0.12); color: var(--accent);
+    }
+
     /* ─── CTA ──────────────────────────────────────────────── */
     .cta {
       padding: 100px 0; text-align: center;
@@ -280,6 +318,7 @@
       <div class="nav-links">
         <a href="#problem">Problem</a>
         <a href="#features">Features</a>
+        <a href="#gallery">Gallery</a>
         <a href="#privacy">Privacy</a>
         <a href="#roadmap">Roadmap</a>
         <a href="https://github.com/Abhijeet1520/Prism" class="nav-cta">GitHub</a>
@@ -492,6 +531,116 @@
     </div>
   </section>
 
+  <!-- GALLERY -->
+  <section class="gallery" id="gallery">
+    <div class="container">
+      <div class="section-label">App Preview</div>
+      <h2 class="section-title">See Prism in Action</h2>
+      <p class="section-sub">Screenshots from the actual app — privacy-respecting productivity at your fingertips.</p>
+
+      <div class="gallery-grid">
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Home section with welcome.jpg" alt="Home Dashboard" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🏠 Home Dashboard</h3>
+            <p>Personalized greeting with daily digest. Quick access to AI status, tasks, and upcoming events.</p>
+            <span class="gallery-tag">home_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Chat with showcasing available tools reply from model and tool calling.jpg" alt="AI Chat" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>💬 AI Chat with Tools</h3>
+            <p>Real-time streaming chat with function calling. AI executes tasks, logs expenses, and searches notes.</p>
+            <span class="gallery-tag">chat_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Brain with notes section.jpg" alt="Knowledge Base" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🧠 Second Brain</h3>
+            <p>Notes with search bar and tag filters. FTS5 full-text search for instant retrieval.</p>
+            <span class="gallery-tag">brain_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Knowledge section open note showcasing editor.jpg" alt="Note Editor" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>📝 Note Editor</h3>
+            <p>Inline editing with tags. Quick capture and organize knowledge for AI-powered retrieval.</p>
+            <span class="gallery-tag">brain_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Tasks section under apps with item moved in kanbanboard.jpg" alt="Tasks Kanban" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>✅ Kanban Tasks</h3>
+            <p>Drag-and-drop task board. Todo, In Progress, Done — visual workflow management.</p>
+            <span class="gallery-tag">tasks_sub_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Finance page showcasing transactions.jpg" alt="Finance" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>💰 Finance Tracker</h3>
+            <p>Expense and income tracking. AI can log transactions via natural language.</p>
+            <span class="gallery-tag">finance_sub_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Tools under Apps showcasing tools available for llm.jpg" alt="Tools" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🛠️ Function Tools</h3>
+            <p>All available AI capabilities: add_task, log_expense, search_notes, get_weather, and more.</p>
+            <span class="gallery-tag">tools_sub_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/Gateway option enabled under app showcasing the server running.jpg" alt="Gateway" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🌐 Inter-App Gateway</h3>
+            <p>Local HTTP server for other apps. POST to localhost:8080 — OpenAI-compatible API.</p>
+            <span class="gallery-tag">gateway_sub_screen.dart</span>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="../prism/screenshots/SettingsPage.jpg" alt="Settings" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>⚙️ Settings</h3>
+            <p>Configure AI providers, themes, privacy settings. Export/import your data.</p>
+            <span class="gallery-tag">settings_screen.dart</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ROADMAP -->
   <section class="roadmap" id="roadmap">
     <div class="container">
@@ -557,6 +706,7 @@
         <div class="footer-links">
           <a href="#problem">Problem</a>
           <a href="#features">Features</a>
+          <a href="#gallery">Gallery</a>
           <a href="#privacy">Privacy</a>
           <a href="https://github.com/Abhijeet1520/Prism">GitHub</a>
         </div>
