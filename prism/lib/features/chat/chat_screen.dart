@@ -240,6 +240,32 @@ class _ConversationList extends ConsumerWidget {
                       accentColor: accentColor,
                       cardColor: cardColor,
                       onTap: () => onSelect(c.uuid),
+                      onDelete: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete Chat'),
+                            content: Text(
+                                'Delete "${c.title}"? This cannot be undone.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await db.deleteConversation(c.uuid);
+                        }
+                      },
                     );
                   },
                 );
@@ -262,6 +288,7 @@ class _ConversationTile extends StatelessWidget {
   final Color accentColor;
   final Color cardColor;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   const _ConversationTile({
     required this.conversation,
@@ -271,6 +298,7 @@ class _ConversationTile extends StatelessWidget {
     required this.accentColor,
     required this.cardColor,
     required this.onTap,
+    required this.onDelete,
   });
 
   @override
@@ -328,8 +356,25 @@ class _ConversationTile extends StatelessWidget {
                   ),
                 ),
                 if (conversation.isPinned)
-                  Icon(Icons.push_pin_rounded,
-                      size: 14, color: accentColor),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(Icons.push_pin_rounded,
+                        size: 14, color: accentColor),
+                  ),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    onPressed: onDelete,
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: textSecondary,
+                    ),
+                    tooltip: 'Delete chat',
+                  ),
+                ),
               ],
             ),
           ),

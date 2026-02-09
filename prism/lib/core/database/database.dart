@@ -124,6 +124,19 @@ class PrismDatabase extends _$PrismDatabase {
     ));
   }
 
+  /// Delete a conversation and all its messages by UUID.
+  Future<void> deleteConversation(String uuid) async {
+    final conversation = await getConversation(uuid);
+    if (conversation != null) {
+      // Delete all messages for this conversation
+      await (delete(messages)
+            ..where((m) => m.conversationId.equals(conversation.id)))
+          .go();
+      // Delete the conversation
+      await (delete(conversations)..where((c) => c.uuid.equals(uuid))).go();
+    }
+  }
+
   // ─── Message queries ────────────────────────────
 
   /// Watch messages for a conversation.
