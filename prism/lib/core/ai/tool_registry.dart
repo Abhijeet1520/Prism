@@ -1,10 +1,11 @@
 /// Tool definitions for function calling with LangChain.dart.
 ///
 /// Each tool has a [ToolSpec] for the LLM and an executor that writes
-/// to the Drift database.
+/// to the Drift database. Additional tools can be loaded from skills.json.
 library;
 
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:langchain/langchain.dart';
 import 'package:uuid/uuid.dart';
 
@@ -14,14 +15,47 @@ import '../database/database.dart';
 class PrismToolRegistry {
   PrismToolRegistry._();
 
+  static List<ToolSpec>? _cachedJsonSpecs;
+
   /// All tool specifications for binding to the LLM.
+  /// Includes both hardcoded tools and any loaded from skills.json.
   static List<ToolSpec> get specs => [
         addTaskTool,
         logExpenseTool,
         searchNotesTool,
         createNoteTool,
         getWeatherTool,
+        ...?_cachedJsonSpecs,
       ];
+
+  /// Load additional tool specs from assets/config/skills.json.
+  /// Call this once during app initialization.
+  static Future<void> loadSkillsFromJson() async {
+    try {
+      final jsonStr = await rootBundle.loadString('assets/config/skills.json');
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final tools = data['tools'] as List<dynamic>? ?? [];
+      final builtinNames = {'add_task', 'log_expense', 'search_notes', 'create_note', 'get_weather'};
+
+      _cachedJsonSpecs = tools
+          .map((t) {
+            final map = t as Map<String, dynamic>;
+            final name = map['name'] as String;
+            // Skip tools that are already hardcoded
+            if (builtinNames.contains(name)) return null;
+            return ToolSpec(
+              name: name,
+              description: map['description'] as String? ?? '',
+              inputJsonSchema: map['input_schema'] as Map<String, dynamic>? ?? {},
+            );
+          })
+          .where((s) => s != null)
+          .cast<ToolSpec>()
+          .toList();
+    } catch (_) {
+      _cachedJsonSpecs = [];
+    }
+  }
 
   // ── Task management tool ────────────────────────
 
@@ -226,7 +260,30 @@ class PrismToolRegistry {
       Map<String, dynamic> args, PrismDatabase? db) async {
     final query = args['query'] as String? ?? '';
 
-    if (db != null) {
+    if (db != null && query.isNotEmpty) {
+      // Try FTS5 search first for better results
+      try {
+        final ftsResults = await db.searchNotes(query);
+        if (ftsResults.isNotEmpty) {
+          return json.encode({
+            'results': ftsResults
+                .take(5)
+                .map((r) => {
+                      'title': r.n.title,
+                      'excerpt': r.n.content.length > 200
+                          ? '${r.n.content.substring(0, 200)}...'
+                          : r.n.content,
+                      'tags': r.n.tags,
+                      'updated': r.n.updatedAt.toIso8601String(),
+                    })
+                .toList(),
+          });
+        }
+      } catch (_) {
+        // FTS5 table might not be ready; fall through to manual search
+      }
+
+      // Fallback: manual in-memory search
       final notes = await db.watchNotes().first;
       final matched = notes.where((n) {
         final q = query.toLowerCase();

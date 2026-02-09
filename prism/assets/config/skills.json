@@ -1,0 +1,131 @@
+[
+  {
+    "id": "add_task",
+    "name": "add_task",
+    "displayName": "Add Task",
+    "description": "Create a new task with title, optional priority, and due date.",
+    "provider": "built-in",
+    "category": "productivity",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "title", "type": "string", "required": true, "description": "Task title"},
+      {"name": "priority", "type": "string", "required": false, "description": "low, medium, or high"},
+      {"name": "dueDate", "type": "string", "required": false, "description": "ISO date string"},
+      {"name": "tags", "type": "string", "required": false, "description": "Comma-separated tags"}
+    ]
+  },
+  {
+    "id": "log_expense",
+    "name": "log_expense",
+    "displayName": "Log Expense",
+    "description": "Record a financial transaction with amount, category, and description.",
+    "provider": "built-in",
+    "category": "finance",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "amount", "type": "number", "required": true, "description": "Amount in default currency"},
+      {"name": "category", "type": "string", "required": true, "description": "food, transport, shopping, bills, entertainment, other"},
+      {"name": "description", "type": "string", "required": false, "description": "Transaction note"}
+    ]
+  },
+  {
+    "id": "search_notes",
+    "name": "search_notes",
+    "displayName": "Search Notes",
+    "description": "Search through saved notes in the Brain knowledge base.",
+    "provider": "built-in",
+    "category": "knowledge",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "query", "type": "string", "required": true, "description": "Search query text"},
+      {"name": "category", "type": "string", "required": false, "description": "PARA category: projects, areas, resources, archives"}
+    ]
+  },
+  {
+    "id": "create_note",
+    "name": "create_note",
+    "displayName": "Create Note",
+    "description": "Save a new note to the Brain knowledge base.",
+    "provider": "built-in",
+    "category": "knowledge",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "title", "type": "string", "required": true, "description": "Note title"},
+      {"name": "content", "type": "string", "required": true, "description": "Note body in Markdown"},
+      {"name": "tags", "type": "string", "required": false, "description": "Comma-separated tags"}
+    ]
+  },
+  {
+    "id": "get_weather",
+    "name": "get_weather",
+    "displayName": "Get Weather",
+    "description": "Get current weather conditions for a location.",
+    "provider": "built-in",
+    "category": "utilities",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "location", "type": "string", "required": false, "description": "City name or coordinates"}
+    ]
+  },
+  {
+    "id": "ocr_scan",
+    "name": "ocr_scan",
+    "displayName": "OCR Scan",
+    "description": "Extract text from an image using ML Kit OCR.",
+    "provider": "ml-kit",
+    "category": "vision",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "imagePath", "type": "string", "required": true, "description": "Path to image file"}
+    ]
+  },
+  {
+    "id": "detect_language",
+    "name": "detect_language",
+    "displayName": "Detect Language",
+    "description": "Identify the language of a text snippet using ML Kit.",
+    "provider": "ml-kit",
+    "category": "nlp",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "text", "type": "string", "required": true, "description": "Text to analyze"}
+    ]
+  },
+  {
+    "id": "extract_entities",
+    "name": "extract_entities",
+    "displayName": "Extract Entities",
+    "description": "Extract dates, addresses, phone numbers, and more from text.",
+    "provider": "ml-kit",
+    "category": "nlp",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "text", "type": "string", "required": true, "description": "Text to extract entities from"}
+    ]
+  },
+  {
+    "id": "list_tasks",
+    "name": "list_tasks",
+    "displayName": "List Tasks",
+    "description": "Show current tasks optionally filtered by status or priority.",
+    "provider": "built-in",
+    "category": "productivity",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "status", "type": "string", "required": false, "description": "pending, completed, or all"},
+      {"name": "priority", "type": "string", "required": false, "description": "low, medium, high"}
+    ]
+  },
+  {
+    "id": "summarize_finances",
+    "name": "summarize_finances",
+    "displayName": "Summarize Finances",
+    "description": "Get a summary of spending for a time period.",
+    "provider": "built-in",
+    "category": "finance",
+    "isEnabled": true,
+    "parameters": [
+      {"name": "period", "type": "string", "required": false, "description": "today, week, month, or all"}
+    ]
+  }
+]

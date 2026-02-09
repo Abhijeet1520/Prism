@@ -6,11 +6,14 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:langchain/langchain.dart';
 import 'package:langchain_ollama/langchain_ollama.dart';
 import 'package:llama_sdk/llama_sdk.dart' as llama;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persona_manager.dart';
 
 // ─── Provider Types ──────────────────────────────────
 
@@ -334,24 +337,46 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
     state = state.copyWith(isGenerating: true, clearError: true);
     _stopRequested = false;
 
+    // Inject persona system prompt if not already present
+    final messagesWithPersona = _injectPersonaPrompt(messages);
+
     try {
       switch (config.provider) {
         case ProviderType.local:
-          yield* _generateLocal(messages);
+          yield* _generateLocal(messagesWithPersona);
         case ProviderType.ollama:
-          yield* _generateOllama(messages);
+          yield* _generateOllama(messagesWithPersona);
         case ProviderType.mock:
-          yield* _generateMock(messages);
+          yield* _generateMock(messagesWithPersona);
         case ProviderType.openai:
         case ProviderType.gemini:
         case ProviderType.custom:
-          yield* _generateAPI(messages, config);
+          yield* _generateAPI(messagesWithPersona, config);
       }
     } catch (e) {
       state = state.copyWith(error: e.toString());
       yield '\n\n⚠️ Error: $e';
     } finally {
       state = state.copyWith(isGenerating: false);
+    }
+  }
+
+  /// Inject the active persona's system prompt into the message list.
+  List<PrismMessage> _injectPersonaPrompt(List<PrismMessage> messages) {
+    try {
+      final personaState = ref.read(personaManagerProvider);
+      final systemPrompt = personaState.activePersona?.systemPrompt ?? '';
+      if (systemPrompt.isEmpty) return messages;
+
+      // Don't double-inject if there's already a system message
+      if (messages.isNotEmpty && messages.first.role == 'system') {
+        return messages;
+      }
+
+      return [PrismMessage.system(systemPrompt), ...messages];
+    } catch (_) {
+      // Persona manager not yet initialized
+      return messages;
     }
   }
 
@@ -377,6 +402,9 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
       yield 'Model not loaded. Please select a local model first.';
       return;
     }
+
+    // Build prompt for local models — format as chat template
+    // Many small GGUF models work better with a single formatted prompt
     final llamaMessages = messages
         .map((m) => llama.LlamaMessage.withRole(
               role: switch (m.role) {
@@ -388,10 +416,25 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
             ))
         .toList();
 
-    await for (final token in _llamaModel!.prompt(llamaMessages)) {
-      if (_stopRequested) break;
-      _streamController.add(token);
-      yield token;
+    bool hasOutput = false;
+    try {
+      await for (final token in _llamaModel!.prompt(llamaMessages)) {
+        if (_stopRequested) break;
+        hasOutput = true;
+        _streamController.add(token);
+        yield token;
+      }
+    } catch (e) {
+      yield '\n\n⚠️ Local model error: $e';
+      return;
+    }
+
+    // If model produced no output, it may be a format issue
+    if (!hasOutput) {
+      yield 'The model did not generate a response. This can happen if:\n'
+          '- The model file is corrupted or incompatible\n'
+          '- The context window is too small\n'
+          '- Try a different model or increase context size in Settings.';
     }
   }
 
@@ -414,28 +457,100 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
     }
   }
 
-  // ─── API Providers ─────────────────────────────────
+  // ─── API Providers (OpenAI-compatible) ─────────────
 
   Stream<String> _generateAPI(
       List<PrismMessage> messages, ModelConfig config) async* {
-    // Uses Ollama adapter for OpenAI-compatible endpoints
-    final model = ChatOllama(
-      defaultOptions: ChatOllamaOptions(
-        model: config.id,
-        temperature: config.temperature,
-      ),
-      baseUrl: config.baseUrl ?? 'http://localhost:11434/api',
-    );
-    final chatMessages = messages.map(_toChatMessage).toList();
-    final stream = model
-        .pipe(const StringOutputParser())
-        .stream(PromptValue.chat(chatMessages));
-    await for (final chunk in stream) {
-      if (_stopRequested) break;
-      _streamController.add(chunk);
-      yield chunk;
+    final baseUrl = config.baseUrl;
+    if (baseUrl == null || baseUrl.isEmpty) {
+      yield 'No API endpoint configured for this provider.';
+      return;
     }
-    model.close();
+
+    // Extract model ID (strip provider prefix like "openai/gpt-4o")
+    final modelId = config.id.contains('/')
+        ? config.id.split('/').last
+        : config.id;
+
+    final dio = Dio();
+    try {
+      final headers = <String, dynamic>{
+        'Content-Type': 'application/json',
+      };
+
+      // Add auth headers based on provider
+      if (config.apiKey != null && config.apiKey!.isNotEmpty) {
+        headers['Authorization'] = 'Bearer ${config.apiKey}';
+        // Anthropic uses x-api-key
+        if (baseUrl.contains('anthropic.com')) {
+          headers.remove('Authorization');
+          headers['x-api-key'] = config.apiKey;
+          headers['anthropic-version'] = '2023-06-01';
+        }
+      }
+
+      final body = {
+        'model': modelId,
+        'messages': messages.map((m) => {
+              'role': m.role,
+              'content': m.content,
+            }).toList(),
+        'temperature': config.temperature,
+        'max_tokens': config.maxTokens,
+        'stream': true,
+      };
+
+      final response = await dio.post(
+        '$baseUrl/chat/completions',
+        data: body,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.stream,
+        ),
+      );
+
+      final stream = response.data?.stream as Stream<List<int>>?;
+      if (stream == null) {
+        yield 'No response stream from API.';
+        return;
+      }
+
+      String buffer = '';
+      await for (final chunk in stream) {
+        if (_stopRequested) break;
+        buffer += utf8.decode(chunk);
+        final lines = buffer.split('\n');
+        buffer = lines.removeLast(); // keep incomplete line
+
+        for (final line in lines) {
+          if (!line.startsWith('data: ')) continue;
+          final data = line.substring(6).trim();
+          if (data == '[DONE]') continue;
+          try {
+            final json = jsonDecode(data) as Map<String, dynamic>;
+            final choices = json['choices'] as List?;
+            if (choices != null && choices.isNotEmpty) {
+              final delta = choices[0]['delta'] as Map<String, dynamic>?;
+              final content = delta?['content'] as String?;
+              if (content != null) {
+                _streamController.add(content);
+                yield content;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        yield '\n\n⚠️ Authentication failed. Check your API key in Settings > AI Providers.';
+      } else if (e.response?.statusCode == 429) {
+        yield '\n\n⚠️ Rate limit exceeded. Please wait and try again.';
+      } else {
+        yield '\n\n⚠️ API error: ${e.message}';
+      }
+    } finally {
+      dio.close();
+    }
   }
 
   // ─── Mock ──────────────────────────────────────────
@@ -465,9 +580,24 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
       return _mockToolResponse(messages.last.content, tools);
     }
 
+    // Build tool description for prompt-based tool calling
+    final toolDesc = tools.map((t) {
+      final params = t.inputJsonSchema;
+      return '- **${t.name}**: ${t.description}\n'
+          '  Parameters: ${jsonEncode(params)}';
+    }).join('\n');
+
+    final systemMsg = PrismMessage.system(
+      'You have access to the following tools:\n$toolDesc\n\n'
+      'When you need to use a tool, respond with ONLY a JSON object:\n'
+      '{"tool": "tool_name", "args": {"param": "value"}}\n\n'
+      'If no tool is needed, respond normally to the user.',
+    );
+
     if (config.provider == ProviderType.ollama && _ollamaModel != null) {
       try {
-        final chatMessages = messages.map(_toChatMessage).toList();
+        final allMessages = [systemMsg, ...messages];
+        final chatMessages = allMessages.map(_toChatMessage).toList();
         final result = await _ollamaModel!
             .invoke(PromptValue.chat(chatMessages));
         return result.output.content;
@@ -476,13 +606,7 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
       }
     }
 
-    // Fallback: prompt-based tool calling
-    final toolDesc =
-        tools.map((t) => '- ${t.name}: ${t.description}').join('\n');
-    final systemMsg = PrismMessage.system(
-      'Available tools:\n$toolDesc\n\n'
-      'To use a tool, respond with: {"tool": "name", "args": {...}}',
-    );
+    // All other providers: prompt-based tool calling
     return generate([systemMsg, ...messages]);
   }
 
@@ -492,13 +616,24 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
     String baseUrl = 'http://localhost:11434',
   }) async {
     try {
-      final client = ChatOllama(
-        defaultOptions: const ChatOllamaOptions(model: 'dummy'),
-        baseUrl: '$baseUrl/api',
+      final dio = Dio();
+      final response = await dio.get(
+        '$baseUrl/api/tags',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 5),
+          sendTimeout: const Duration(seconds: 5),
+        ),
       );
-      await client.invoke(PromptValue.string('test'));
-      client.close();
-      return ['Connection OK'];
+      dio.close();
+
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final models = (data['models'] as List<dynamic>?)
+            ?.map((m) => (m as Map<String, dynamic>)['name'] as String)
+            .toList();
+        return models ?? [];
+      }
+      return [];
     } catch (_) {
       return [];
     }

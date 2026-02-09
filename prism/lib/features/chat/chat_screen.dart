@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:uuid/uuid.dart';
 
 import '../../core/ai/ai_service.dart';
@@ -414,11 +415,51 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
   final List<_DisplayMessage> _messages = [];
   bool _isStreaming = false;
   String _streamingText = '';
+  bool _isListening = false;
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
 
   @override
   void initState() {
     super.initState();
     _loadConversation();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    _speechAvailable = await _speech.initialize(
+      onError: (_) => setState(() => _isListening = false),
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+    );
+  }
+
+  void _toggleListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+    } else if (_speechAvailable) {
+      setState(() => _isListening = true);
+      await _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _inputController.text = result.recognizedWords;
+            _inputController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _inputController.text.length),
+            );
+          });
+          // Auto-send on final result if user set that preference
+          if (result.finalResult && _inputController.text.trim().isNotEmpty) {
+            // Don't auto-send; let user review and tap send
+          }
+        },
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+      );
+    }
   }
 
   @override
@@ -648,6 +689,19 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
                   onPressed: () {},
                   icon: Icon(Icons.attach_file_rounded,
                       size: 20, color: textSecondary),
+                ),
+                IconButton(
+                  onPressed: _speechAvailable ? _toggleListening : null,
+                  icon: Icon(
+                    _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                    size: 20,
+                    color: _isListening ? Colors.red : textSecondary,
+                  ),
+                  style: _isListening
+                      ? IconButton.styleFrom(
+                          backgroundColor: Colors.red.withValues(alpha: 0.12),
+                        )
+                      : null,
                 ),
                 Expanded(
                   child: Container(

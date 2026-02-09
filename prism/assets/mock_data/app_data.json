@@ -1,42 +1,73 @@
 {
+  "tasks": [
+    {"title": "Review quarterly budget report", "priority": "high", "dueDate": "2026-02-12", "tags": "work,finance", "isCompleted": false, "source": "demo"},
+    {"title": "Schedule dentist appointment", "priority": "medium", "dueDate": "2026-02-15", "tags": "health,personal", "isCompleted": false, "source": "demo"},
+    {"title": "Update portfolio website", "priority": "low", "dueDate": "2026-02-20", "tags": "projects,web", "isCompleted": false, "source": "demo"},
+    {"title": "Prepare sprint demo slides", "priority": "high", "dueDate": "2026-02-10", "tags": "work,presentation", "isCompleted": false, "source": "demo"},
+    {"title": "Buy groceries for the week", "priority": "medium", "dueDate": "2026-02-09", "tags": "personal,shopping", "isCompleted": true, "source": "demo"},
+    {"title": "Read chapter 5 of Design Patterns", "priority": "low", "dueDate": "2026-02-18", "tags": "learning,books", "isCompleted": false, "source": "demo"},
+    {"title": "Fix login page accessibility issues", "priority": "high", "dueDate": "2026-02-11", "tags": "work,accessibility", "isCompleted": false, "source": "demo"},
+    {"title": "Plan weekend hiking trip", "priority": "low", "dueDate": "2026-02-14", "tags": "personal,outdoor", "isCompleted": false, "source": "demo"},
+    {"title": "Send invoice to client Alpha", "priority": "high", "dueDate": "2026-02-10", "tags": "work,finance", "isCompleted": false, "source": "demo"},
+    {"title": "Backup important documents", "priority": "medium", "dueDate": "2026-02-16", "tags": "tech,maintenance", "isCompleted": false, "source": "demo"}
+  ],
+  "notes": [
+    {"title": "Flutter Architecture Best Practices", "content": "# Flutter Architecture\n\n## Clean Architecture Layers\n- **Presentation**: Widgets + Riverpod\n- **Domain**: Business logic\n- **Data**: Repositories + APIs\n\n## Key Principles\n1. Dependency inversion\n2. Single responsibility\n3. Feature-first folders\n4. Immutable state", "tags": "resources,flutter,architecture", "source": "demo"},
+    {"title": "Project Prism Roadmap", "content": "# Prism Roadmap\n\n## Phase 1: Core Shell ✅\n- Chat, themes, navigation\n\n## Phase 2: AI Integration 🔄\n- Ollama, GGUF, Cloud APIs\n\n## Phase 3: Tools\n- Tool registry, function calling\n\n## Phase 4: Files & Versioning\n- Virtual FS, diff viewer", "tags": "projects,prism,planning", "source": "demo"},
+    {"title": "Meeting Notes — Team Standup", "content": "# Standup Feb 7\n\n**Alice**: API refactor done\n**Bob**: DB migration WIP\n**Charlie**: Search perf fix\n\n## Action Items\n- [ ] Review PR by EOD\n- [ ] Setup staging creds", "tags": "areas,work,meetings", "source": "demo"},
+    {"title": "Useful CLI Commands", "content": "# CLI Reference\n\n## Flutter\n```\nflutter analyze\nflutter build apk --release\n```\n\n## Git\n```\ngit log --oneline -20\ngit rebase -i HEAD~3\n```", "tags": "resources,dev,reference", "source": "demo"},
+    {"title": "Book Notes: Atomic Habits", "content": "# Atomic Habits\n\n1. **1% better daily** compounds\n2. **Systems > Goals**\n3. **Identity-based habits**\n4. Four laws: obvious, attractive, easy, satisfying", "tags": "resources,books,productivity", "source": "demo"},
+    {"title": "Health & Fitness Goals 2026", "content": "# 2026 Health Goals\n\n- Run 5K in under 25 min\n- Exercise 4x/week\n- Drink 2.5L water daily\n- Sleep 7+ hours", "tags": "areas,health,goals", "source": "demo"},
+    {"title": "API Configuration Reference", "content": "# API Config\n\n- OpenAI: api.openai.com/v1\n- Gemini: generativelanguage.googleapis.com\n- Ollama: localhost:11434\n- OpenRouter: openrouter.ai/api/v1", "tags": "resources,config,api", "source": "demo"},
+    {"title": "Old Project Notes (Archived)", "content": "Legacy notes from old project structure.\nKept for reference.", "tags": "archives,legacy", "source": "demo"}
+  ],
+  "transactions": [
+    {"amount": -42.50, "category": "food", "description": "Weekly groceries at Whole Foods", "source": "demo"},
+    {"amount": -12.99, "category": "entertainment", "description": "Spotify subscription", "source": "demo"},
+    {"amount": -8.00, "category": "transport", "description": "Bus pass reload", "source": "demo"},
+    {"amount": 2500.00, "category": "income", "description": "Freelance project payment", "source": "demo"},
+    {"amount": -65.00, "category": "bills", "description": "Internet bill Fiber 500Mb", "source": "demo"},
+    {"amount": -24.99, "category": "shopping", "description": "USB-C hub and cables", "source": "demo"},
+    {"amount": -15.00, "category": "food", "description": "Lunch at Chipotle", "source": "demo"},
+    {"amount": -89.99, "category": "bills", "description": "Phone plan monthly", "source": "demo"},
+    {"amount": -35.00, "category": "entertainment", "description": "Movie tickets x2", "source": "demo"},
+    {"amount": -18.50, "category": "food", "description": "Coffee beans 1kg", "source": "demo"},
+    {"amount": -150.00, "category": "shopping", "description": "Running shoes on sale", "source": "demo"},
+    {"amount": 500.00, "category": "income", "description": "Bug bounty reward", "source": "demo"}
+  ],
   "conversations": [
     {
-      "id": "conv-001",
-      "title": "Morning planning",
-      "model": "gemma-3-4b",
-      "provider": "ollama",
+      "title": "Help me plan my week",
       "messages": [
-        {"role": "user", "content": "Help me plan my day", "timestamp": "2026-01-15T08:00:00Z"},
-        {"role": "assistant", "content": "Good morning! Let me help you organize your day. What are your top priorities?", "timestamp": "2026-01-15T08:00:02Z"}
-      ],
-      "created_at": "2026-01-15T08:00:00Z",
-      "updated_at": "2026-01-15T08:00:02Z"
+        {"role": "user", "content": "Can you help me plan my week? I have a lot going on."},
+        {"role": "assistant", "content": "Of course! Let me help organize your week.\n\n**High Priority:**\n- Review quarterly budget (Feb 12)\n- Sprint demo slides (Feb 10)\n- Accessibility fixes (Feb 11)\n\n**Suggested Schedule:**\n- Mon: Demo prep + budget start\n- Tue: Accessibility fixes\n- Wed: Dentist + backups\n- Thu: Portfolio updates\n- Fri: Reading + planning\n\nWant me to adjust anything?"}
+      ]
     },
     {
-      "id": "conv-002",
-      "title": "Code review help",
-      "model": "gemma-3-12b",
-      "provider": "ollama",
+      "title": "Explain Flutter state management",
       "messages": [
-        {"role": "user", "content": "Review this function for bugs", "timestamp": "2026-01-14T14:30:00Z"},
-        {"role": "assistant", "content": "I'd be happy to review your code. Please share the function you'd like me to look at.", "timestamp": "2026-01-14T14:30:01Z"}
-      ],
-      "created_at": "2026-01-14T14:30:00Z",
-      "updated_at": "2026-01-14T14:30:01Z"
+        {"role": "user", "content": "What's the difference between Riverpod and Provider?"},
+        {"role": "assistant", "content": "## Provider (Legacy)\n- Built on InheritedWidget\n- Runtime errors possible\n- Simpler but less flexible\n\n## Riverpod (Recommended) \n- Compile-time safety\n- Independent of widget tree\n- Auto-dispose\n- Better testing\n\nPrism uses Riverpod for all state management."}
+      ]
     }
   ],
-  "models": [
-    {"id": "gemma-3-4b", "name": "Gemma 3 4B", "provider": "ollama", "size": "2.4 GB", "context_window": 8192, "local": true},
-    {"id": "gemma-3-12b", "name": "Gemma 3 12B", "provider": "ollama", "size": "7.2 GB", "context_window": 8192, "local": true},
-    {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "size": "cloud", "context_window": 128000, "local": false},
-    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "provider": "gemini", "size": "cloud", "context_window": 1000000, "local": false}
-  ],
-  "daily_summary": {
-    "greeting": "Good morning, Abhi!",
-    "date": "2026-01-15",
-    "tasks_due": 3,
-    "unread_messages": 2,
-    "budget_status": "On track — 38% budget remaining",
-    "tip": "Try asking: 'Summarize my notes from this week'"
-  }
+  "files": [
+    {"id": "file_root", "name": "Root", "parentId": null, "isFolder": true, "path": "/"},
+    {"id": "f_documents", "name": "Documents", "parentId": "file_root", "isFolder": true, "path": "/Documents"},
+    {"id": "f_notes", "name": "Notes", "parentId": "file_root", "isFolder": true, "path": "/Notes"},
+    {"id": "f_scripts", "name": "Scripts", "parentId": "file_root", "isFolder": true, "path": "/Scripts"},
+    {"id": "f_templates", "name": "Templates", "parentId": "file_root", "isFolder": true, "path": "/Templates"},
+    {"id": "f_trash", "name": "Trash", "parentId": "file_root", "isFolder": true, "path": "/Trash"},
+    {"id": "d_resume", "name": "Resume_2026.md", "parentId": "f_documents", "isFolder": false, "path": "/Documents/Resume_2026.md", "mimeType": "text/markdown", "size": 4200, "createdAt": "2026-01-15", "modifiedAt": "2026-02-05"},
+    {"id": "d_budget", "name": "Budget_Q1.csv", "parentId": "f_documents", "isFolder": false, "path": "/Documents/Budget_Q1.csv", "mimeType": "text/csv", "size": 8500, "createdAt": "2026-01-02", "modifiedAt": "2026-02-08"},
+    {"id": "d_meeting", "name": "Meeting_Notes.md", "parentId": "f_documents", "isFolder": false, "path": "/Documents/Meeting_Notes.md", "mimeType": "text/markdown", "size": 3100, "createdAt": "2026-02-07", "modifiedAt": "2026-02-07"},
+    {"id": "n_ideas", "name": "App_Ideas.md", "parentId": "f_notes", "isFolder": false, "path": "/Notes/App_Ideas.md", "mimeType": "text/markdown", "size": 2800, "createdAt": "2026-01-20", "modifiedAt": "2026-02-03"},
+    {"id": "n_journal", "name": "Daily_Journal.md", "parentId": "f_notes", "isFolder": false, "path": "/Notes/Daily_Journal.md", "mimeType": "text/markdown", "size": 5600, "createdAt": "2026-01-01", "modifiedAt": "2026-02-09"},
+    {"id": "s_backup", "name": "backup.sh", "parentId": "f_scripts", "isFolder": false, "path": "/Scripts/backup.sh", "mimeType": "application/x-sh", "size": 1200, "createdAt": "2026-01-10", "modifiedAt": "2026-01-10"},
+    {"id": "s_deploy", "name": "deploy.py", "parentId": "f_scripts", "isFolder": false, "path": "/Scripts/deploy.py", "mimeType": "text/x-python", "size": 3400, "createdAt": "2026-01-25", "modifiedAt": "2026-02-01"},
+    {"id": "t_email", "name": "Email_Template.md", "parentId": "f_templates", "isFolder": false, "path": "/Templates/Email_Template.md", "mimeType": "text/markdown", "size": 800, "createdAt": "2026-01-05", "modifiedAt": "2026-01-05"},
+    {"id": "t_report", "name": "Weekly_Report.md", "parentId": "f_templates", "isFolder": false, "path": "/Templates/Weekly_Report.md", "mimeType": "text/markdown", "size": 1500, "createdAt": "2026-01-05", "modifiedAt": "2026-01-05"},
+    {"id": "f_images", "name": "Images", "parentId": "f_documents", "isFolder": true, "path": "/Documents/Images"},
+    {"id": "i_screenshot", "name": "screenshot_01.png", "parentId": "f_images", "isFolder": false, "path": "/Documents/Images/screenshot_01.png", "mimeType": "image/png", "size": 245000, "createdAt": "2026-02-01", "modifiedAt": "2026-02-01"}
+  ]
 }

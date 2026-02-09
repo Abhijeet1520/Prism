@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 /// 5-tab shell layout with NavigationBar (mobile) and NavigationRail (desktop).
+/// Handles back navigation: returns to Home tab first, then shows exit confirm.
 class AppShell extends StatefulWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
@@ -28,14 +30,55 @@ class _AppShellState extends State<AppShell> {
 
   void _onTap(int index) => context.go(_tabs[index].path);
 
+  /// Handle system back button: navigate to Home first, then confirm exit.
+  Future<bool> _onBackPressed() async {
+    final location = GoRouterState.of(context).uri.path;
+
+    // If not on Home, navigate to Home instead of exiting
+    if (location != '/') {
+      context.go('/');
+      return false;
+    }
+
+    // On Home tab — show exit confirmation
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Exit Prism?'),
+        content: const Text('Are you sure you want to close the app?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldExit == true) {
+      SystemNavigator.pop();
+      return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     final selected = _indexOfLocation(location);
     final wide = MediaQuery.sizeOf(context).width > 800;
 
-    if (wide) return _desktop(context, selected);
-    return _mobile(context, selected);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onBackPressed();
+      },
+      child: wide ? _desktop(context, selected) : _mobile(context, selected),
+    );
   }
 
   Widget _mobile(BuildContext context, int selected) {

@@ -1,0 +1,253 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-02-09",
+  "sources": {
+    "bartowski": "https://huggingface.co/bartowski",
+    "unsloth": "https://huggingface.co/unsloth",
+    "Qwen": "https://huggingface.co/Qwen",
+    "TheBloke": "https://huggingface.co/TheBloke"
+  },
+  "models": [
+    {
+      "name": "Gemma 3 1B",
+      "repo": "unsloth/gemma-3-1b-it-GGUF",
+      "fileName": "gemma-3-1b-it-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 838860800,
+      "description": "Compact and fast. Great for basic chat and tasks.",
+      "category": "small",
+      "contextWindow": 8192,
+      "supportsVision": false,
+      "supportsTools": false,
+      "requiresAuth": false
+    },
+    {
+      "name": "Gemma 3 4B",
+      "repo": "unsloth/gemma-3-4b-it-GGUF",
+      "fileName": "gemma-3-4b-it-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 2831155200,
+      "description": "Balanced size and quality. Good general assistant.",
+      "category": "general",
+      "contextWindow": 8192,
+      "supportsVision": false,
+      "supportsTools": true,
+      "requiresAuth": false
+    },
+    {
+      "name": "Phi-4 Mini 3.8B",
+      "repo": "unsloth/Phi-4-mini-instruct-GGUF",
+      "fileName": "Phi-4-mini-instruct-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 2621440000,
+      "description": "Microsoft's compact model. Strong reasoning.",
+      "category": "general",
+      "contextWindow": 4096,
+      "supportsVision": false,
+      "supportsTools": true,
+      "requiresAuth": false
+    },
+    {
+      "name": "Qwen 2.5 1.5B",
+      "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "fileName": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "branch": "main",
+      "sizeBytes": 1153433600,
+      "description": "Efficient multilingual model from Alibaba.",
+      "category": "small",
+      "contextWindow": 4096,
+      "supportsVision": false,
+      "supportsTools": false,
+      "requiresAuth": false
+    },
+    {
+      "name": "Qwen 2.5 3B",
+      "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+      "fileName": "qwen2.5-3b-instruct-q4_k_m.gguf",
+      "branch": "main",
+      "sizeBytes": 2097152000,
+      "description": "Strong multilingual reasoning in compact size.",
+      "category": "general",
+      "contextWindow": 4096,
+      "supportsVision": false,
+      "supportsTools": true,
+      "requiresAuth": false
+    },
+    {
+      "name": "Llama 3.2 1B",
+      "repo": "unsloth/Llama-3.2-1B-Instruct-GGUF",
+      "fileName": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 796917760,
+      "description": "Meta's small model. Fast on mobile devices.",
+      "category": "small",
+      "contextWindow": 4096,
+      "supportsVision": false,
+      "supportsTools": false,
+      "requiresAuth": false
+    },
+    {
+      "name": "Llama 3.2 3B",
+      "repo": "unsloth/Llama-3.2-3B-Instruct-GGUF",
+      "fileName": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 2097152000,
+      "description": "Meta's balanced model. Good for most tasks.",
+      "category": "general",
+      "contextWindow": 4096,
+      "supportsVision": false,
+      "supportsTools": true,
+      "requiresAuth": false
+    },
+    {
+      "name": "TinyLlama 1.1B",
+      "repo": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+      "fileName": "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 702545920,
+      "description": "Ultra-compact. Fastest inference on any device.",
+      "category": "small",
+      "contextWindow": 2048,
+      "supportsVision": false,
+      "supportsTools": false,
+      "requiresAuth": false
+    },
+    {
+      "name": "SmolLM2 1.7B",
+      "repo": "unsloth/SmolLM2-1.7B-Instruct-GGUF",
+      "fileName": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 1073741824,
+      "description": "HuggingFace's efficient compact model.",
+      "category": "small",
+      "contextWindow": 4096,
+      "supportsVision": false,
+      "supportsTools": false,
+      "requiresAuth": false
+    },
+    {
+      "name": "Mistral 7B v0.3",
+      "repo": "unsloth/mistral-7b-instruct-v0.3-GGUF",
+      "fileName": "mistral-7b-instruct-v0.3-Q4_K_M.gguf",
+      "branch": "main",
+      "sizeBytes": 4368709120,
+      "description": "Powerful 7B model. Needs 6GB+ RAM.",
+      "category": "large",
+      "contextWindow": 8192,
+      "supportsVision": false,
+      "supportsTools": true,
+      "requiresAuth": false
+    }
+  ],
+  "cloudProviders": [
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "description": "Meta-provider with 200+ models. Best default for cloud AI.",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "authType": "bearer",
+      "authHeader": "Authorization",
+      "docsUrl": "https://openrouter.ai/docs",
+      "signupUrl": "https://openrouter.ai/keys",
+      "isDefault": true,
+      "models": [
+        {"id": "google/gemma-3-27b-it:free", "name": "Gemma 3 27B (Free)", "contextWindow": 8192},
+        {"id": "google/gemini-2.0-flash-exp:free", "name": "Gemini 2.0 Flash (Free)", "contextWindow": 32768},
+        {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (Free)", "contextWindow": 8192},
+        {"id": "qwen/qwen-2.5-72b-instruct:free", "name": "Qwen 2.5 72B (Free)", "contextWindow": 4096},
+        {"id": "deepseek/deepseek-chat-v3-0324:free", "name": "DeepSeek V3 (Free)", "contextWindow": 65536},
+        {"id": "anthropic/claude-sonnet-4", "name": "Claude Sonnet 4", "contextWindow": 200000},
+        {"id": "openai/gpt-4o", "name": "GPT-4o", "contextWindow": 128000},
+        {"id": "google/gemini-2.0-flash-001", "name": "Gemini 2.0 Flash", "contextWindow": 1048576}
+      ]
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "description": "GPT-4o, o1, o3 models from OpenAI.",
+      "baseUrl": "https://api.openai.com/v1",
+      "authType": "bearer",
+      "authHeader": "Authorization",
+      "docsUrl": "https://platform.openai.com/docs",
+      "signupUrl": "https://platform.openai.com/api-keys",
+      "isDefault": false,
+      "models": [
+        {"id": "gpt-4o", "name": "GPT-4o", "contextWindow": 128000},
+        {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "contextWindow": 128000},
+        {"id": "o3-mini", "name": "o3-mini", "contextWindow": 128000},
+        {"id": "gpt-4.1-mini", "name": "GPT-4.1 Mini", "contextWindow": 1048576}
+      ]
+    },
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "description": "Gemini models with up to 2M context.",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "authType": "bearer",
+      "authHeader": "Authorization",
+      "docsUrl": "https://ai.google.dev/docs",
+      "signupUrl": "https://aistudio.google.com/apikey",
+      "isDefault": false,
+      "models": [
+        {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "contextWindow": 1048576},
+        {"id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash Lite", "contextWindow": 1048576},
+        {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "contextWindow": 2097152}
+      ]
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "description": "Claude models from Anthropic.",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "authType": "api-key",
+      "authHeader": "x-api-key",
+      "docsUrl": "https://docs.anthropic.com",
+      "signupUrl": "https://console.anthropic.com/settings/keys",
+      "isDefault": false,
+      "models": [
+        {"id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "contextWindow": 200000},
+        {"id": "claude-3-5-haiku-20241022", "name": "Claude 3.5 Haiku", "contextWindow": 200000}
+      ]
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "description": "Mistral and Codestral models.",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "authType": "bearer",
+      "authHeader": "Authorization",
+      "docsUrl": "https://docs.mistral.ai",
+      "signupUrl": "https://console.mistral.ai/api-keys",
+      "isDefault": false,
+      "models": [
+        {"id": "mistral-large-latest", "name": "Mistral Large", "contextWindow": 131072},
+        {"id": "mistral-small-latest", "name": "Mistral Small", "contextWindow": 131072},
+        {"id": "codestral-latest", "name": "Codestral", "contextWindow": 32768}
+      ]
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (Local)",
+      "description": "Connect to Ollama running on localhost or LAN.",
+      "baseUrl": "http://localhost:11434/v1",
+      "authType": "none",
+      "authHeader": "",
+      "docsUrl": "https://ollama.com",
+      "signupUrl": "",
+      "isDefault": false,
+      "models": []
+    },
+    {
+      "id": "custom",
+      "name": "Custom Endpoint",
+      "description": "Connect to any OpenAI-compatible API endpoint.",
+      "baseUrl": "",
+      "authType": "bearer",
+      "authHeader": "Authorization",
+      "docsUrl": "",
+      "signupUrl": "",
+      "isDefault": false,
+      "models": []
+    }
+  ]
+}

@@ -29,15 +29,49 @@ class PrismDatabase extends _$PrismDatabase {
         );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
+      onCreate: (m) async {
+        await m.createAll();
+        // Create FTS5 virtual tables that Drift doesn't auto-generate
+        await _createFts5Tables();
+      },
+      onUpgrade: (m, from, to) async {
+        if (from < 2) {
+          // v1 → v2: Ensure FTS5 tables exist (they were missing in v1)
+          await _createFts5Tables();
+        }
+      },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
+        // Safety: ensure FTS5 tables exist even if migration was skipped
+        await _createFts5Tables();
       },
     );
+  }
+
+  /// Create FTS5 virtual tables if they don't already exist.
+  /// Drift's code generator doesn't include FTS5 virtual tables in
+  /// allSchemaEntities, so we must create them manually.
+  Future<void> _createFts5Tables() async {
+    await customStatement('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS message_search USING fts5(
+        content,
+        content=messages,
+        content_rowid=id
+      )
+    ''');
+    await customStatement('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS note_search USING fts5(
+        title,
+        content,
+        content=notes,
+        content_rowid=id
+      )
+    ''');
   }
 
   // ─── Conversation queries ────────────────────────
