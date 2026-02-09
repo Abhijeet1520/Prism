@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/ai/cloud_provider_service.dart';
 import '../../core/ai/model_manager.dart';
@@ -180,6 +181,111 @@ class _CloudProviderTileState extends ConsumerState<CloudProviderTile> {
         children: [
           Divider(color: widget.borderColor, height: 1),
           const SizedBox(height: 12),
+          // Portal links
+          if (widget.provider.signupUrl.isNotEmpty || widget.provider.docsUrl.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  if (widget.provider.signupUrl.isNotEmpty)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(widget.provider.signupUrl)),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: widget.accentColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: widget.accentColor.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.key_rounded, size: 14, color: widget.accentColor),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Get API Key',
+                                    style: TextStyle(
+                                        color: widget.accentColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500)),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.open_in_new, size: 11, color: widget.accentColor),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (widget.provider.signupUrl.isNotEmpty && widget.provider.docsUrl.isNotEmpty)
+                    const SizedBox(width: 8),
+                  if (widget.provider.docsUrl.isNotEmpty)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(widget.provider.docsUrl)),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: widget.textSecondary.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: widget.borderColor),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.menu_book_rounded, size: 14, color: widget.textSecondary),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text('API Docs',
+                                    style: TextStyle(
+                                        color: widget.textSecondary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500)),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.open_in_new, size: 11, color: widget.textSecondary),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          // Available models list
+          if (widget.provider.models.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Available Models',
+                      style: TextStyle(
+                          color: widget.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: widget.provider.models.map((m) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: widget.borderColor.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(m.name,
+                            style: TextStyle(
+                                color: widget.textPrimary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500)),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
           _buildTextField('Base URL', _baseUrlController,
               hint: widget.provider.baseUrl.isNotEmpty
                   ? widget.provider.baseUrl

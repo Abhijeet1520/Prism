@@ -218,8 +218,9 @@ class CloudProviderNotifier extends Notifier<CloudProviderState> {
 
   ProviderType _providerTypeFromId(String id) {
     return switch (id) {
-      'openai' => ProviderType.openai,
+      'openai' || 'openrouter' => ProviderType.openai,
       'gemini' => ProviderType.gemini,
+      'anthropic' || 'mistral' => ProviderType.openai, // OpenAI-compatible
       'ollama' => ProviderType.ollama,
       _ => ProviderType.custom,
     };

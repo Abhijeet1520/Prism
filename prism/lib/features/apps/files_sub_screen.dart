@@ -1,13 +1,14 @@
-/// Files sub-screen — breadcrumb-based folder navigation with file details.
+/// Files sub-screen — breadcrumb-based folder navigation with file viewer/editor.
 ///
 /// Loads file hierarchy from assets/mock_data/app_data.json and provides
-/// navigable folder tree with type-based icons and a detail panel.
+/// navigable folder tree with content viewing and basic editing.
 library;
 
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ─── Data Model ──────────────────────────────────────
@@ -22,6 +23,7 @@ class _FileNode {
   final int? size;
   final String? createdAt;
   final String? modifiedAt;
+  final String? content;
   final List<_FileNode> children;
 
   _FileNode({
@@ -34,6 +36,7 @@ class _FileNode {
     this.size,
     this.createdAt,
     this.modifiedAt,
+    this.content,
     List<_FileNode>? children,
   }) : children = children ?? [];
 
@@ -47,6 +50,7 @@ class _FileNode {
         size: j['size'] as int?,
         createdAt: j['createdAt'] as String?,
         modifiedAt: j['modifiedAt'] as String?,
+        content: j['content'] as String?,
       );
 
   String get sizeFormatted {
@@ -92,6 +96,11 @@ class _FilesSubScreenState extends ConsumerState<FilesSubScreen> {
   /// Currently selected file (non-folder) for the detail panel.
   _FileNode? _selectedFile;
 
+  /// Currently viewing file content (full-screen viewer).
+  _FileNode? _viewingFile;
+  bool _isEditing = false;
+  final _editController = TextEditingController();
+
   bool _loading = true;
   String? _error;
 
@@ -99,6 +108,12 @@ class _FilesSubScreenState extends ConsumerState<FilesSubScreen> {
   void initState() {
     super.initState();
     _loadFileData();
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFileData() async {
@@ -173,6 +188,21 @@ class _FilesSubScreenState extends ConsumerState<FilesSubScreen> {
     setState(() => _selectedFile = file);
   }
 
+  void _openFileViewer(_FileNode file) {
+    _editController.text = file.content ?? '';
+    setState(() {
+      _viewingFile = file;
+      _isEditing = false;
+    });
+  }
+
+  void _closeFileViewer() {
+    setState(() {
+      _viewingFile = null;
+      _isEditing = false;
+    });
+  }
+
   IconData _iconFor(_FileNode node) {
     if (node.isFolder) return Icons.folder_rounded;
     return switch (node.extension) {
@@ -215,6 +245,11 @@ class _FilesSubScreenState extends ConsumerState<FilesSubScreen> {
         child: Text(_error ?? 'No file data',
             style: TextStyle(color: widget.textSecondary, fontSize: 14)),
       );
+    }
+
+    // Full-screen file viewer
+    if (_viewingFile != null) {
+      return _buildFileViewer(_viewingFile!);
     }
 
     final current = _currentFolder;
@@ -344,6 +379,8 @@ class _FilesSubScreenState extends ConsumerState<FilesSubScreen> {
                       onTap: () {
                         if (node.isFolder) {
                           _navigateInto(node);
+                        } else if (node.content != null) {
+                          _openFileViewer(node);
                         } else {
                           _selectFile(node);
                         }
@@ -534,6 +571,243 @@ class _FilesSubScreenState extends ConsumerState<FilesSubScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ─── File Viewer/Editor ────────────────────────
+
+  Widget _buildFileViewer(_FileNode file) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+    final isMarkdown = file.extension == 'md';
+
+    return Column(
+      children: [
+        // Breadcrumb header with file path
+        Container(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          decoration: BoxDecoration(
+            color: widget.cardColor,
+            border: Border(
+                bottom: BorderSide(color: widget.borderColor, width: 0.5)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: _closeFileViewer,
+                icon: Icon(Icons.arrow_back_rounded,
+                    size: 20, color: widget.textSecondary),
+                visualDensity: VisualDensity.compact,
+              ),
+              // Breadcrumb path
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: file.path.split('/').where((s) => s.isNotEmpty).map((segment) {
+                      final isLast = segment == file.path.split('/').last;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            segment,
+                            style: TextStyle(
+                              color: isLast ? accentColor : widget.textSecondary,
+                              fontSize: 13,
+                              fontWeight: isLast ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
+                          if (!isLast)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Icon(Icons.chevron_right_rounded,
+                                  size: 14, color: widget.textSecondary),
+                            ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              // Edit/save toggle
+              if (file.content != null) ...[
+                IconButton(
+                  onPressed: () {
+                    if (_isEditing) {
+                      // Save
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('File saved')),
+                      );
+                    }
+                    setState(() => _isEditing = !_isEditing);
+                  },
+                  icon: Icon(
+                    _isEditing ? Icons.save_rounded : Icons.edit_rounded,
+                    size: 20,
+                    color: _isEditing ? accentColor : widget.textSecondary,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  onPressed: () {
+                    // Copy content
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Copied to clipboard')),
+                    );
+                  },
+                  icon: Icon(Icons.copy_rounded,
+                      size: 18, color: widget.textSecondary),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ],
+          ),
+        ),
+        // File info bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: widget.isDark
+              ? const Color(0xFF1E1E36)
+              : const Color(0xFFF0F0F8),
+          child: Row(
+            children: [
+              Icon(_iconFor(file), size: 14, color: _iconColorFor(file)),
+              const SizedBox(width: 6),
+              Text(file.sizeFormatted,
+                  style: TextStyle(
+                      color: widget.textSecondary, fontSize: 11)),
+              const SizedBox(width: 12),
+              Text(file.modifiedAt ?? '',
+                  style: TextStyle(
+                      color: widget.textSecondary, fontSize: 11)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  file.extension.isNotEmpty ? '.${file.extension}' : 'file',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: accentColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Content area
+        Expanded(
+          child: file.content == null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.visibility_off_rounded,
+                          size: 48,
+                          color: widget.textSecondary.withValues(alpha: 0.3)),
+                      const SizedBox(height: 12),
+                      Text('Preview not available for this file type',
+                          style: TextStyle(
+                              color: widget.textSecondary, fontSize: 14)),
+                    ],
+                  ),
+                )
+              : _isEditing
+                  ? Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: TextField(
+                        controller: _editController,
+                        maxLines: null,
+                        expands: true,
+                        style: TextStyle(
+                          color: widget.textPrimary,
+                          fontSize: 13,
+                          fontFamily: 'monospace',
+                          height: 1.5,
+                        ),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                                color: widget.borderColor, width: 0.5),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                                color: widget.borderColor, width: 0.5),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                BorderSide(color: accentColor, width: 1),
+                          ),
+                          contentPadding: const EdgeInsets.all(12),
+                          filled: true,
+                          fillColor: widget.cardColor,
+                        ),
+                      ),
+                    )
+                  : isMarkdown
+                      ? Markdown(
+                          data: file.content!,
+                          selectable: true,
+                          padding: const EdgeInsets.all(16),
+                          styleSheet: MarkdownStyleSheet(
+                            p: TextStyle(
+                                fontSize: 14,
+                                color: widget.textPrimary,
+                                height: 1.6),
+                            h1: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: widget.textPrimary),
+                            h2: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: widget.textPrimary),
+                            h3: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: widget.textPrimary),
+                            code: TextStyle(
+                              fontSize: 13,
+                              fontFamily: 'monospace',
+                              color: accentColor,
+                              backgroundColor:
+                                  accentColor.withValues(alpha: 0.08),
+                            ),
+                            codeblockDecoration: BoxDecoration(
+                              color: widget.textPrimary.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: widget.borderColor, width: 0.5),
+                            ),
+                            strong: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: widget.textPrimary),
+                            em: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: widget.textPrimary),
+                            listBullet: TextStyle(
+                                fontSize: 14, color: widget.textPrimary),
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: SelectableText(
+                            file.content!,
+                            style: TextStyle(
+                              color: widget.textPrimary,
+                              fontSize: 13,
+                              fontFamily: 'monospace',
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+        ),
+      ],
     );
   }
 }

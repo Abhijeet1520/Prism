@@ -22,10 +22,13 @@ class _AppShellState extends State<AppShell> {
   ];
 
   int _indexOfLocation(String location) {
-    for (int i = 0; i < _tabs.length; i++) {
-      if (location == _tabs[i].path) return i;
+    // Check longest paths first so sub-routes match correctly
+    // e.g. /settings/model matches Settings, /apps/finance matches Apps
+    for (int i = _tabs.length - 1; i >= 0; i--) {
+      if (_tabs[i].path == '/') continue; // skip Home for prefix matching
+      if (location.startsWith(_tabs[i].path)) return i;
     }
-    return 0;
+    return 0; // Default to Home
   }
 
   void _onTap(int index) => context.go(_tabs[index].path);
@@ -34,8 +37,8 @@ class _AppShellState extends State<AppShell> {
   Future<bool> _onBackPressed() async {
     final location = GoRouterState.of(context).uri.path;
 
-    // If not on Home, navigate to Home instead of exiting
-    if (location != '/') {
+    // If not on Home (exact match), navigate to Home instead of exiting
+    if (location != '/' && location != '') {
       context.go('/');
       return false;
     }

@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -537,19 +538,31 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
         _messages.map((m) => PrismMessage(role: m.role, content: m.content)).toList();
 
     final buffer = StringBuffer();
+    final stopwatch = Stopwatch()..start();
+    final activeModel = ref.read(aiServiceProvider).activeModel;
+    int tokenEstimate = 0;
     await for (final token in aiNotifier.generateStream(prismMessages)) {
       buffer.write(token);
+      tokenEstimate++;
       if (mounted) {
         setState(() => _streamingText = buffer.toString());
         _scrollToBottom();
       }
     }
+    stopwatch.stop();
 
     // Finalize
     final response = buffer.toString();
     if (mounted) {
       setState(() {
-        _messages.add(_DisplayMessage(role: 'assistant', content: response));
+        _messages.add(_DisplayMessage(
+          role: 'assistant',
+          content: response,
+          modelName: activeModel?.name,
+          providerName: activeModel?.provider.name,
+          tokenCount: tokenEstimate,
+          responseTime: stopwatch.elapsed,
+        ));
         _isStreaming = false;
         _streamingText = '';
       });
@@ -671,6 +684,10 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
                         accentColor: accentColor,
                         cardColor: cardColor,
                         borderColor: borderColor,
+                        modelName: msg.modelName,
+                        providerName: msg.providerName,
+                        tokenCount: msg.tokenCount,
+                        responseTime: msg.responseTime,
                       );
                     },
                   ),
@@ -878,6 +895,10 @@ class _MessageBubble extends StatelessWidget {
   final Color accentColor;
   final Color cardColor;
   final Color borderColor;
+  final String? modelName;
+  final String? providerName;
+  final int? tokenCount;
+  final Duration? responseTime;
 
   const _MessageBubble({
     required this.role,
@@ -888,6 +909,10 @@ class _MessageBubble extends StatelessWidget {
     required this.accentColor,
     required this.cardColor,
     required this.borderColor,
+    this.modelName,
+    this.providerName,
+    this.tokenCount,
+    this.responseTime,
   });
 
   @override
@@ -925,14 +950,51 @@ class _MessageBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SelectableText(
-                    content.isEmpty && isStreaming ? '...' : content,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: textPrimary,
-                      height: 1.5,
+                  if (isUser)
+                    SelectableText(
+                      content,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: textPrimary,
+                        height: 1.5,
+                      ),
+                    )
+                  else
+                    MarkdownBody(
+                      data: content.isEmpty && isStreaming ? '...' : content,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: TextStyle(fontSize: 14, color: textPrimary, height: 1.5),
+                        h1: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textPrimary),
+                        h2: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textPrimary),
+                        h3: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary),
+                        code: TextStyle(
+                          fontSize: 13,
+                          fontFamily: 'monospace',
+                          color: accentColor,
+                          backgroundColor: accentColor.withValues(alpha: 0.08),
+                        ),
+                        codeblockDecoration: BoxDecoration(
+                          color: textPrimary.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: borderColor, width: 0.5),
+                        ),
+                        codeblockPadding: const EdgeInsets.all(12),
+                        blockquoteDecoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(color: accentColor, width: 3),
+                          ),
+                        ),
+                        blockquotePadding: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
+                        listBullet: TextStyle(fontSize: 14, color: textPrimary),
+                        strong: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+                        em: TextStyle(fontStyle: FontStyle.italic, color: textPrimary),
+                        tableHead: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+                        tableBody: TextStyle(color: textPrimary),
+                        tableBorder: TableBorder.all(color: borderColor, width: 0.5),
+                        tableCellsPadding: const EdgeInsets.all(6),
+                      ),
                     ),
-                  ),
                   if (isStreaming)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -943,6 +1005,42 @@ class _MessageBubble extends StatelessWidget {
                           strokeWidth: 2,
                           color: accentColor,
                         ),
+                      ),
+                    ),
+                  // Token/model info footer for assistant messages
+                  if (!isUser && !isStreaming && content.isNotEmpty && (modelName != null || tokenCount != null))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (modelName != null) ...[
+                            Icon(Icons.smart_toy_outlined, size: 11, color: textSecondary.withValues(alpha: 0.6)),
+                            const SizedBox(width: 3),
+                            Text(
+                              modelName!,
+                              style: TextStyle(fontSize: 10, color: textSecondary.withValues(alpha: 0.6)),
+                            ),
+                          ],
+                          if (tokenCount != null) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.token_outlined, size: 11, color: textSecondary.withValues(alpha: 0.6)),
+                            const SizedBox(width: 3),
+                            Text(
+                              '~$tokenCount tokens',
+                              style: TextStyle(fontSize: 10, color: textSecondary.withValues(alpha: 0.6)),
+                            ),
+                          ],
+                          if (responseTime != null) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.timer_outlined, size: 11, color: textSecondary.withValues(alpha: 0.6)),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${responseTime!.inMilliseconds > 1000 ? '${(responseTime!.inMilliseconds / 1000).toStringAsFixed(1)}s' : '${responseTime!.inMilliseconds}ms'}',
+                              style: TextStyle(fontSize: 10, color: textSecondary.withValues(alpha: 0.6)),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                 ],
@@ -960,5 +1058,16 @@ class _MessageBubble extends StatelessWidget {
 class _DisplayMessage {
   final String role;
   final String content;
-  _DisplayMessage({required this.role, required this.content});
+  final String? modelName;
+  final String? providerName;
+  final int? tokenCount;
+  final Duration? responseTime;
+  _DisplayMessage({
+    required this.role,
+    required this.content,
+    this.modelName,
+    this.providerName,
+    this.tokenCount,
+    this.responseTime,
+  });
 }

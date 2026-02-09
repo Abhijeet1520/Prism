@@ -29,6 +29,7 @@ class ModelCatalogEntry {
   final String category; // 'general', 'code', 'vision', 'small'
   final int contextWindow;
   final bool supportsVision;
+  final bool supportsTools;
   final bool requiresAuth;
 
   const ModelCatalogEntry({
@@ -41,6 +42,7 @@ class ModelCatalogEntry {
     this.category = 'general',
     this.contextWindow = 4096,
     this.supportsVision = false,
+    this.supportsTools = false,
     this.requiresAuth = false,
   });
 
@@ -287,6 +289,7 @@ class ModelManagerNotifier extends Notifier<ModelManagerState> {
             filePath: filePath,
             contextWindow: entry.contextWindow,
             supportsVision: entry.supportsVision,
+            supportsTools: entry.supportsTools,
           ));
     } on DioException catch (e) {
       // Clean up partial file
@@ -429,20 +432,21 @@ Future<List<ModelCatalogEntry>> loadModelCatalog() async {
   try {
     final jsonStr = await rootBundle.loadString('assets/config/model_catalog.json');
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-    final localModels = data['local_models'] as List<dynamic>? ?? [];
-    return localModels.map((m) {
+    final models = data['models'] as List<dynamic>? ?? [];
+    return models.map((m) {
       final map = m as Map<String, dynamic>;
       return ModelCatalogEntry(
         name: map['name'] as String,
         repo: map['repo'] as String,
-        fileName: map['file_name'] as String,
+        fileName: map['fileName'] as String,
         branch: map['branch'] as String? ?? 'main',
-        sizeBytes: map['size_bytes'] as int,
+        sizeBytes: map['sizeBytes'] as int,
         description: map['description'] as String,
         category: map['category'] as String? ?? 'general',
-        contextWindow: map['context_window'] as int? ?? 4096,
-        supportsVision: map['supports_vision'] as bool? ?? false,
-        requiresAuth: map['requires_auth'] as bool? ?? false,
+        contextWindow: map['contextWindow'] as int? ?? 4096,
+        supportsVision: map['supportsVision'] as bool? ?? false,
+        supportsTools: map['supportsTools'] as bool? ?? false,
+        requiresAuth: map['requiresAuth'] as bool? ?? false,
       );
     }).toList();
   } catch (_) {

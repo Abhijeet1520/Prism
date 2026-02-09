@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../core/ai/ai_service.dart';
 import '../../core/database/database.dart';
@@ -26,6 +27,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late final AnimationController _rotateController;
   final _inputController = TextEditingController();
   bool _inputExpanded = false;
+  bool _showTextInput = false;
+
+  // Voice input
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _isListening = false;
 
   @override
   void initState() {
@@ -38,6 +45,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       vsync: this,
       duration: const Duration(seconds: 8),
     )..repeat();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    _speechAvailable = await _speech.initialize(
+      onError: (_) => setState(() => _isListening = false),
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _toggleListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+    } else if (_speechAvailable) {
+      setState(() => _isListening = true);
+      await _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _inputController.text = result.recognizedWords;
+            _inputController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _inputController.text.length),
+            );
+            _showTextInput = true; // Show text field with recognized words
+          });
+        },
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+      );
+    }
   }
 
   @override
@@ -165,33 +207,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
 
-          // ─── Input Bar ───────────────────────────
+          // ─── Voice/Text Input ───────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
+              child: Column(
                 children: [
-                  // Mic button
+                  // Mic button — primary input
                   GestureDetector(
-                    onTap: () {
-                      // Voice input — placeholder
-                    },
-                    child: Container(
-                      width: 48,
-                      height: 48,
+                    onTap: _toggleListening,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: cardColor,
+                        color: _isListening ? accentColor : cardColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: borderColor, width: 0.5),
+                        border: Border.all(
+                          color: _isListening ? accentColor : borderColor,
+                          width: _isListening ? 2 : 0.5,
+                        ),
+                        boxShadow: _isListening
+                            ? [BoxShadow(color: accentColor.withValues(alpha: 0.3), blurRadius: 16)]
+                            : null,
                       ),
-                      child: Icon(Icons.mic_rounded,
-                          size: 22, color: textSecondary),
+                      child: Icon(
+                        _isListening ? Icons.mic : Icons.mic_none_rounded,
+                        color: _isListening ? Colors.white : textSecondary,
+                        size: 24,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Text input
-                  Expanded(
-                    child: Container(
+                  const SizedBox(height: 8),
+                  Text(
+                    _isListening ? 'Listening...' : (_speechAvailable ? 'Tap to speak' : 'Voice unavailable'),
+                    style: TextStyle(color: textSecondary, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  // Toggle to text input
+                  GestureDetector(
+                    onTap: () => setState(() => _showTextInput = !_showTextInput),
+                    child: Text(
+                      _showTextInput ? 'Use voice instead' : 'Or type a message',
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (_showTextInput) ...[
+                    const SizedBox(height: 12),
+                    Container(
                       height: 48,
                       decoration: BoxDecoration(
                         color: cardColor,
@@ -203,8 +270,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           Expanded(
                             child: TextField(
                               controller: _inputController,
-                              onTap: () =>
-                                  setState(() => _inputExpanded = true),
                               onSubmitted: (text) {
                                 if (text.trim().isNotEmpty) {
                                   context.go('/chat');
@@ -212,30 +277,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               },
                               decoration: InputDecoration(
                                 hintText: 'Ask Prism anything...',
-                                hintStyle: TextStyle(
-                                    color: textSecondary, fontSize: 14),
+                                hintStyle: TextStyle(color: textSecondary, fontSize: 14),
                                 border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                               ),
-                              style: TextStyle(
-                                  color: textPrimary, fontSize: 14),
+                              style: TextStyle(color: textPrimary, fontSize: 14),
                             ),
                           ),
-                          if (_inputExpanded)
-                            IconButton(
-                              onPressed: () {
-                                if (_inputController.text.trim().isNotEmpty) {
-                                  context.go('/chat');
-                                }
-                              },
-                              icon: Icon(Icons.arrow_upward_rounded,
-                                  color: accentColor, size: 20),
-                            ),
+                          IconButton(
+                            onPressed: () {
+                              if (_inputController.text.trim().isNotEmpty) {
+                                context.go('/chat');
+                              }
+                            },
+                            icon: Icon(Icons.arrow_upward_rounded,
+                                color: accentColor, size: 20),
+                          ),
                         ],
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
