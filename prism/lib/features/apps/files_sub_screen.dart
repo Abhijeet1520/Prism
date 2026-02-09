@@ -23,7 +23,7 @@ class _FileNode {
   final int? size;
   final String? createdAt;
   final String? modifiedAt;
-  final String? content;
+  String? content; // mutable so edits persist in-memory
   final List<_FileNode> children;
 
   _FileNode({
@@ -633,10 +633,16 @@ class _FilesSubScreenState extends ConsumerState<FilesSubScreen> {
                 IconButton(
                   onPressed: () {
                     if (_isEditing) {
-                      // Save
+                      // Save — persist edited content back to the node
+                      setState(() {
+                        file.content = _editController.text;
+                      });
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('File saved')),
                       );
+                    } else {
+                      // Enter edit mode — load current content
+                      _editController.text = file.content ?? '';
                     }
                     setState(() => _isEditing = !_isEditing);
                   },

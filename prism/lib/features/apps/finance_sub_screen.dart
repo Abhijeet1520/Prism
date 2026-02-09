@@ -1,13 +1,16 @@
-/// Finance sub-screen — income/expense/balance summary + transaction list.
+/// Finance sub-screen — summary cards + Transactions / Budget tabs.
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 
-class FinanceSubScreen extends ConsumerWidget {
+class FinanceSubScreen extends ConsumerStatefulWidget {
   final bool isDark;
   final Color cardColor, borderColor, textPrimary, textSecondary;
 
@@ -21,7 +24,28 @@ class FinanceSubScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FinanceSubScreen> createState() => _FinanceSubScreenState();
+}
+
+class _FinanceSubScreenState extends ConsumerState<FinanceSubScreen> {
+  int _activeTab = 0; // 0 = Transactions, 1 = Budget
+  List<dynamic> _budgets = [];
+  int? _expandedTxnIndex; // index of expanded transaction for inline actions
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBudgets();
+  }
+
+  Future<void> _loadBudgets() async {
+    final raw = await rootBundle.loadString('assets/mock_data/app_data.json');
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    setState(() => _budgets = (json['budgets'] as List?) ?? []);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final db = ref.watch(databaseProvider);
     final accentColor = Theme.of(context).colorScheme.primary;
 
@@ -48,45 +72,63 @@ class FinanceSubScreen extends ConsumerWidget {
                           label: 'Income',
                           amount: totalInc,
                           color: const Color(0xFF10B981),
-                          cardColor: cardColor,
-                          borderColor: borderColor,
-                          textSecondary: textSecondary)),
+                          cardColor: widget.cardColor,
+                          borderColor: widget.borderColor,
+                          textSecondary: widget.textSecondary)),
                   const SizedBox(width: 10),
                   Expanded(
                       child: _StatCard(
                           label: 'Expenses',
                           amount: totalExp,
                           color: const Color(0xFFEF4444),
-                          cardColor: cardColor,
-                          borderColor: borderColor,
-                          textSecondary: textSecondary)),
+                          cardColor: widget.cardColor,
+                          borderColor: widget.borderColor,
+                          textSecondary: widget.textSecondary)),
                   const SizedBox(width: 10),
                   Expanded(
                       child: _StatCard(
                           label: 'Balance',
                           amount: totalInc - totalExp,
                           color: accentColor,
-                          cardColor: cardColor,
-                          borderColor: borderColor,
-                          textSecondary: textSecondary)),
+                          cardColor: widget.cardColor,
+                          borderColor: widget.borderColor,
+                          textSecondary: widget.textSecondary)),
                 ],
               ),
             ),
-            Divider(height: 1, color: borderColor),
-            // Transactions list
+            // Tab bar: Transactions / Budget
+            Container(
+              color: widget.cardColor,
+              child: Row(
+                children: [
+                  _TabBtn(
+                    label: 'Transactions', isActive: _activeTab == 0,
+                    accent: accentColor, secondary: widget.textSecondary,
+                    onTap: () => setState(() => _activeTab = 0)),
+                  _TabBtn(
+                    label: 'Budget', isActive: _activeTab == 1,
+                    accent: accentColor, secondary: widget.textSecondary,
+                    onTap: () => setState(() => _activeTab = 1)),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: widget.borderColor),
+            // Content
             Expanded(
-              child: txns.isEmpty
+              child: _activeTab == 1
+                  ? _buildBudgetView(accentColor)
+                  : txns.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.account_balance_wallet_outlined,
                               size: 48,
-                              color: textSecondary.withValues(alpha: 0.3)),
+                              color: widget.textSecondary.withValues(alpha: 0.3)),
                           const SizedBox(height: 12),
                           Text('No transactions this month',
                               style: TextStyle(
-                                  color: textSecondary, fontSize: 14)),
+                                  color: widget.textSecondary, fontSize: 14)),
                         ],
                       ),
                     )
@@ -99,79 +141,92 @@ class FinanceSubScreen extends ConsumerWidget {
                         final c = isExp
                             ? const Color(0xFFEF4444)
                             : const Color(0xFF10B981);
-                        return GestureDetector(
-                          onTap: () => _showTransactionActions(
-                            context, ref, txn, cardColor, borderColor,
-                            textPrimary, textSecondary, accentColor,
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: cardColor,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: borderColor, width: 0.5),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: c.withValues(alpha: 0.12),
-                                    borderRadius:
-                                        BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                      _categoryIcon(txn.category),
-                                      color: c,
-                                      size: 18),
+                        final isExpanded = _expandedTxnIndex == i;
+                        return Column(
+                          children: [
+                            GestureDetector(
+                              onTap: () => setState(() =>
+                                  _expandedTxnIndex = isExpanded ? null : i),
+                              child: Container(
+                                margin: EdgeInsets.only(bottom: isExpanded ? 0 : 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: widget.cardColor,
+                                  borderRadius: isExpanded
+                                      ? const BorderRadius.vertical(top: Radius.circular(10))
+                                      : BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: isExpanded ? accentColor.withValues(alpha: 0.4) : widget.borderColor, width: 0.5),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(txn.category.isNotEmpty
-                                          ? txn.category[0].toUpperCase() + txn.category.substring(1)
-                                          : 'Other',
-                                          style: TextStyle(
-                                              color: textPrimary,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 14)),
-                                      if (txn.description.isNotEmpty)
-                                        Text(txn.description,
-                                            maxLines: 1,
-                                            overflow:
-                                                TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                                color: textSecondary,
-                                                fontSize: 12)),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                child: Row(
                                   children: [
-                                    Text(
-                                      '${isExp ? '-' : '+'}\$${txn.amount.toStringAsFixed(2)}',
-                                      style: TextStyle(
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: c.withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                          _categoryIcon(txn.category),
                                           color: c,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14),
+                                          size: 18),
                                     ),
-                                    Text(
-                                      DateFormat('MMM d').format(txn.createdAt),
-                                      style: TextStyle(
-                                          color: textSecondary, fontSize: 10),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(txn.category.isNotEmpty
+                                              ? txn.category[0].toUpperCase() + txn.category.substring(1)
+                                              : 'Other',
+                                              style: TextStyle(
+                                                  color: widget.textPrimary,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 14)),
+                                          if (txn.description.isNotEmpty)
+                                            Text(txn.description,
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                    color: widget.textSecondary,
+                                                    fontSize: 12)),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${isExp ? '-' : '+'}\$${txn.amount.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                              color: c,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14),
+                                        ),
+                                        Text(
+                                          DateFormat('MMM d').format(txn.createdAt),
+                                          style: TextStyle(
+                                              color: widget.textSecondary, fontSize: 10),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                                      size: 18, color: widget.textSecondary,
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                            // ─── Inline Actions Panel ────
+                            if (isExpanded)
+                              _buildInlineActions(txn, accentColor, i),
+                          ],
                         );
                       },
                     ),
@@ -196,155 +251,214 @@ class FinanceSubScreen extends ConsumerWidget {
     };
   }
 
-  void _showTransactionActions(
-    BuildContext context,
-    WidgetRef ref,
-    Transaction txn,
-    Color cardColor,
-    Color borderColor,
-    Color textPrimary,
-    Color textSecondary,
-    Color accentColor,
-  ) {
-    final isExp = txn.type == 'expense';
-    final c = isExp ? const Color(0xFFEF4444) : const Color(0xFF10B981);
+  Widget _buildInlineActions(Transaction txn, Color accentColor, int index) {
     final categories = ['food', 'transport', 'entertainment', 'bills', 'shopping', 'income', 'health', 'education', 'other'];
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      decoration: BoxDecoration(
+        color: widget.cardColor,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+        border: Border.all(color: accentColor.withValues(alpha: 0.4), width: 0.5),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Transaction header
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 10),
+          Text('Change Category',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: widget.textSecondary)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: categories.map((cat) {
+              final isActive = cat == txn.category.toLowerCase();
+              return GestureDetector(
+                onTap: () async {
+                  final db = ref.read(databaseProvider);
+                  await db.updateTransactionCategory(txn.uuid, cat);
+                  if (mounted) {
+                    setState(() => _expandedTxnIndex = null);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: c.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    color: isActive ? accentColor.withValues(alpha: 0.12) : widget.borderColor.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(16),
+                    border: isActive ? Border.all(color: accentColor, width: 1) : null,
                   ),
-                  child: Icon(_categoryIcon(txn.category), color: c, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      Icon(_categoryIcon(cat), size: 12, color: isActive ? accentColor : widget.textSecondary),
+                      const SizedBox(width: 3),
                       Text(
-                        txn.description.isNotEmpty ? txn.description : txn.category,
+                        cat[0].toUpperCase() + cat.substring(1),
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: textPrimary,
+                          fontSize: 11,
+                          fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                          color: isActive ? accentColor : widget.textPrimary,
                         ),
-                      ),
-                      Text(
-                        '${isExp ? '-' : '+'}\$${txn.amount.toStringAsFixed(2)} • ${DateFormat('MMM d, y').format(txn.createdAt)}',
-                        style: TextStyle(fontSize: 13, color: textSecondary),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Divider(color: borderColor, height: 1),
-            const SizedBox(height: 12),
-
-            // Change category
-            Text('Change Category',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: textSecondary)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: categories.map((cat) {
-                final isActive = cat == txn.category.toLowerCase();
-                return GestureDetector(
-                  onTap: () {
-                    // TODO: Update category in DB
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Category changed to ${cat[0].toUpperCase()}${cat.substring(1)}')),
-                    );
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 10),
+          Divider(color: widget.borderColor, height: 1),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final db = ref.read(databaseProvider);
+                    await db.duplicateTransaction(txn);
+                    if (mounted) setState(() => _expandedTxnIndex = null);
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isActive ? accentColor.withValues(alpha: 0.12) : borderColor.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(20),
-                      border: isActive ? Border.all(color: accentColor, width: 1) : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_categoryIcon(cat), size: 14, color: isActive ? accentColor : textSecondary),
-                        const SizedBox(width: 4),
-                        Text(
-                          cat[0].toUpperCase() + cat.substring(1),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                            color: isActive ? accentColor : textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            Divider(color: borderColor, height: 1),
-            const SizedBox(height: 8),
+                  icon: Icon(Icons.copy_rounded, size: 16, color: widget.textSecondary),
+                  label: Text('Duplicate', style: TextStyle(fontSize: 12, color: widget.textPrimary)),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+              ),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final db = ref.read(databaseProvider);
+                    await db.deleteTransaction(txn.uuid);
+                    if (mounted) setState(() => _expandedTxnIndex = null);
+                  },
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                  label: const Text('Delete', style: TextStyle(fontSize: 12, color: Color(0xFFEF4444))),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Action buttons
-            ListTile(
-              leading: Icon(Icons.edit_rounded, color: accentColor, size: 20),
-              title: Text('Edit Transaction', style: TextStyle(color: textPrimary, fontSize: 14)),
-              dense: true,
-              visualDensity: VisualDensity.compact,
-              onTap: () {
-                Navigator.pop(ctx);
-                // TODO: Open edit dialog
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.copy_rounded, color: textSecondary, size: 20),
-              title: Text('Duplicate', style: TextStyle(color: textPrimary, fontSize: 14)),
-              dense: true,
-              visualDensity: VisualDensity.compact,
-              onTap: () {
-                Navigator.pop(ctx);
-                // TODO: Duplicate transaction
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
-              title: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444), fontSize: 14)),
-              dense: true,
-              visualDensity: VisualDensity.compact,
-              onTap: () {
-                Navigator.pop(ctx);
-                // TODO: Delete transaction from DB
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Transaction deleted')),
-                );
-              },
-            ),
-          ],
+  // ─── Budget View ────────────────────────────────────
+
+  Widget _buildBudgetView(Color accent) {
+    if (_budgets.isEmpty) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.pie_chart_outline_rounded, size: 48,
+              color: widget.textSecondary.withValues(alpha: 0.3)),
+          const SizedBox(height: 12),
+          Text('Loading budgets...',
+              style: TextStyle(color: widget.textSecondary, fontSize: 14)),
+        ]),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _budgets.length,
+      itemBuilder: (context, i) {
+        final b = _budgets[i] as Map<String, dynamic>;
+        final category = b['category'] as String;
+        final limit = (b['limit'] as num?)?.toDouble() ?? 0.0;
+        final spent = (b['spent'] as num?)?.toDouble() ?? 0.0;
+        final ratio = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+        final isOver = spent > limit;
+        final colorHex = b['color'] as String;
+        final barColor = Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: widget.cardColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: widget.borderColor, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(_categoryIcon(category), size: 16,
+                      color: barColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      category[0].toUpperCase() + category.substring(1),
+                      style: TextStyle(
+                          color: widget.textPrimary,
+                          fontWeight: FontWeight.w500, fontSize: 14)),
+                  ),
+                  Text(
+                    '\$${spent.toStringAsFixed(0)} / \$${limit.toStringAsFixed(0)}',
+                    style: TextStyle(
+                        color: isOver
+                            ? const Color(0xFFEF4444)
+                            : widget.textSecondary,
+                        fontSize: 12,
+                        fontWeight: isOver ? FontWeight.w600 : FontWeight.w400),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: ratio,
+                  minHeight: 6,
+                  backgroundColor: widget.isDark
+                      ? const Color(0xFF1E1E36)
+                      : const Color(0xFFF0F0F8),
+                  valueColor: AlwaysStoppedAnimation(
+                      isOver ? const Color(0xFFEF4444) : barColor),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Tab Button ───────────────────────────────────────
+
+class _TabBtn extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final Color accent, secondary;
+  final VoidCallback onTap;
+  const _TabBtn({
+    required this.label, required this.isActive,
+    required this.accent, required this.secondary, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isActive ? accent : Colors.transparent,
+                width: 2)),
+          ),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: isActive ? accent : secondary,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400)),
         ),
       ),
     );

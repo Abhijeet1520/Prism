@@ -12,7 +12,8 @@ import 'tools_sub_screen.dart';
 import 'gateway_sub_screen.dart';
 
 class AppsHubScreen extends ConsumerStatefulWidget {
-  const AppsHubScreen({super.key});
+  final int? initialTab;
+  const AppsHubScreen({super.key, this.initialTab});
 
   @override
   ConsumerState<AppsHubScreen> createState() => _AppsHubScreenState();
@@ -20,6 +21,14 @@ class AppsHubScreen extends ConsumerStatefulWidget {
 
 class _AppsHubScreenState extends ConsumerState<AppsHubScreen> {
   int? _selectedApp;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTab != null) {
+      _selectedApp = widget.initialTab;
+    }
+  }
 
   static const _apps = [
     _AppDef(Icons.check_circle_outline_rounded, 'Tasks',
@@ -144,30 +153,37 @@ class _AppsHubScreenState extends ConsumerState<AppsHubScreen> {
   }) {
     final app = _apps[_selectedApp!];
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 16, 0),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => setState(() => _selectedApp = null),
-                  icon: Icon(Icons.arrow_back_rounded,
-                      size: 20, color: textSecondary),
-                ),
-                Text(app.emoji, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text(app.label,
-                    style: TextStyle(
-                        color: textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16)),
-              ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectedApp != null) {
+          setState(() => _selectedApp = null);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 16, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => setState(() => _selectedApp = null),
+                    icon: Icon(Icons.arrow_back_rounded,
+                        size: 20, color: textSecondary),
+                  ),
+                  Text(app.emoji, style: const TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  Text(app.label,
+                      style: TextStyle(
+                          color: textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16)),
+                ],
+              ),
             ),
-          ),
-          Divider(color: borderColor, height: 16),
+            Divider(color: borderColor, height: 16),
           Expanded(
             child: switch (_selectedApp!) {
               0 => TasksSubScreen(
@@ -204,6 +220,7 @@ class _AppsHubScreenState extends ConsumerState<AppsHubScreen> {
             },
           ),
         ],
+      ),
       ),
     );
   }

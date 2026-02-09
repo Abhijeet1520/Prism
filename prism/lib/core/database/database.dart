@@ -7,6 +7,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 import 'tables.dart';
 
@@ -147,7 +148,43 @@ class PrismDatabase extends _$PrismDatabase {
     ));
   }
 
+  /// Delete a message by uuid.
+  Future<int> deleteMessage(String uuid) {
+    return (delete(messages)..where((m) => m.uuid.equals(uuid))).go();
+  }
+
+  /// Update a message's content by uuid.
+  Future<int> updateMessageContent(String uuid, String content) {
+    return (update(messages)..where((m) => m.uuid.equals(uuid)))
+        .write(MessagesCompanion(content: Value(content)));
+  }
+
+  /// Get the last N messages for a conversation.
+  Future<List<Message>> getLastMessages(int conversationId, {int limit = 50}) {
+    return (select(messages)
+          ..where((m) => m.conversationId.equals(conversationId))
+          ..orderBy([(m) => OrderingTerm.desc(m.createdAt)])
+          ..limit(limit))
+        .get();
+  }
+
   // ─── Task queries ───────────────────────────────
+
+  /// Watch all tasks (completed + pending).
+  Stream<List<TaskEntry>> watchAllTasks() {
+    return (select(taskEntries)
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.isCompleted),
+            (t) => OrderingTerm(
+                  expression: t.priority.caseMatch(
+                    when: {const Constant('high'): const Constant(0), const Constant('medium'): const Constant(1)},
+                    orElse: const Constant(2),
+                  ),
+                ),
+            (t) => OrderingTerm.asc(t.dueDate),
+          ]))
+        .watch();
+  }
 
   /// Watch incomplete tasks.
   Stream<List<TaskEntry>> watchPendingTasks() {
@@ -196,6 +233,33 @@ class PrismDatabase extends _$PrismDatabase {
     );
   }
 
+  /// Update a task's fields.
+  Future<void> updateTask(
+    String uuid, {
+    String? title,
+    String? description,
+    String? priority,
+    DateTime? dueDate,
+    bool clearDueDate = false,
+  }) {
+    return (update(taskEntries)..where((t) => t.uuid.equals(uuid))).write(
+      TaskEntriesCompanion(
+        title: title != null ? Value(title) : const Value.absent(),
+        description:
+            description != null ? Value(description) : const Value.absent(),
+        priority: priority != null ? Value(priority) : const Value.absent(),
+        dueDate: clearDueDate
+            ? const Value(null)
+            : (dueDate != null ? Value(dueDate) : const Value.absent()),
+      ),
+    );
+  }
+
+  /// Delete a task by uuid.
+  Future<int> deleteTask(String uuid) {
+    return (delete(taskEntries)..where((t) => t.uuid.equals(uuid))).go();
+  }
+
   // ─── Transaction queries ────────────────────────
 
   /// Watch all transactions for the current month.
@@ -230,6 +294,29 @@ class PrismDatabase extends _$PrismDatabase {
     ));
   }
 
+  /// Update a transaction's category.
+  Future<int> updateTransactionCategory(String uuid, String newCategory) {
+    return (update(transactions)..where((t) => t.uuid.equals(uuid)))
+        .write(TransactionsCompanion(category: Value(newCategory)));
+  }
+
+  /// Delete a transaction by uuid.
+  Future<int> deleteTransaction(String uuid) {
+    return (delete(transactions)..where((t) => t.uuid.equals(uuid))).go();
+  }
+
+  /// Duplicate a transaction.
+  Future<int> duplicateTransaction(Transaction txn) {
+    return logTransaction(
+      uuid: const Uuid().v4(),
+      amount: txn.amount,
+      category: txn.category,
+      type: txn.type,
+      description: txn.description,
+      source: txn.source,
+    );
+  }
+
   // ─── Note queries ──────────────────────────────
 
   /// Watch all notes, newest first.
@@ -253,6 +340,28 @@ class PrismDatabase extends _$PrismDatabase {
       tags: Value(tags),
       source: Value(source),
     ));
+  }
+
+  /// Update a note's fields.
+  Future<void> updateNote(
+    String uuid, {
+    String? title,
+    String? content,
+    String? tags,
+  }) {
+    return (update(notes)..where((n) => n.uuid.equals(uuid))).write(
+      NotesCompanion(
+        title: title != null ? Value(title) : const Value.absent(),
+        content: content != null ? Value(content) : const Value.absent(),
+        tags: tags != null ? Value(tags) : const Value.absent(),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Delete a note by uuid.
+  Future<int> deleteNote(String uuid) {
+    return (delete(notes)..where((n) => n.uuid.equals(uuid))).go();
   }
 
   // ─── Settings queries ──────────────────────────

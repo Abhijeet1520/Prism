@@ -39,6 +39,57 @@ class ProvidersSection extends ConsumerWidget {
             textPrimary: textPrimary,
             textSecondary: textSecondary),
 
+        // ── FAVOURITE MODELS ──
+        GroupLabel(text: 'FAVOURITE MODELS', color: textSecondary),
+        const SizedBox(height: 8),
+
+        _FavouriteModelPicker(
+          label: '⚡ Fast Model',
+          description: 'Quick responses — for simple tasks and chat',
+          currentModel: aiState.favouriteFastModel,
+          availableModels: aiState.availableModels,
+          onSelect: (m) => notifier.setFavouriteFastModel(m),
+          onClear: () => notifier.setFavouriteFastModel(null),
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor,
+        ),
+        const SizedBox(height: 8),
+        _FavouriteModelPicker(
+          label: '🧠 Quality Model',
+          description: 'Best results — for complex reasoning and writing',
+          currentModel: aiState.favouriteGoodModel,
+          availableModels: aiState.availableModels,
+          onSelect: (m) => notifier.setFavouriteGoodModel(m),
+          onClear: () => notifier.setFavouriteGoodModel(null),
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor,
+        ),
+
+        SettingsDivider(color: borderColor),
+
+        // ── ACTIVE PROVIDERS ──
+        GroupLabel(text: 'ENABLED PROVIDERS', color: textSecondary),
+        const SizedBox(height: 8),
+
+        _EnabledProvidersSummary(
+          aiState: aiState,
+          cloudState: cloudState,
+          onSelectModel: notifier.selectModel,
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor,
+        ),
+
+        SettingsDivider(color: borderColor),
+
         // ── LOCAL MODELS ──
         GroupLabel(text: 'LOCAL MODELS', color: textSecondary),
         const SizedBox(height: 8),
@@ -529,6 +580,204 @@ class ProvidersSection extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─── Favourite Model Picker ──────────────────────────
+
+class _FavouriteModelPicker extends StatelessWidget {
+  final String label;
+  final String description;
+  final ModelConfig? currentModel;
+  final List<ModelConfig> availableModels;
+  final ValueChanged<ModelConfig> onSelect;
+  final VoidCallback onClear;
+  final Color cardColor, borderColor, textPrimary, textSecondary, accentColor;
+
+  const _FavouriteModelPicker({
+    required this.label,
+    required this.description,
+    required this.currentModel,
+    required this.availableModels,
+    required this.onSelect,
+    required this.onClear,
+    required this.cardColor,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: currentModel != null
+                ? accentColor.withValues(alpha: 0.3)
+                : borderColor,
+            width: currentModel != null ? 1 : 0.5),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(
+                    color: textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(currentModel?.name ?? description,
+                    style: TextStyle(
+                        color: currentModel != null ? textPrimary : textSecondary,
+                        fontSize: 11,
+                        fontWeight: currentModel != null ? FontWeight.w500 : FontWeight.w400)),
+              ],
+            ),
+          ),
+          if (currentModel != null) ...[
+            GestureDetector(
+              onTap: onClear,
+              child: Icon(Icons.close_rounded, size: 16, color: textSecondary),
+            ),
+            const SizedBox(width: 8),
+          ],
+          PopupMenuButton<ModelConfig>(
+            onSelected: onSelect,
+            tooltip: 'Pick model',
+            icon: Icon(Icons.swap_horiz_rounded, size: 18, color: accentColor),
+            color: cardColor,
+            itemBuilder: (_) => availableModels
+                .where((m) => m.provider != ProviderType.mock)
+                .map((m) => PopupMenuItem(
+                      value: m,
+                      child: Text(m.name, style: TextStyle(
+                          color: textPrimary, fontSize: 12)),
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Enabled Providers Summary ───────────────────────
+
+class _EnabledProvidersSummary extends StatelessWidget {
+  final AIServiceState aiState;
+  final CloudProviderState cloudState;
+  final ValueChanged<ModelConfig> onSelectModel;
+  final Color cardColor, borderColor, textPrimary, textSecondary, accentColor;
+
+  const _EnabledProvidersSummary({
+    required this.aiState,
+    required this.cloudState,
+    required this.onSelectModel,
+    required this.cardColor,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabledProviders = cloudState.savedConfigs.entries
+        .where((e) => e.value.isEnabled)
+        .toList();
+
+    if (enabledProviders.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor, width: 0.5),
+        ),
+        child: Row(children: [
+          Icon(Icons.info_outline_rounded, size: 16, color: textSecondary),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            'No cloud providers enabled. Configure one below to get started.',
+            style: TextStyle(color: textSecondary, fontSize: 12),
+          )),
+        ]),
+      );
+    }
+
+    return Column(
+      children: enabledProviders.map((entry) {
+        final provider = cloudState.providers
+            .where((p) => p.id == entry.key)
+            .firstOrNull;
+        if (provider == null) return const SizedBox.shrink();
+
+        final activeModels = aiState.availableModels
+            .where((m) => m.baseUrl == provider.baseUrl ||
+                m.id.startsWith('${provider.id}/'))
+            .toList();
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(
+                  width: 8, height: 8,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF10B981)),
+                ),
+                const SizedBox(width: 8),
+                Text(provider.name, style: TextStyle(
+                    color: textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                const Spacer(),
+                Text('${activeModels.length} models',
+                    style: TextStyle(color: textSecondary, fontSize: 11)),
+              ]),
+              if (activeModels.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(spacing: 4, runSpacing: 4,
+                  children: activeModels.take(3).map((m) {
+                    final isActive = aiState.activeModel?.id == m.id;
+                    return GestureDetector(
+                      onTap: () => onSelectModel(m),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? accentColor.withValues(alpha: 0.15)
+                              : borderColor.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                              color: isActive ? accentColor : borderColor, width: 0.5),
+                        ),
+                        child: Text(
+                          m.name.length > 25 ? '${m.name.substring(0, 25)}...' : m.name,
+                          style: TextStyle(fontSize: 10,
+                              color: isActive ? accentColor : textSecondary),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

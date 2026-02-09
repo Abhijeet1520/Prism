@@ -10,6 +10,8 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/database/database.dart';
+import '../settings/personas_section.dart';
+import '../settings/soul_section.dart';
 
 class BrainScreen extends ConsumerStatefulWidget {
   const BrainScreen({super.key});
@@ -29,12 +31,14 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
     ('Areas', Icons.layers_outlined),
     ('Resources', Icons.bookmark_outline_rounded),
     ('Archives', Icons.archive_outlined),
+    ('Personas', Icons.person_outline_rounded),
+    ('Soul', Icons.auto_awesome_outlined),
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() => setState(() {}));
   }
 
@@ -43,6 +47,8 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
     _tabController.dispose();
     super.dispose();
   }
+
+  bool get _isNoteTab => _tabController.index < 4;
 
   String get _currentCategory {
     return switch (_tabController.index) {
@@ -85,28 +91,30 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: () {
-                    // Toggle search
-                    setState(
-                        () => _searchQuery = _searchQuery.isEmpty ? ' ' : '');
-                  },
-                  icon: Icon(Icons.search_rounded,
-                      size: 20, color: textSecondary),
-                ),
-                const SizedBox(width: 4),
-                FilledButton.icon(
-                  onPressed: () => _createNote(context),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add New', style: TextStyle(fontSize: 13)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accentColor,
-                    foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    minimumSize: Size.zero,
+                if (_isNoteTab) ...[
+                  IconButton(
+                    onPressed: () {
+                      // Toggle search
+                      setState(
+                          () => _searchQuery = _searchQuery.isEmpty ? ' ' : '');
+                    },
+                    icon: Icon(Icons.search_rounded,
+                        size: 20, color: textSecondary),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  FilledButton.icon(
+                    onPressed: () => _createNote(context),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add New', style: TextStyle(fontSize: 13)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accentColor,
+                      foregroundColor: Colors.white,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: Size.zero,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -155,7 +163,8 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
               ),
               child: TabBar(
                 controller: _tabController,
-                isScrollable: false,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 labelColor: accentColor,
                 unselectedLabelColor: textSecondary,
                 labelStyle: const TextStyle(
@@ -192,7 +201,8 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
 
           // ─── Content ─────────────────────────────
           Expanded(
-            child: LayoutBuilder(
+            child: _isNoteTab
+                ? LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth > 700;
 
@@ -224,6 +234,8 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
                           note: _selectedNote!,
                           onClose: () =>
                               setState(() => _selectedNote = null),
+                          onDeleted: () =>
+                              setState(() => _selectedNote = null),
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
                           accentColor: accentColor,
@@ -235,7 +247,23 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
                   ],
                 );
               },
-            ),
+            )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _tabController.index == 4
+                        ? PersonasSection(
+                            cardColor: cardColor,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                            accentColor: accentColor)
+                        : SoulDocumentSection(
+                            cardColor: cardColor,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                            accentColor: accentColor),
+                  ),
           ),
         ],
       ),
@@ -246,64 +274,127 @@ class _BrainScreenState extends ConsumerState<BrainScreen>
     final db = ref.read(databaseProvider);
     final accentColor = Theme.of(context).colorScheme.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF16162A) : Colors.white;
+    final textPri = isDark ? const Color(0xFFE2E2EC) : const Color(0xFF1A1A2E);
+    final textSec = isDark ? const Color(0xFF7A7A90) : const Color(0xFF6B6B80);
+    final border = isDark ? const Color(0xFF252540) : const Color(0xFFE2E2EC);
 
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    final tagsCtrl = TextEditingController();
+    String selectedCategory = _currentCategory;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF16162A) : Colors.white,
-        title: Text('New Note',
-            style: TextStyle(
-                color:
-                    isDark ? const Color(0xFFE2E2EC) : const Color(0xFF1A1A2E))),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                  hintText: 'Title', border: OutlineInputBorder()),
-              style: TextStyle(
-                  color: isDark
-                      ? const Color(0xFFE2E2EC)
-                      : const Color(0xFF1A1A2E)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDS) => AlertDialog(
+          backgroundColor: bgColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            Icon(Icons.note_add_rounded, size: 20, color: accentColor),
+            const SizedBox(width: 8),
+            Text('New Note', style: TextStyle(
+                color: textPri, fontSize: 16, fontWeight: FontWeight.w600)),
+          ]),
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Category (PARA)
+                  Text('Category', style: TextStyle(
+                      color: textSec, fontSize: 11, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Wrap(spacing: 6, children: [
+                    for (final cat in [('project', 'Projects', Icons.rocket_launch_outlined),
+                                       ('area', 'Areas', Icons.layers_outlined),
+                                       ('resource', 'Resources', Icons.bookmark_outline_rounded),
+                                       ('archive', 'Archives', Icons.archive_outlined)])
+                      GestureDetector(
+                        onTap: () => setDS(() => selectedCategory = cat.$1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: selectedCategory == cat.$1
+                                ? accentColor.withValues(alpha: 0.15) : border.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: selectedCategory == cat.$1 ? accentColor : border,
+                                width: selectedCategory == cat.$1 ? 1 : 0.5),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(cat.$3, size: 14,
+                                color: selectedCategory == cat.$1 ? accentColor : textSec),
+                            const SizedBox(width: 4),
+                            Text(cat.$2, style: TextStyle(fontSize: 11,
+                                color: selectedCategory == cat.$1 ? accentColor : textSec,
+                                fontWeight: selectedCategory == cat.$1 ? FontWeight.w600 : FontWeight.w400)),
+                          ]),
+                        ),
+                      ),
+                  ]),
+                  const SizedBox(height: 14),
+                  _buildTextField(titleCtrl, 'Title', 'Enter note title',
+                      textPri, textSec, border, accentColor),
+                  const SizedBox(height: 12),
+                  _buildTextField(contentCtrl, 'Content', 'Write your note content...',
+                      textPri, textSec, border, accentColor, maxLines: 6),
+                  const SizedBox(height: 12),
+                  _buildTextField(tagsCtrl, 'Tags', 'comma, separated, tags',
+                      textPri, textSec, border, accentColor),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: contentController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                  hintText: 'Content', border: OutlineInputBorder()),
-              style: TextStyle(
-                  color: isDark
-                      ? const Color(0xFFE2E2EC)
-                      : const Color(0xFF1A1A2E)),
-            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Cancel', style: TextStyle(color: textSec))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(backgroundColor: accentColor),
+                child: const Text('Save Note')),
           ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: accentColor),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
-    if (confirmed == true && titleController.text.isNotEmpty) {
+    if (confirmed == true && titleCtrl.text.isNotEmpty) {
+      final tags = [selectedCategory, ...tagsCtrl.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty)].join(',');
       await db.createNote(
         uuid: const Uuid().v4(),
-        title: titleController.text,
-        content: contentController.text,
-        tags: _currentCategory,
+        title: titleCtrl.text,
+        content: contentCtrl.text,
+        tags: tags,
       );
     }
+  }
+
+  Widget _buildTextField(TextEditingController ctrl, String label, String hint,
+      Color textPri, Color textSec, Color border, Color accent, {int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: textSec, fontSize: 11, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: ctrl, maxLines: maxLines,
+          style: TextStyle(color: textPri, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: textSec.withValues(alpha: 0.5), fontSize: 13),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            filled: true, fillColor: border.withValues(alpha: 0.3),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: border, width: 0.5)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: border, width: 0.5)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: accent, width: 1)),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -495,11 +586,12 @@ class _NoteCard extends StatelessWidget {
   }
 }
 
-// ─── Note Detail Panel ───────────────────────────────
+// ─── Note Detail Panel (with edit & delete) ─────────
 
-class _NoteDetail extends StatelessWidget {
+class _NoteDetail extends ConsumerStatefulWidget {
   final Note note;
   final VoidCallback onClose;
+  final VoidCallback onDeleted;
   final Color textPrimary;
   final Color textSecondary;
   final Color accentColor;
@@ -509,12 +601,52 @@ class _NoteDetail extends StatelessWidget {
   const _NoteDetail({
     required this.note,
     required this.onClose,
+    required this.onDeleted,
     required this.textPrimary,
     required this.textSecondary,
     required this.accentColor,
     required this.cardColor,
     required this.borderColor,
   });
+
+  @override
+  ConsumerState<_NoteDetail> createState() => _NoteDetailState();
+}
+
+class _NoteDetailState extends ConsumerState<_NoteDetail> {
+  bool _isEditing = false;
+  late TextEditingController _titleCtrl;
+  late TextEditingController _contentCtrl;
+  late TextEditingController _tagsCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _NoteDetail old) {
+    super.didUpdateWidget(old);
+    if (widget.note.id != old.note.id) {
+      _isEditing = false;
+      _initControllers();
+    }
+  }
+
+  void _initControllers() {
+    _titleCtrl = TextEditingController(text: widget.note.title);
+    _contentCtrl = TextEditingController(text: widget.note.content);
+    _tagsCtrl = TextEditingController(text: widget.note.tags);
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _contentCtrl.dispose();
+    _tagsCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -526,27 +658,44 @@ class _NoteDetail extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
           child: Row(
             children: [
-              Text('📝', style: TextStyle(fontSize: 20)),
+              const Text('📝', style: TextStyle(fontSize: 20)),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  note.title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
-                  ),
-                ),
+                child: _isEditing
+                    ? TextField(
+                        controller: _titleCtrl,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600,
+                            color: widget.textPrimary),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6),
+                              borderSide: BorderSide(color: widget.accentColor)),
+                        ),
+                      )
+                    : Text(widget.note.title, style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600, color: widget.textPrimary)),
               ),
+              if (!_isEditing) ...[
+                IconButton(
+                  onPressed: () => setState(() => _isEditing = true),
+                  icon: Icon(Icons.edit_rounded, size: 16, color: widget.textSecondary),
+                  tooltip: 'Edit',
+                ),
+                IconButton(
+                  onPressed: _confirmDelete,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                  tooltip: 'Delete',
+                ),
+              ],
               IconButton(
-                onPressed: onClose,
-                icon: Icon(Icons.close_rounded,
-                    size: 18, color: textSecondary),
+                onPressed: widget.onClose,
+                icon: Icon(Icons.close_rounded, size: 18, color: widget.textSecondary),
               ),
             ],
           ),
         ),
-        Divider(height: 1, color: borderColor),
+        Divider(height: 1, color: widget.borderColor),
 
         // Content
         Expanded(
@@ -558,46 +707,50 @@ class _NoteDetail extends StatelessWidget {
                 // Meta info
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_rounded,
-                        size: 12, color: textSecondary),
+                    Icon(Icons.calendar_today_rounded, size: 12, color: widget.textSecondary),
                     const SizedBox(width: 4),
-                    Text(
-                      DateFormat('MMMM d, yyyy').format(note.updatedAt),
-                      style: TextStyle(fontSize: 12, color: textSecondary),
-                    ),
+                    Text(DateFormat('MMMM d, yyyy').format(widget.note.updatedAt),
+                        style: TextStyle(fontSize: 12, color: widget.textSecondary)),
                     const SizedBox(width: 12),
-                    Icon(Icons.source_outlined,
-                        size: 12, color: textSecondary),
+                    Icon(Icons.source_outlined, size: 12, color: widget.textSecondary),
                     const SizedBox(width: 4),
-                    Text(
-                      note.source,
-                      style: TextStyle(fontSize: 12, color: textSecondary),
-                    ),
+                    Text(widget.note.source,
+                        style: TextStyle(fontSize: 12, color: widget.textSecondary)),
                   ],
                 ),
                 const SizedBox(height: 16),
 
                 // Tags
-                if (note.tags.isNotEmpty) ...[
+                if (_isEditing) ...[
+                  Text('Tags', style: TextStyle(color: widget.textSecondary, fontSize: 11, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _tagsCtrl,
+                    style: TextStyle(color: widget.textPrimary, fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'comma, separated, tags',
+                      hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5), fontSize: 12),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      filled: true, fillColor: widget.borderColor.withValues(alpha: 0.3),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: widget.borderColor, width: 0.5)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: widget.borderColor, width: 0.5)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ] else if (widget.note.tags.isNotEmpty) ...[
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: note.tags.split(',').map((tag) {
+                    spacing: 6, runSpacing: 6,
+                    children: widget.note.tags.split(',').map((tag) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          tag.trim(),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: accentColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                          color: widget.accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6)),
+                        child: Text(tag.trim(), style: TextStyle(
+                            fontSize: 11, color: widget.accentColor, fontWeight: FontWeight.w500)),
                       );
                     }).toList(),
                   ),
@@ -605,19 +758,83 @@ class _NoteDetail extends StatelessWidget {
                 ],
 
                 // Content
-                SelectableText(
-                  note.content,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: textPrimary,
-                    height: 1.6,
+                if (_isEditing)
+                  TextField(
+                    controller: _contentCtrl, maxLines: null, minLines: 10,
+                    style: TextStyle(fontSize: 13, color: widget.textPrimary, height: 1.6),
+                    decoration: InputDecoration(
+                      hintText: 'Write note content...',
+                      hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5), fontSize: 13),
+                      contentPadding: const EdgeInsets.all(12),
+                      filled: true, fillColor: widget.borderColor.withValues(alpha: 0.3),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: widget.borderColor, width: 0.5)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: widget.borderColor, width: 0.5)),
+                    ),
+                  )
+                else
+                  SelectableText(
+                    widget.note.content,
+                    style: TextStyle(fontSize: 14, color: widget.textPrimary, height: 1.6),
                   ),
-                ),
               ],
             ),
           ),
         ),
+
+        // Edit action bar
+        if (_isEditing)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: widget.borderColor, width: 0.5))),
+            child: Row(children: [
+              Expanded(child: FilledButton.icon(
+                onPressed: _saveNote,
+                icon: const Icon(Icons.save_rounded, size: 14),
+                label: const Text('Save', style: TextStyle(fontSize: 12)),
+                style: FilledButton.styleFrom(backgroundColor: widget.accentColor,
+                    foregroundColor: Colors.white, minimumSize: const Size(0, 36)),
+              )),
+              const SizedBox(width: 8),
+              TextButton(onPressed: () {
+                _initControllers();
+                setState(() => _isEditing = false);
+              }, child: Text('Cancel', style: TextStyle(color: widget.textSecondary, fontSize: 12))),
+            ]),
+          ),
       ],
     );
+  }
+
+  Future<void> _saveNote() async {
+    await ref.read(databaseProvider).updateNote(
+      widget.note.uuid,
+      title: _titleCtrl.text.trim(),
+      content: _contentCtrl.text,
+      tags: _tagsCtrl.text.trim(),
+    );
+    setState(() => _isEditing = false);
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Note?'),
+        content: Text('Delete "${widget.note.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(databaseProvider).deleteNote(widget.note.uuid);
+      widget.onDeleted();
+    }
   }
 }

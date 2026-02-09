@@ -2,6 +2,7 @@
 ///
 /// Loads provider configs from JSON, validates API keys,
 /// and connects to OpenAI-compatible endpoints.
+/// Supports fetching available models from providers like OpenRouter.
 library;
 
 import 'dart:convert';
@@ -39,6 +40,22 @@ class CloudProviderConfig {
     this.models = const [],
   });
 
+  CloudProviderConfig copyWith({
+    List<CloudModelInfo>? models,
+  }) =>
+      CloudProviderConfig(
+        id: id,
+        name: name,
+        description: description,
+        baseUrl: baseUrl,
+        authType: authType,
+        authHeader: authHeader,
+        docsUrl: docsUrl,
+        signupUrl: signupUrl,
+        isDefault: isDefault,
+        models: models ?? this.models,
+      );
+
   factory CloudProviderConfig.fromJson(Map<String, dynamic> json) {
     return CloudProviderConfig(
       id: json['id'] as String,
@@ -62,11 +79,15 @@ class CloudModelInfo {
   final String id;
   final String name;
   final int contextWindow;
+  final bool isFree;
+  final String? pricing; // e.g. "$0.50/1M tokens"
 
   const CloudModelInfo({
     required this.id,
     required this.name,
     this.contextWindow = 4096,
+    this.isFree = false,
+    this.pricing,
   });
 
   factory CloudModelInfo.fromJson(Map<String, dynamic> json) {
@@ -74,8 +95,18 @@ class CloudModelInfo {
       id: json['id'] as String,
       name: json['name'] as String,
       contextWindow: json['contextWindow'] as int? ?? 4096,
+      isFree: json['isFree'] as bool? ?? false,
+      pricing: json['pricing'] as String?,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'contextWindow': contextWindow,
+        'isFree': isFree,
+        'pricing': pricing,
+      };
 }
 
 // ─── Saved Provider State ────────────────────────────
@@ -85,12 +116,14 @@ class SavedProviderConfig {
   final String? apiKey;
   final String? customBaseUrl;
   final bool isEnabled;
+  final List<String> selectedModelIds; // user-selected models from provider
 
   const SavedProviderConfig({
     required this.providerId,
     this.apiKey,
     this.customBaseUrl,
     this.isEnabled = false,
+    this.selectedModelIds = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -98,6 +131,7 @@ class SavedProviderConfig {
         'apiKey': apiKey,
         'customBaseUrl': customBaseUrl,
         'isEnabled': isEnabled,
+        'selectedModelIds': selectedModelIds,
       };
 
   factory SavedProviderConfig.fromJson(Map<String, dynamic> json) {
@@ -106,8 +140,25 @@ class SavedProviderConfig {
       apiKey: json['apiKey'] as String?,
       customBaseUrl: json['customBaseUrl'] as String?,
       isEnabled: json['isEnabled'] as bool? ?? false,
+      selectedModelIds: (json['selectedModelIds'] as List<dynamic>?)
+              ?.cast<String>() ??
+          [],
     );
   }
+
+  SavedProviderConfig copyWith({
+    String? apiKey,
+    String? customBaseUrl,
+    bool? isEnabled,
+    List<String>? selectedModelIds,
+  }) =>
+      SavedProviderConfig(
+        providerId: providerId,
+        apiKey: apiKey ?? this.apiKey,
+        customBaseUrl: customBaseUrl ?? this.customBaseUrl,
+        isEnabled: isEnabled ?? this.isEnabled,
+        selectedModelIds: selectedModelIds ?? this.selectedModelIds,
+      );
 }
 
 // ─── Cloud Provider State ────────────────────────────
@@ -116,22 +167,30 @@ class CloudProviderState {
   final List<CloudProviderConfig> providers;
   final Map<String, SavedProviderConfig> savedConfigs;
   final bool isLoaded;
+  final Map<String, List<CloudModelInfo>> fetchedModels; // provider ID → fetched models
+  final Map<String, bool> fetchingModels; // provider ID → loading
 
   const CloudProviderState({
     this.providers = const [],
     this.savedConfigs = const {},
     this.isLoaded = false,
+    this.fetchedModels = const {},
+    this.fetchingModels = const {},
   });
 
   CloudProviderState copyWith({
     List<CloudProviderConfig>? providers,
     Map<String, SavedProviderConfig>? savedConfigs,
     bool? isLoaded,
+    Map<String, List<CloudModelInfo>>? fetchedModels,
+    Map<String, bool>? fetchingModels,
   }) =>
       CloudProviderState(
         providers: providers ?? this.providers,
         savedConfigs: savedConfigs ?? this.savedConfigs,
         isLoaded: isLoaded ?? this.isLoaded,
+        fetchedModels: fetchedModels ?? this.fetchedModels,
+        fetchingModels: fetchingModels ?? this.fetchingModels,
       );
 }
 
@@ -147,6 +206,7 @@ class CloudProviderNotifier extends Notifier<CloudProviderState> {
   Future<void> _init() async {
     await _loadProviders();
     await _loadSavedConfigs();
+    await _loadSavedSelectedModels();
     _registerCloudModels();
   }
 
@@ -182,6 +242,33 @@ class CloudProviderNotifier extends Notifier<CloudProviderState> {
     } catch (_) {}
   }
 
+  Future<void> _loadSavedSelectedModels() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString('cloud_selected_models');
+      if (json != null) {
+        final map = (jsonDecode(json) as Map<String, dynamic>).map(
+          (k, v) => MapEntry(
+            k,
+            (v as List)
+                .map((m) =>
+                    CloudModelInfo.fromJson(m as Map<String, dynamic>))
+                .toList(),
+          ),
+        );
+        state = state.copyWith(fetchedModels: map);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveSavedSelectedModels() async {
+    final prefs = await SharedPreferences.getInstance();
+    final map = state.fetchedModels.map(
+      (k, v) => MapEntry(k, v.map((m) => m.toJson()).toList()),
+    );
+    await prefs.setString('cloud_selected_models', jsonEncode(map));
+  }
+
   Future<void> _saveConfigs() async {
     final prefs = await SharedPreferences.getInstance();
     final json = jsonEncode(
@@ -202,7 +289,12 @@ class CloudProviderNotifier extends Notifier<CloudProviderState> {
           ? config.customBaseUrl!
           : provider.baseUrl;
 
-      for (final model in provider.models) {
+      // If user has selected specific models, use those; otherwise use catalog defaults
+      final modelsToRegister = config.selectedModelIds.isNotEmpty
+          ? _getSelectedModels(provider, config)
+          : provider.models;
+
+      for (final model in modelsToRegister) {
         aiNotifier.addModel(ModelConfig(
           id: '${provider.id}/${model.id}',
           name: '${model.name} (${provider.name})',
@@ -216,6 +308,23 @@ class CloudProviderNotifier extends Notifier<CloudProviderState> {
     }
   }
 
+  List<CloudModelInfo> _getSelectedModels(
+      CloudProviderConfig provider, SavedProviderConfig saved) {
+    // Combine catalog models + fetched models to find the selected ones
+    final allModels = <String, CloudModelInfo>{};
+    for (final m in provider.models) {
+      allModels[m.id] = m;
+    }
+    final fetched = state.fetchedModels[provider.id] ?? [];
+    for (final m in fetched) {
+      allModels[m.id] = m;
+    }
+    return saved.selectedModelIds
+        .where((id) => allModels.containsKey(id))
+        .map((id) => allModels[id]!)
+        .toList();
+  }
+
   ProviderType _providerTypeFromId(String id) {
     return switch (id) {
       'openai' || 'openrouter' => ProviderType.openai,
@@ -226,17 +335,132 @@ class CloudProviderNotifier extends Notifier<CloudProviderState> {
     };
   }
 
+  /// Fetch available models from a provider (e.g. OpenRouter /api/v1/models).
+  Future<List<CloudModelInfo>> fetchProviderModels(String providerId) async {
+    final provider =
+        state.providers.where((p) => p.id == providerId).firstOrNull;
+    if (provider == null) return [];
+
+    final saved = state.savedConfigs[providerId];
+    if (saved?.apiKey == null || saved!.apiKey!.isEmpty) return [];
+
+    final baseUrl = saved.customBaseUrl?.isNotEmpty == true
+        ? saved.customBaseUrl!
+        : provider.baseUrl;
+
+    state = state.copyWith(fetchingModels: {
+      ...state.fetchingModels,
+      providerId: true,
+    });
+
+    try {
+      final dio = Dio();
+      final headers = <String, dynamic>{
+        'Content-Type': 'application/json',
+      };
+      if (provider.authType == 'bearer') {
+        headers['Authorization'] = 'Bearer ${saved.apiKey}';
+      }
+      // OpenRouter specific headers
+      if (providerId == 'openrouter') {
+        headers['HTTP-Referer'] = 'https://prism.app';
+        headers['X-Title'] = 'Prism AI';
+      }
+
+      final response = await dio.get(
+        '$baseUrl/models',
+        options: Options(
+          headers: headers,
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+      dio.close();
+
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final models = (data['data'] as List<dynamic>?)?.map((m) {
+              final map = m as Map<String, dynamic>;
+              final id = map['id'] as String;
+              final name = map['name'] as String? ?? id;
+              final ctx = (map['context_length'] as num?)?.toInt() ?? 4096;
+              // Detect free models
+              final pricing = map['pricing'] as Map<String, dynamic>?;
+              final promptPrice =
+                  double.tryParse(pricing?['prompt']?.toString() ?? '1') ?? 1;
+              final completionPrice =
+                  double.tryParse(pricing?['completion']?.toString() ?? '1') ??
+                      1;
+              final isFree = promptPrice == 0 && completionPrice == 0;
+              String? pricingLabel;
+              if (!isFree && pricing != null) {
+                pricingLabel =
+                    '\$${(promptPrice * 1000000).toStringAsFixed(2)}/1M in, '
+                    '\$${(completionPrice * 1000000).toStringAsFixed(2)}/1M out';
+              }
+              return CloudModelInfo(
+                id: id,
+                name: name,
+                contextWindow: ctx,
+                isFree: isFree,
+                pricing: isFree ? 'Free' : pricingLabel,
+              );
+            }).toList() ??
+            [];
+
+        // Sort: free first, then by name
+        models.sort((a, b) {
+          if (a.isFree && !b.isFree) return -1;
+          if (!a.isFree && b.isFree) return 1;
+          return a.name.compareTo(b.name);
+        });
+
+        state = state.copyWith(
+          fetchedModels: {...state.fetchedModels, providerId: models},
+          fetchingModels: {...state.fetchingModels, providerId: false},
+        );
+        await _saveSavedSelectedModels();
+        return models;
+      }
+    } on DioException catch (_) {
+      // silently fail
+    } catch (_) {
+      // silently fail
+    }
+
+    state = state.copyWith(fetchingModels: {
+      ...state.fetchingModels,
+      providerId: false,
+    });
+    return [];
+  }
+
+  /// Update user's selected models for a provider.
+  Future<void> updateSelectedModels(
+      String providerId, List<String> modelIds) async {
+    final saved = state.savedConfigs[providerId];
+    if (saved == null) return;
+    state = state.copyWith(savedConfigs: {
+      ...state.savedConfigs,
+      providerId: saved.copyWith(selectedModelIds: modelIds),
+    });
+    await _saveConfigs();
+    _registerCloudModels();
+    await _saveSavedSelectedModels();
+  }
+
   /// Save API key and enable a cloud provider.
   Future<void> configureProvider(
     String providerId, {
     required String apiKey,
     String? customBaseUrl,
   }) async {
+    final existing = state.savedConfigs[providerId];
     final saved = SavedProviderConfig(
       providerId: providerId,
       apiKey: apiKey.trim(),
       customBaseUrl: customBaseUrl?.trim(),
       isEnabled: apiKey.trim().isNotEmpty,
+      selectedModelIds: existing?.selectedModelIds ?? [],
     );
     state = state.copyWith(savedConfigs: {
       ...state.savedConfigs,

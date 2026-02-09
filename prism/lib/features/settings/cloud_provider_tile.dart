@@ -286,6 +286,18 @@ class _CloudProviderTileState extends ConsumerState<CloudProviderTile> {
                 ],
               ),
             ),
+          // Browse & Select Models button (for providers with model API)
+          if (widget.isConfigured &&
+              widget.provider.id == 'openrouter')
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _BrowseModelsButton(
+                provider: widget.provider,
+                accentColor: widget.accentColor,
+                textSecondary: widget.textSecondary,
+                borderColor: widget.borderColor,
+              ),
+            ),
           _buildTextField('Base URL', _baseUrlController,
               hint: widget.provider.baseUrl.isNotEmpty
                   ? widget.provider.baseUrl
@@ -627,6 +639,397 @@ class DetailRow extends StatelessWidget {
           Text(value, style: TextStyle(color: color, fontSize: 11)),
         ],
       ),
+    );
+  }
+}
+
+// ─── Browse & Select Models Button ───────────────────
+
+class _BrowseModelsButton extends ConsumerWidget {
+  final CloudProviderConfig provider;
+  final Color accentColor;
+  final Color textSecondary;
+  final Color borderColor;
+
+  const _BrowseModelsButton({
+    required this.provider,
+    required this.accentColor,
+    required this.textSecondary,
+    required this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cloudState = ref.watch(cloudProviderProvider);
+    final isFetching = cloudState.fetchingModels[provider.id] ?? false;
+
+    return GestureDetector(
+      onTap: isFetching
+          ? null
+          : () => _showModelSelectionDialog(context, ref),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isFetching)
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: accentColor),
+              )
+            else
+              Icon(Icons.model_training_rounded,
+                  size: 16, color: accentColor),
+            const SizedBox(width: 8),
+            Text(
+              isFetching ? 'Loading models…' : 'Browse & Select Models',
+              style: TextStyle(
+                  color: accentColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showModelSelectionDialog(
+      BuildContext context, WidgetRef ref) async {
+    // Fetch models first
+    final models = await ref
+        .read(cloudProviderProvider.notifier)
+        .fetchProviderModels(provider.id);
+
+    if (models.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No models found or fetch failed.')),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    // Get currently selected model IDs
+    final saved =
+        ref.read(cloudProviderProvider).savedConfigs[provider.id];
+    final selectedIds =
+        saved?.selectedModelIds.toSet() ?? <String>{};
+
+    // If no selections yet, pre-select the catalog defaults
+    if (selectedIds.isEmpty) {
+      for (final m in provider.models) {
+        selectedIds.add(m.id);
+      }
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => _ModelSelectionDialog(
+        providerName: provider.name,
+        providerId: provider.id,
+        models: models,
+        initialSelectedIds: selectedIds,
+      ),
+    );
+  }
+}
+
+// ─── Model Selection Dialog ──────────────────────────
+
+class _ModelSelectionDialog extends ConsumerStatefulWidget {
+  final String providerName;
+  final String providerId;
+  final List<CloudModelInfo> models;
+  final Set<String> initialSelectedIds;
+
+  const _ModelSelectionDialog({
+    required this.providerName,
+    required this.providerId,
+    required this.models,
+    required this.initialSelectedIds,
+  });
+
+  @override
+  ConsumerState<_ModelSelectionDialog> createState() =>
+      _ModelSelectionDialogState();
+}
+
+class _ModelSelectionDialogState
+    extends ConsumerState<_ModelSelectionDialog> {
+  late Set<String> _selectedIds;
+  String _search = '';
+  bool _showFreeOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIds = Set<String>.from(widget.initialSelectedIds);
+  }
+
+  List<CloudModelInfo> get _filteredModels {
+    var filtered = widget.models;
+    if (_showFreeOnly) {
+      filtered = filtered.where((m) => m.isFree).toList();
+    }
+    if (_search.isNotEmpty) {
+      final q = _search.toLowerCase();
+      filtered = filtered
+          .where((m) =>
+              m.name.toLowerCase().contains(q) ||
+              m.id.toLowerCase().contains(q))
+          .toList();
+    }
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF16162A) : Colors.white;
+    final textPrimary =
+        isDark ? const Color(0xFFE2E2EC) : const Color(0xFF1A1A2E);
+    final textSecondary =
+        isDark ? const Color(0xFF7A7A90) : const Color(0xFF6B6B80);
+    final borderColor =
+        isDark ? const Color(0xFF252540) : const Color(0xFFE2E2EC);
+    final accentColor = Theme.of(context).colorScheme.primary;
+    final filtered = _filteredModels;
+
+    return AlertDialog(
+      backgroundColor: bgColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Icon(Icons.model_training_rounded,
+              size: 20, color: accentColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('${widget.providerName} Models',
+                style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600)),
+          ),
+          Text('${_selectedIds.length} selected',
+              style: TextStyle(color: textSecondary, fontSize: 12)),
+        ],
+      ),
+      content: SizedBox(
+        width: 480,
+        height: 420,
+        child: Column(
+          children: [
+            // Search bar
+            SizedBox(
+              height: 36,
+              child: TextField(
+                onChanged: (v) => setState(() => _search = v),
+                style: TextStyle(color: textPrimary, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Search models…',
+                  hintStyle: TextStyle(
+                      color: textSecondary.withValues(alpha: 0.5),
+                      fontSize: 13),
+                  prefixIcon: Icon(Icons.search, size: 18, color: textSecondary),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  filled: true,
+                  fillColor: borderColor.withValues(alpha: 0.3),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: borderColor, width: 0.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: borderColor, width: 0.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: accentColor, width: 1),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Filter bar
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () =>
+                      setState(() => _showFreeOnly = !_showFreeOnly),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _showFreeOnly
+                          ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                          : borderColor.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                          color: _showFreeOnly
+                              ? const Color(0xFF10B981)
+                              : borderColor),
+                    ),
+                    child: Text('Free only',
+                        style: TextStyle(
+                          color: _showFreeOnly
+                              ? const Color(0xFF10B981)
+                              : textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        )),
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(
+                      () => _selectedIds = filtered.map((m) => m.id).toSet()),
+                  child: Text('Select All',
+                      style: TextStyle(
+                          color: accentColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: () => setState(() => _selectedIds.clear()),
+                  child: Text('Clear',
+                      style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Model list
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (_, i) {
+                  final model = filtered[i];
+                  final isSelected = _selectedIds.contains(model.id);
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedIds.remove(model.id);
+                        } else {
+                          _selectedIds.add(model.id);
+                        }
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? accentColor.withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? accentColor.withValues(alpha: 0.3)
+                              : borderColor.withValues(alpha: 0.5),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected
+                                ? Icons.check_box_rounded
+                                : Icons.check_box_outline_blank_rounded,
+                            size: 18,
+                            color: isSelected ? accentColor : textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(model.name,
+                                    style: TextStyle(
+                                        color: textPrimary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                Text(model.id,
+                                    style: TextStyle(
+                                        color: textSecondary, fontSize: 10),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          if (model.isFree)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('Free',
+                                  style: TextStyle(
+                                      color: Color(0xFF10B981),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600)),
+                            )
+                          else if (model.pricing != null)
+                            Text(model.pricing!,
+                                style: TextStyle(
+                                    color: textSecondary, fontSize: 9)),
+                          const SizedBox(width: 6),
+                          Text('${(model.contextWindow / 1024).round()}K',
+                              style: TextStyle(
+                                  color: textSecondary, fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: TextStyle(color: textSecondary)),
+        ),
+        FilledButton(
+          onPressed: () {
+            ref
+                .read(cloudProviderProvider.notifier)
+                .updateSelectedModels(
+                    widget.providerId, _selectedIds.toList());
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text('${_selectedIds.length} models selected.'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
+          child: const Text('Save Selection'),
+        ),
+      ],
     );
   }
 }

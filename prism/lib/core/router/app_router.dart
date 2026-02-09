@@ -16,7 +16,13 @@ final appRouter = GoRouter(
         GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
         GoRoute(path: '/chat', builder: (_, _) => const ChatScreen()),
         GoRoute(path: '/brain', builder: (_, _) => const BrainScreen()),
-        GoRoute(path: '/apps', builder: (_, _) => const AppsHubScreen()),
+        GoRoute(
+          path: '/apps',
+          builder: (_, state) {
+            final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '');
+            return AppsHubScreen(initialTab: tab);
+          },
+        ),
         GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       ],
     ),

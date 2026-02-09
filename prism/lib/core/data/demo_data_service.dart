@@ -91,32 +91,127 @@ class DemoDataService {
       }
     }
 
-    // ── Notes ─────────────────────────────────────────
-    final notesData = [
+    // ── Notes (PARA-categorized) ─────────────────────
+
+    // PROJECTS — active goals with deadlines
+    final projectNotes = [
       (
-        title: 'Meeting Notes — Product Sync',
-        content: '## Product Sync — Dec 12\n\n'
-            '### Attendees\n- Alex, Priya, Jordan, Sam\n\n'
-            '### Key Decisions\n'
-            '- **Launch date moved to Jan 15** — needs QA sign-off\n'
-            '- Mobile app beta starts next Monday\n'
-            '- Budget approved for cloud hosting migration\n\n'
-            '### Action Items\n'
-            '- [ ] Alex: Finalize API docs by Friday\n'
-            '- [ ] Priya: Set up staging environment\n'
-            '- [ ] Jordan: User testing script ready by Wednesday\n',
-        tags: 'work,meetings,product',
+        title: 'Mobile App Redesign',
+        content: '## Mobile App Redesign — Q1 2025\n\n'
+            '### Objective\nModernize the UI/UX for our flagship mobile app.\n\n'
+            '### Milestones\n'
+            '- [x] User research complete (Jan 8)\n'
+            '- [x] Wireframes approved (Jan 20)\n'
+            '- [ ] High-fidelity mockups (Feb 5)\n'
+            '- [ ] Developer handoff (Feb 15)\n'
+            '- [ ] Beta release (Mar 1)\n'
+            '- [ ] Production release (Mar 15)\n\n'
+            '### Stack\nFlutter 3.x, Riverpod, Material 3, custom design system\n\n'
+            '### Team\n- Design: Sarah, Omar\n- Dev: Alex, Priya\n- QA: Jordan\n',
+        tags: 'project,work,app,design',
       ),
+      (
+        title: 'Home Office Renovation',
+        content: '## Home Office Setup\n\n'
+            '### Budget: \$2,500\n\n'
+            '### Shopping List\n'
+            '- [ ] Standing desk (IKEA Bekant) — \$500\n'
+            '- [ ] Ergonomic chair (Herman Miller Aeron) — \$1,200\n'
+            '- [ ] Monitor arm (Ergotron LX) — \$130\n'
+            '- [x] LED desk lamp — \$45\n'
+            '- [ ] Cable management kit — \$25\n'
+            '- [ ] Acoustic panels (4-pack) — \$80\n\n'
+            '### Timeline\n'
+            '- Order furniture by Feb 1\n'
+            '- Assembly weekend: Feb 8-9\n'
+            '- Cable management: Feb 10\n',
+        tags: 'project,home,renovation,office',
+      ),
+      (
+        title: 'Side Project — Recipe API',
+        content: '## Recipe Collection API\n\n'
+            '### Goal\nBuild a REST API to manage personal recipe collection.\n\n'
+            '### Tech Stack\n- Backend: Dart Shelf + Drift (SQLite)\n'
+            '- Auth: JWT tokens\n- Deploy: Docker + Railway\n\n'
+            '### Endpoints\n'
+            '```\nGET    /recipes         — List all\n'
+            'POST   /recipes         — Create new\n'
+            'GET    /recipes/:id     — Get single\n'
+            'PUT    /recipes/:id     — Update\n'
+            'DELETE /recipes/:id     — Delete\n'
+            'GET    /recipes/search  — Full-text search\n```\n\n'
+            '### Progress\n- [x] Database schema\n- [x] CRUD endpoints\n'
+            '- [ ] Auth middleware\n- [ ] Search with FTS5\n- [ ] Docker setup\n',
+        tags: 'project,coding,api,recipes',
+      ),
+    ];
+
+    // AREAS — ongoing responsibilities
+    final areaNotes = [
+      (
+        title: 'Health & Fitness Tracker',
+        content: '## Health & Fitness — Ongoing\n\n'
+            '### Weekly Goals\n'
+            '- Workout 4x per week (Mon/Wed/Fri/Sat)\n'
+            '- 10,000 steps daily\n'
+            '- 2L water minimum\n'
+            '- Sleep 7+ hours\n\n'
+            '### Current Program\n'
+            '| Day | Focus | Duration |\n'
+            '|-----|-------|----------|\n'
+            '| Mon | Upper body + core | 45 min |\n'
+            '| Wed | Lower body + stretch | 50 min |\n'
+            '| Fri | Full body HIIT | 35 min |\n'
+            '| Sat | Long run or hike | 60 min |\n\n'
+            '### Supplements\n- Vitamin D 2000 IU daily\n- Omega-3 fish oil\n- Magnesium before bed\n',
+        tags: 'area,health,fitness,routine',
+      ),
+      (
+        title: 'Personal Finance Dashboard',
+        content: '## Monthly Finance Review\n\n'
+            '### Budget Allocation\n'
+            '| Category | Budget | % |\n'
+            '|----------|--------|---|\n'
+            '| Rent & Utilities | \$1,800 | 45% |\n'
+            '| Groceries | \$400 | 10% |\n'
+            '| Transport | \$200 | 5% |\n'
+            '| Savings & Invest | \$800 | 20% |\n'
+            '| Entertainment | \$200 | 5% |\n'
+            '| Dining Out | \$200 | 5% |\n'
+            '| Miscellaneous | \$400 | 10% |\n\n'
+            '### Goals\n- Emergency fund: 6 months expenses (\$18K target)\n'
+            '- Current: \$12,400 (69%)\n'
+            '- Index fund: \$500/month auto-invest\n',
+        tags: 'area,finance,budget,planning',
+      ),
+      (
+        title: 'Career Development Plan',
+        content: '## Career Growth — 2025\n\n'
+            '### Focus Areas\n'
+            '1. **Technical leadership** — lead architecture decisions\n'
+            '2. **Public speaking** — 2 conference talks this year\n'
+            '3. **Mentoring** — mentor 2 junior devs\n\n'
+            '### Learning Plan\n'
+            '- System Design: "Designing Data-Intensive Applications" (Q1)\n'
+            '- ML/AI fundamentals course (Q2)\n'
+            '- Cloud certifications: GCP Associate (Q3)\n\n'
+            '### Network\n'
+            '- Attend 1 meetup/month\n'
+            '- Write 2 blog posts/month\n'
+            '- Contribute to 1 open-source project\n',
+        tags: 'area,career,growth,learning',
+      ),
+    ];
+
+    // RESOURCES — reference material
+    final resourceNotes = [
       (
         title: 'Recipe: Thai Green Curry',
         content: '## Thai Green Curry (Serves 4)\n\n'
             '### Ingredients\n'
-            '- 400ml coconut milk\n'
-            '- 2 tbsp green curry paste\n'
-            '- 300g chicken breast, sliced\n'
-            '- 1 cup Thai basil leaves\n'
-            '- 2 tbsp fish sauce\n'
-            '- 1 tbsp palm sugar\n'
+            '- 400ml coconut milk\n- 2 tbsp green curry paste\n'
+            '- 300g chicken breast, sliced\n- 1 cup Thai basil leaves\n'
+            '- 2 tbsp fish sauce\n- 1 tbsp palm sugar\n'
             '- Bamboo shoots, baby corn, bell pepper\n\n'
             '### Steps\n'
             '1. Heat thick coconut cream, fry curry paste until fragrant\n'
@@ -124,51 +219,174 @@ class DemoDataService {
             '3. Pour remaining coconut milk, add vegetables\n'
             '4. Season with fish sauce and sugar\n'
             '5. Simmer 10 min, add basil leaves\n'
-            '6. Serve over jasmine rice\n',
-        tags: 'recipes,cooking,thai',
+            '6. Serve over jasmine rice\n\n'
+            '⏱ Prep: 15 min | Cook: 25 min | Total: 40 min\n',
+        tags: 'resource,recipes,cooking,thai',
       ),
       (
-        title: 'Book Recommendations',
-        content: '## To Read\n\n'
-            '- **"Project Hail Mary"** by Andy Weir — Sci-fi, highly rated\n'
-            '- **"Thinking, Fast and Slow"** by Kahneman — Psychology/Decision-making\n'
-            '- **"The Pragmatic Programmer"** — Tech classic, 20th anniversary edition\n'
-            '- **"Klara and the Sun"** by Ishiguro — AI perspective fiction\n\n'
-            '## Recently Finished\n'
-            '- ✅ "Atomic Habits" — ⭐⭐⭐⭐⭐ Life-changing\n'
-            '- ✅ "Deep Work" — ⭐⭐⭐⭐ Good frameworks\n'
-            '- ✅ "Sapiens" — ⭐⭐⭐⭐ Fascinating big-picture view\n',
-        tags: 'books,reading,lists',
+        title: 'Recipe: Overnight Oats (5 Variations)',
+        content: '## Overnight Oats Base\n\n'
+            '### Base (all variations)\n'
+            '- ½ cup rolled oats\n- ½ cup milk (any kind)\n'
+            '- ¼ cup yogurt\n- 1 tbsp chia seeds\n- 1 tsp honey\n\n'
+            '### Variations\n'
+            '**1. Berry Blast** — mixed berries + vanilla extract\n'
+            '**2. Chocolate PB** — cocoa powder + peanut butter + banana\n'
+            '**3. Tropical** — mango + coconut flakes + lime zest\n'
+            '**4. Apple Pie** — diced apple + cinnamon + walnuts\n'
+            '**5. Matcha** — matcha powder + honey + almonds\n\n'
+            'Mix night before, refrigerate, eat cold or warm up.\n',
+        tags: 'resource,recipes,breakfast,healthy',
       ),
       (
-        title: 'Workout Plan — Week 1',
-        content: '## Weekly Workout Schedule\n\n'
-            '| Day | Focus | Duration |\n'
-            '|-----|-------|----------|\n'
-            '| Mon | Upper body + core | 45 min |\n'
-            '| Tue | Cardio (run/cycle) | 30 min |\n'
-            '| Wed | Lower body + stretch | 50 min |\n'
-            '| Thu | Rest or yoga | 20 min |\n'
-            '| Fri | Full body HIIT | 35 min |\n'
-            '| Sat | Long run or hike | 60 min |\n'
-            '| Sun | Rest | — |\n\n'
-            '**Goal:** Build consistency first, increase intensity in week 3.\n',
-        tags: 'fitness,health,routine',
+        title: 'Book Notes: Atomic Habits',
+        content: '## Atomic Habits — James Clear\n⭐⭐⭐⭐⭐\n\n'
+            '### Core Ideas\n'
+            '1. **1% better every day** — compound gains\n'
+            '2. **Systems > Goals** — focus on the process\n'
+            '3. **Identity-based habits** — "I am a runner" vs "I want to run"\n'
+            '4. **4 Laws of Behavior Change**:\n'
+            '   - Make it obvious (cue)\n'
+            '   - Make it attractive (craving)\n'
+            '   - Make it easy (response)\n'
+            '   - Make it satisfying (reward)\n\n'
+            '### Key Takeaways\n'
+            '- Habit stacking: "After [CURRENT HABIT], I will [NEW HABIT]"\n'
+            '- Environment design matters more than motivation\n'
+            '- Never miss twice — bad days are OK, quitting isn\'t\n'
+            '- Track habits visually for dopamine\n\n'
+            '### Rating: Must-read for anyone wanting to build better systems.\n',
+        tags: 'resource,books,self-improvement,habits',
       ),
       (
-        title: 'Travel Ideas — 2025',
-        content: '## Places to Visit\n\n'
-            '### International\n'
-            '- 🇯🇵 Japan — Cherry blossom season (Mar-Apr)\n'
-            '- 🇮🇸 Iceland — Northern lights (Oct-Mar)\n'
-            '- 🇵🇹 Portugal — Lisbon + Porto food tour\n\n'
-            '### Domestic\n'
-            '- Mountain cabin weekend — February\n'
-            '- National park road trip — Summer\n'
-            '- Beach house with friends — August\n\n'
-            '**Budget:** Set aside \$200/month starting January.\n',
-        tags: 'travel,planning,goals',
+        title: 'Book Notes: Designing Data-Intensive Applications',
+        content: '## DDIA — Martin Kleppmann\n⭐⭐⭐⭐⭐\n\n'
+            '### Part I: Foundations\n'
+            '- **Reliability** — tolerating hardware/software faults\n'
+            '- **Scalability** — describing load, measuring performance\n'
+            '- **Maintainability** — operability, simplicity, evolvability\n\n'
+            '### Part II: Distributed Data\n'
+            '- Replication: leader-based, multi-leader, leaderless\n'
+            '- Partitioning: key range vs hash partitioning\n'
+            '- Transactions: ACID, isolation levels, serializability\n'
+            '- Consistency & Consensus: linearizability, total order broadcast\n\n'
+            '### Part III: Derived Data\n'
+            '- Batch processing: MapReduce, Spark\n'
+            '- Stream processing: event sourcing, CDC\n'
+            '- Future of data systems: unbundling databases\n\n'
+            '### Key Insight\n'
+            '"The boundary between a simple feature request and a redesign of the '
+            'entire system architecture can be surprisingly thin."\n',
+        tags: 'resource,books,engineering,distributed-systems',
       ),
+      (
+        title: 'Article: State of Flutter 2025',
+        content: '## State of Flutter in 2025\n*Source: flutter.dev blog*\n\n'
+            '### Key Highlights\n'
+            '- **Dart 3.x** — Records, patterns, sealed classes stable\n'
+            '- **Impeller** — Default on iOS, Android in preview\n'
+            '- **WebAssembly** — dart2wasm for web builds\n'
+            '- **Firebase Vertex AI** — On-device + cloud AI integration\n'
+            '- **DevTools** — Enhanced memory + performance profiling\n\n'
+            '### Ecosystem Growth\n'
+            '- 1M+ apps published\n- 30K+ pub.dev packages\n'
+            '- Top industries: fintech, e-commerce, health, education\n\n'
+            '### What to Learn\n'
+            '- Riverpod 3.x (code generation approach)\n'
+            '- Drift for local persistence\n'
+            '- Custom render objects for advanced UI\n'
+            '- Platform channels for native integration\n',
+        tags: 'resource,articles,flutter,technology',
+      ),
+      (
+        title: 'Research: On-Device LLM Inference',
+        content: '## On-Device LLM Inference — 2024 Survey\n\n'
+            '### Key Papers\n'
+            '1. **"Efficient LLM Inference on Mobile"** (Google, 2024)\n'
+            '   - 4-bit quantization maintains 95% quality\n'
+            '   - GGUF format preferred for mobile deployment\n'
+            '   - Memory requirements: 2B params ≈ 1.5 GB RAM\n\n'
+            '2. **"TinyLlama: An Open-Source Small LLM"** (Zhang et al.)\n'
+            '   - 1.1B parameters, trained on 3T tokens\n'
+            '   - Competitive with 7B models on some benchmarks\n\n'
+            '3. **"Gemma 2: Improving Open Models"** (Google DeepMind)\n'
+            '   - 2B and 9B variants\n'
+            '   - Knowledge distillation from larger models\n'
+            '   - Best-in-class for size category\n\n'
+            '### Practical Notes\n'
+            '- Q4_K_M quantization: best quality/size tradeoff\n'
+            '- Flash attention crucial for context > 2K tokens\n'
+            '- KV cache optimization reduces memory 40%\n'
+            '- Speculative decoding: 2x speedup with draft model\n',
+        tags: 'resource,research,ai,llm,mobile',
+      ),
+      (
+        title: 'Research: Privacy-Preserving AI',
+        content: '## Privacy-Preserving Machine Learning\n\n'
+            '### Techniques\n'
+            '1. **Federated Learning**\n'
+            '   - Train on user devices, only share gradients\n'
+            '   - Used by: Gboard, Apple Siri, health apps\n'
+            '   - Challenge: non-IID data distribution\n\n'
+            '2. **Differential Privacy**\n'
+            '   - Add calibrated noise to query results\n'
+            '   - ε-differential privacy budget\n'
+            '   - Apple: ε = 2-8 per day for usage analytics\n\n'
+            '3. **On-Device Inference**\n'
+            '   - Data never leaves the device\n'
+            '   - Prism approach: local GGUF models\n'
+            '   - Tradeoff: model size vs. capability\n\n'
+            '### Tools\n'
+            '- TFLite / CoreML for mobile models\n'
+            '- llama.cpp for on-device LLMs\n'
+            '- PySyft for federated learning research\n',
+        tags: 'resource,research,ai,privacy,security',
+      ),
+    ];
+
+    // ARCHIVES — completed or inactive
+    final archiveNotes = [
+      (
+        title: '[Completed] Website Redesign 2024',
+        content: '## Website Redesign — Completed Dec 2024\n\n'
+            '### Summary\n'
+            'Full redesign of company website from WordPress to Next.js.\n\n'
+            '### Results\n'
+            '- Page load time: 4.2s → 1.1s (74% improvement)\n'
+            '- Lighthouse score: 52 → 97\n'
+            '- Bounce rate: -23%\n'
+            '- Mobile conversions: +18%\n\n'
+            '### Lessons Learned\n'
+            '- Server-side rendering critical for SEO\n'
+            '- Image optimization (WebP + lazy load) biggest win\n'
+            '- A/B test everything before full rollout\n'
+            '- Design system saved 30% development time\n',
+        tags: 'archive,project,web,completed',
+      ),
+      (
+        title: '[Archive] Travel Ideas — 2024',
+        content: '## Places Visited — 2024\n\n'
+            '### Trips Completed\n'
+            '- 🇯🇵 Japan (April) — Cherry blossom season, Tokyo + Kyoto\n'
+            '  - Highlights: Fushimi Inari, Tsukiji Outer Market\n'
+            '  - Total cost: \$3,200 for 10 days\n\n'
+            '- ⛰️ National Park Road Trip (July)\n'
+            '  - Yosemite → Sequoia → Death Valley\n'
+            '  - 7 days, 1,200 miles driven\n\n'
+            '- 🏖️ Beach Weekend (September)\n'
+            '  - Group trip, 8 friends, rented beach house\n\n'
+            '### For Next Year\n'
+            'See "Travel Ideas — 2025" in Project notes\n',
+        tags: 'archive,travel,completed,memories',
+      ),
+    ];
+
+    // Combine all notes
+    final notesData = [
+      ...projectNotes,
+      ...areaNotes,
+      ...resourceNotes,
+      ...archiveNotes,
     ];
 
     for (final note in notesData) {

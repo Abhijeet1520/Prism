@@ -5,6 +5,7 @@
 library;
 
 import 'dart:convert';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:langchain/langchain.dart';
 import 'package:uuid/uuid.dart';
@@ -25,8 +26,44 @@ class PrismToolRegistry {
         searchNotesTool,
         createNoteTool,
         getWeatherTool,
+        readNotificationsTool,
         ...?_cachedJsonSpecs,
       ];
+
+  /// Convert all tool specs to OpenAI function-calling format.
+  /// Returns a list of `{"type": "function", "function": {...}}` objects
+  /// suitable for the `tools` parameter in chat completions requests.
+  static List<Map<String, dynamic>> toOpenAITools() {
+    return specs.map((t) => toolSpecToOpenAI(t)).toList();
+  }
+
+  /// Convert a single [ToolSpec] to OpenAI function-calling format.
+  static Map<String, dynamic> toolSpecToOpenAI(ToolSpec tool) {
+    return {
+      'type': 'function',
+      'function': {
+        'name': tool.name,
+        'description': tool.description,
+        'parameters': tool.inputJsonSchema,
+      },
+    };
+  }
+
+  /// Parse tool calls from an OpenAI-format response `tool_calls` array.
+  /// Returns a list of `{id, name, arguments}` maps.
+  static List<Map<String, dynamic>> parseToolCalls(List<dynamic> toolCalls) {
+    return toolCalls.map((tc) {
+      final call = tc as Map<String, dynamic>;
+      final function_ = call['function'] as Map<String, dynamic>? ?? {};
+      return {
+        'id': call['id'] ?? '',
+        'name': function_['name'] ?? '',
+        'arguments': function_['arguments'] is String
+            ? jsonDecode(function_['arguments'] as String)
+            : function_['arguments'] ?? {},
+      };
+    }).toList();
+  }
 
   /// Load additional tool specs from assets/config/skills.json.
   /// Call this once during app initialization.
@@ -35,7 +72,7 @@ class PrismToolRegistry {
       final jsonStr = await rootBundle.loadString('assets/config/skills.json');
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
       final tools = data['tools'] as List<dynamic>? ?? [];
-      final builtinNames = {'add_task', 'log_expense', 'search_notes', 'create_note', 'get_weather'};
+      final builtinNames = {'add_task', 'log_expense', 'search_notes', 'create_note', 'get_weather', 'read_notifications'};
 
       _cachedJsonSpecs = tools
           .map((t) {
@@ -176,6 +213,45 @@ class PrismToolRegistry {
     },
   );
 
+  // ── Notification reading tool ────────────────────
+
+  static const readNotificationsTool = ToolSpec(
+    name: 'read_notifications',
+    description:
+        'Read the user\'s recent push notifications. Returns notification history and permission status.',
+    inputJsonSchema: {
+      'type': 'object',
+      'properties': {
+        'limit': {
+          'type': 'integer',
+          'description': 'Max number of notifications to return (default 10)',
+        },
+      },
+      'required': [],
+    },
+  );
+
+  // ── Cached notification history ──────────────────
+
+  /// In-memory store for received notifications (Firebase doesn't persist history).
+  static final List<Map<String, dynamic>> _notificationHistory = [];
+
+  /// Add a notification to the in-memory history.
+  static void addNotification(RemoteMessage message) {
+    _notificationHistory.insert(0, {
+      'title': message.notification?.title ?? '',
+      'body': message.notification?.body ?? '',
+      'data': message.data,
+      'sentTime': message.sentTime?.toIso8601String() ??
+          DateTime.now().toIso8601String(),
+      'messageId': message.messageId ?? '',
+    });
+    // Keep only last 50 notifications in memory
+    if (_notificationHistory.length > 50) {
+      _notificationHistory.removeRange(50, _notificationHistory.length);
+    }
+  }
+
   /// Execute a tool call and return the result as a string.
   /// Pass a [PrismDatabase] to enable real persistence.
   static Future<String> execute(
@@ -194,6 +270,8 @@ class PrismToolRegistry {
         return _executeCreateNote(args, db);
       case 'get_weather':
         return _executeGetWeather(args);
+      case 'read_notifications':
+        return _executeReadNotifications(args);
       default:
         return json.encode({'error': 'Unknown tool: $toolName'});
     }
@@ -263,7 +341,7 @@ class PrismToolRegistry {
     if (db != null && query.isNotEmpty) {
       // Try FTS5 search first for better results
       try {
-        final ftsResults = await db.searchNotes(query);
+        final ftsResults = await db.searchNotes(query).get();
         if (ftsResults.isNotEmpty) {
           return json.encode({
             'results': ftsResults
@@ -351,6 +429,46 @@ class PrismToolRegistry {
       'unit': 'celsius',
       'condition': 'Sunny',
       'humidity': 45,
+    });
+  }
+
+  static Future<String> _executeReadNotifications(
+      Map<String, dynamic> args) async {
+    final limit = args['limit'] as int? ?? 10;
+
+    // Check permission status
+    final messaging = FirebaseMessaging.instance;
+    NotificationSettings? settings;
+    try {
+      settings = await messaging.getNotificationSettings();
+    } catch (_) {
+      return json.encode({
+        'error': 'Firebase not initialized. Notification reading requires Firebase setup.',
+        'setup_required': true,
+      });
+    }
+
+    final authorized = settings.authorizationStatus ==
+            AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+
+    if (!authorized) {
+      return json.encode({
+        'permission': 'denied',
+        'message':
+            'Notification permission not granted. Please enable notifications in Settings.',
+        'notifications': [],
+      });
+    }
+
+    // Return cached notifications
+    final notifications = _notificationHistory.take(limit).toList();
+
+    return json.encode({
+      'permission': 'granted',
+      'count': notifications.length,
+      'total_stored': _notificationHistory.length,
+      'notifications': notifications,
     });
   }
 }

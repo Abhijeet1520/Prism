@@ -4,8 +4,10 @@
 /// quick actions grid, and digest cards for tasks/events/finance/chats.
 library;
 
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -319,7 +321,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     icon: Icons.add_task_rounded,
                     label: 'Add Task',
                     color: const Color(0xFF10B981),
-                    onTap: () => context.go('/apps'),
+                    onTap: () => context.go('/apps?tab=0'),
                   ),
                   const SizedBox(width: 12),
                   _QuickAction(
@@ -333,7 +335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     icon: Icons.receipt_long_outlined,
                     label: 'Log Expense',
                     color: const Color(0xFFF59E0B),
-                    onTap: () => context.go('/apps'),
+                    onTap: () => context.go('/apps?tab=1'),
                   ),
                 ],
               ),
@@ -355,7 +357,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   borderColor: borderColor,
                   textPrimary: textPrimary,
                   textSecondary: textSecondary,
-                  onTap: () => context.go('/apps'),
+                  onTap: () => context.go('/apps?tab=0'),
                   child: _TasksDigest(
                     textPrimary: textPrimary,
                     textSecondary: textSecondary,
@@ -401,6 +403,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 12),
 
+                // Events Card
+                _buildDigestCard(
+                  context,
+                  icon: Icons.event_rounded,
+                  iconColor: const Color(0xFF8B5CF6),
+                  title: "Today's Schedule",
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  onTap: () {},
+                  child: _EventsDigest(
+                    isDark: isDark,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 // Finance Card
                 _buildDigestCard(
                   context,
@@ -411,7 +432,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   borderColor: borderColor,
                   textPrimary: textPrimary,
                   textSecondary: textSecondary,
-                  onTap: () => context.go('/apps'),
+                  onTap: () => context.go('/apps?tab=1'),
                   child: _FinanceDigest(
                     textPrimary: textPrimary,
                     textSecondary: textSecondary,
@@ -804,6 +825,96 @@ class _BrainDigest extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ─── Events Digest ───────────────────────────────────
+
+class _EventsDigest extends StatefulWidget {
+  final bool isDark;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  const _EventsDigest({
+    required this.isDark,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  @override
+  State<_EventsDigest> createState() => _EventsDigestState();
+}
+
+class _EventsDigestState extends State<_EventsDigest> {
+  List<dynamic> _events = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    final raw =
+        await rootBundle.loadString('assets/mock_data/app_data.json');
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    setState(() => _events = (json['events'] as List?) ?? []);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_events.isEmpty) {
+      return Text('No events today',
+          style: TextStyle(color: widget.textSecondary, fontSize: 12));
+    }
+
+    return Column(
+      children: _events.take(3).map((e) {
+        final ev = e as Map<String, dynamic>;
+        final isWork = ev['type'] == 'work';
+        final barColor = isWork
+            ? const Color(0xFF3B82F6)
+            : const Color(0xFF10B981);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 3, height: 32,
+                decoration: BoxDecoration(
+                  color: barColor,
+                  borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(ev['title'] as String,
+                        style: TextStyle(
+                            color: widget.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500)),
+                    Text('${ev['time']} • ${ev['duration']}',
+                        style: TextStyle(
+                            color: widget.textSecondary, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: barColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4)),
+                child: Text(ev['type'] as String,
+                    style: TextStyle(fontSize: 10, color: barColor)),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

@@ -1,6 +1,6 @@
-﻿/// Settings Screen  7 sections with responsive layout.
+﻿/// Settings Screen — accordion sections with responsive layout.
 ///
-/// Appearance, AI Providers (local model management), Personas,
+/// AI Providers (open by default), Appearance, Personas,
 /// Voice & Input, Privacy, Data, About. Matches ux_preview design.
 library;
 
@@ -9,8 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'appearance_section.dart';
 import 'providers_section.dart';
-import 'personas_section.dart';
-import 'soul_section.dart';
 import 'voice_section.dart';
 import 'privacy_section.dart';
 import 'data_section.dart';
@@ -24,13 +22,13 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  int _selectedSection = 0;
+  // AI Providers (index 0) is open by default; rest closed
+  late final Set<int> _expandedSections = {0};
 
+  // Sections with AI Providers first
   static const _sections = [
-    ('Appearance', Icons.palette_outlined),
     ('AI Providers', Icons.model_training_outlined),
-    ('Personas', Icons.person_outline_rounded),
-    ('Soul', Icons.auto_awesome_outlined),
+    ('Appearance', Icons.palette_outlined),
     ('Voice & Input', Icons.mic_outlined),
     ('Privacy', Icons.shield_outlined),
     ('Data', Icons.storage_outlined),
@@ -57,14 +55,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           final isWide = c.maxWidth > 700;
 
           if (isWide) {
+            // Wide: side nav stays, content area shows selected section
             return Row(
               children: [
                 SizedBox(
                   width: 200,
                   child: _SideNav(
                     sections: _sections,
-                    selected: _selectedSection,
-                    onSelect: (i) => setState(() => _selectedSection = i),
+                    expandedSections: _expandedSections,
+                    onToggle: (i) => setState(() {
+                      if (_expandedSections.contains(i)) {
+                        _expandedSections.remove(i);
+                      } else {
+                        _expandedSections.add(i);
+                      }
+                    }),
                     cardColor: cardColor,
                     borderColor: borderColor,
                     textPrimary: textPrimary,
@@ -74,7 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 VerticalDivider(width: 1, color: borderColor),
                 Expanded(
-                  child: _buildContent(
+                  child: _buildWideContent(
                     isDark: isDark,
                     cardColor: cardColor,
                     borderColor: borderColor,
@@ -87,11 +92,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             );
           }
 
-          // Mobile: header + tabs + content
+          // Mobile: accordion layout with all sections
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
                 child: Row(
                   children: [
                     Text('Settings',
@@ -102,60 +107,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              // Tab row
-              SizedBox(
-                height: 36,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _sections.length,
-                  itemBuilder: (context, i) {
-                    final sel = _selectedSection == i;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedSection = i),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: sel
-                                ? accentColor.withValues(alpha: 0.12)
-                                : cardColor,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: sel ? accentColor : borderColor,
-                                width: 0.5),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(_sections[i].$2,
-                                  size: 14,
-                                  color: sel
-                                      ? accentColor
-                                      : textSecondary),
-                              const SizedBox(width: 4),
-                              Text(_sections[i].$1,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: sel
-                                          ? accentColor
-                                          : textSecondary,
-                                      fontWeight: sel
-                                          ? FontWeight.w600
-                                          : FontWeight.w400)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Divider(height: 16, color: borderColor),
               Expanded(
-                child: _buildContent(
+                child: _buildAccordionContent(
                   isDark: isDark,
                   cardColor: cardColor,
                   borderColor: borderColor,
@@ -171,7 +124,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildContent({
+  Widget _buildAccordionContent({
     required bool isDark,
     required Color cardColor,
     required Color borderColor,
@@ -179,75 +132,182 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required Color textSecondary,
     required Color accentColor,
   }) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: switch (_selectedSection) {
-        0 => AppearanceSection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        1 => ProvidersSection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        2 => PersonasSection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        3 => SoulDocumentSection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        4 => VoiceSection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        5 => PrivacySection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        6 => DataSection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        7 => AboutSection(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor),
-        _ => const SizedBox.shrink(),
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      itemCount: _sections.length,
+      itemBuilder: (context, i) {
+        final isExpanded = _expandedSections.contains(i);
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isExpanded ? accentColor.withValues(alpha: 0.3) : borderColor,
+              width: isExpanded ? 1 : 0.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Accordion header
+              InkWell(
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(12),
+                  bottom: Radius.circular(isExpanded ? 0 : 12),
+                ),
+                onTap: () => setState(() {
+                  if (_expandedSections.contains(i)) {
+                    _expandedSections.remove(i);
+                  } else {
+                    _expandedSections.add(i);
+                  }
+                }),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Icon(_sections[i].$2,
+                          size: 20,
+                          color: isExpanded ? accentColor : textSecondary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _sections[i].$1,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight:
+                                isExpanded ? FontWeight.w600 : FontWeight.w500,
+                            color: isExpanded ? accentColor : textPrimary,
+                          ),
+                        ),
+                      ),
+                      AnimatedRotation(
+                        turns: isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(Icons.expand_more_rounded,
+                            size: 22, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Accordion body
+              if (isExpanded)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: _buildSectionContent(
+                    i,
+                    isDark: isDark,
+                    cardColor: cardColor,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
+                  ),
+                ),
+            ],
+          ),
+        );
       },
     );
   }
+
+  Widget _buildWideContent({
+    required bool isDark,
+    required Color cardColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    // Show all expanded sections in scrollable view
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          for (int i = 0; i < _sections.length; i++)
+            if (_expandedSections.contains(i))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildSectionContent(
+                  i,
+                  isDark: isDark,
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  accentColor: accentColor,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionContent(
+    int index, {
+    required bool isDark,
+    required Color cardColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    return switch (index) {
+      0 => ProvidersSection(
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor),
+      1 => AppearanceSection(
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor),
+      2 => VoiceSection(
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor),
+      3 => PrivacySection(
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor),
+      4 => DataSection(
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor),
+      5 => AboutSection(
+          cardColor: cardColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor),
+      _ => const SizedBox.shrink(),
+    };
+  }
 }
 
-// Side Navigation (wide)
+// Side Navigation (wide) — now uses checkmarks for expanded sections
 
 class _SideNav extends StatelessWidget {
   final List<(String, IconData)> sections;
-  final int selected;
-  final ValueChanged<int> onSelect;
+  final Set<int> expandedSections;
+  final ValueChanged<int> onToggle;
   final Color cardColor, borderColor, textPrimary, textSecondary, accentColor;
 
   const _SideNav({
     required this.sections,
-    required this.selected,
-    required this.onSelect,
+    required this.expandedSections,
+    required this.onToggle,
     required this.cardColor,
     required this.borderColor,
     required this.textPrimary,
@@ -272,9 +332,9 @@ class _SideNav extends StatelessWidget {
           ),
           Divider(height: 1, color: borderColor),
           ...List.generate(sections.length, (i) {
-            final sel = selected == i;
+            final sel = expandedSections.contains(i);
             return GestureDetector(
-              onTap: () => onSelect(i),
+              onTap: () => onToggle(i),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -287,12 +347,17 @@ class _SideNav extends StatelessWidget {
                         size: 18,
                         color: sel ? accentColor : textSecondary),
                     const SizedBox(width: 10),
-                    Text(sections[i].$1,
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: sel ? accentColor : textPrimary,
-                            fontWeight:
-                                sel ? FontWeight.w600 : FontWeight.w400)),
+                    Expanded(
+                      child: Text(sections[i].$1,
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: sel ? accentColor : textPrimary,
+                              fontWeight:
+                                  sel ? FontWeight.w600 : FontWeight.w400)),
+                    ),
+                    if (sel)
+                      Icon(Icons.check_rounded,
+                          size: 16, color: accentColor),
                   ],
                 ),
               ),
