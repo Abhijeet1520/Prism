@@ -7,11 +7,13 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
 import 'ai_service.dart';
+import 'api_playground_html.dart';
 
 // ─── Host Server State ───────────────────────────────
 
@@ -21,6 +23,7 @@ class AIHostState {
   final int requestCount;
   final List<String> allowedApps;
   final String? error;
+  final String accessCode;
 
   const AIHostState({
     this.isRunning = false,
@@ -28,6 +31,7 @@ class AIHostState {
     this.requestCount = 0,
     this.allowedApps = const [],
     this.error,
+    this.accessCode = '',
   });
 
   AIHostState copyWith({
@@ -36,6 +40,7 @@ class AIHostState {
     int? requestCount,
     List<String>? allowedApps,
     String? error,
+    String? accessCode,
   }) =>
       AIHostState(
         isRunning: isRunning ?? this.isRunning,
@@ -43,6 +48,7 @@ class AIHostState {
         requestCount: requestCount ?? this.requestCount,
         allowedApps: allowedApps ?? this.allowedApps,
         error: error,
+        accessCode: accessCode ?? this.accessCode,
       );
 }
 
@@ -57,18 +63,35 @@ class AIHostNotifier extends Notifier<AIHostState> {
     return const AIHostState();
   }
 
+  /// Generate a random 6-digit alphanumeric access code.
+  static String _generateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I confusion
+    final rng = Random.secure();
+    return List.generate(6, (_) => chars[rng.nextInt(chars.length)]).join();
+  }
+
   /// Start the local AI host server.
   Future<void> start({int port = 8090}) async {
     if (_server != null) return;
 
     try {
+      final code = _generateCode();
       final handler = const Pipeline()
           .addMiddleware(_corsMiddleware())
           .addMiddleware(_authMiddleware())
           .addHandler(_router);
 
-      _server = await shelf_io.serve(handler, InternetAddress.loopbackIPv4, port);
-      state = state.copyWith(isRunning: true, port: port, error: null);
+      _server = await shelf_io.serve(
+        handler,
+        InternetAddress.anyIPv4,
+        port,
+      );
+      state = state.copyWith(
+        isRunning: true,
+        port: port,
+        error: null,
+        accessCode: code,
+      );
     } catch (e) {
       state = state.copyWith(error: 'Failed to start server: $e');
     }
@@ -78,7 +101,13 @@ class AIHostNotifier extends Notifier<AIHostState> {
   Future<void> stop() async {
     await _server?.close(force: true);
     _server = null;
-    state = state.copyWith(isRunning: false);
+    state = state.copyWith(isRunning: false, accessCode: '');
+  }
+
+  /// Regenerate the access code (invalidates all existing sessions).
+  void regenerateCode() {
+    if (!state.isRunning) return;
+    state = state.copyWith(accessCode: _generateCode());
   }
 
   /// Add an app to the allowed list.
@@ -101,11 +130,29 @@ class AIHostNotifier extends Notifier<AIHostState> {
     final path = request.url.path;
     final method = request.method;
 
+    // ── Public routes (no auth) ──
+
+    // Root — serve API Playground HTML
+    if ((path.isEmpty || path == '/') && method == 'GET') {
+      return Response.ok(apiPlaygroundHtml,
+          headers: {'content-type': 'text/html; charset=utf-8'});
+    }
+
     // Health check
     if (path == 'health' && method == 'GET') {
       return Response.ok(jsonEncode({'status': 'ok', 'service': 'prism'}),
           headers: {'content-type': 'application/json'});
     }
+
+    // Auth — validate access code
+    if (path == 'api/auth' && method == 'POST') {
+      return _handleAuth(request);
+    }
+
+    // ── Protected routes (require valid access code) ──
+
+    final authError = _checkAuth(request);
+    if (authError != null) return authError;
 
     // List models
     if (path == 'v1/models' && method == 'GET') {
@@ -118,6 +165,42 @@ class AIHostNotifier extends Notifier<AIHostState> {
     }
 
     return Response.notFound(jsonEncode({'error': 'Not found'}));
+  }
+
+  /// Check the Authorization: Bearer <code> header.
+  Response? _checkAuth(Request request) {
+    final authHeader = request.headers['authorization'] ?? '';
+    if (authHeader.startsWith('Bearer ')) {
+      final token = authHeader.substring(7).trim();
+      if (token == state.accessCode) return null; // valid
+    }
+    return Response.unauthorized(
+      jsonEncode({'error': 'Invalid or missing access code.'}),
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  /// Handle POST /api/auth — validate the user-entered code.
+  Future<Response> _handleAuth(Request request) async {
+    try {
+      final body = jsonDecode(await request.readAsString());
+      final code = (body['code'] as String?)?.trim() ?? '';
+      if (code == state.accessCode && code.isNotEmpty) {
+        return Response.ok(
+          jsonEncode({'success': true, 'message': 'Authenticated'}),
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return Response.ok(
+        jsonEncode({'success': false, 'message': 'Invalid access code.'}),
+        headers: {'content-type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.badRequest(
+        body: jsonEncode({'success': false, 'message': 'Bad request.'}),
+        headers: {'content-type': 'application/json'},
+      );
+    }
   }
 
   // ─── Handlers ──────────────────────────────────────
@@ -232,8 +315,7 @@ class AIHostNotifier extends Notifier<AIHostState> {
   Middleware _authMiddleware() {
     return (Handler innerHandler) {
       return (Request request) async {
-        // For now, allow all local connections
-        // Future: check Authorization header against allowed apps
+        // Auth is handled per-route in _router; middleware just passes through.
         return innerHandler(request);
       };
     };
