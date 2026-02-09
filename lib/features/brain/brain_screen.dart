@@ -186,13 +186,32 @@ class _KnowledgePanel extends ConsumerStatefulWidget {
 class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
   String _searchQuery = '';
   Set<String> _selectedTags = {};
-  Note? _selectedNote;
+  int? _expandedNoteIndex;
   final TextEditingController _searchController = TextEditingController();
+  
+  // Controllers for inline editing
+  TextEditingController? _titleController;
+  TextEditingController? _contentController;
+  TextEditingController? _tagsController;
+  bool _hasChanges = false;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _titleController?.dispose();
+    _contentController?.dispose();
+    _tagsController?.dispose();
     super.dispose();
+  }
+  
+  void _initEditControllers(Note note) {
+    _titleController?.dispose();
+    _contentController?.dispose();
+    _tagsController?.dispose();
+    _titleController = TextEditingController(text: note.title);
+    _contentController = TextEditingController(text: note.content ?? '');
+    _tagsController = TextEditingController(text: note.tags ?? '');
+    _hasChanges = false;
   }
 
   /// Extract all unique tags from notes
@@ -249,73 +268,38 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
         final allTags = _extractAllTags(notes);
         final filteredNotes = _filterNotes(notes);
 
-        // Check if selected note still exists after filtering
-        if (_selectedNote != null && !filteredNotes.any((n) => n.id == _selectedNote!.id)) {
+        // Reset expanded index if note no longer exists
+        if (_expandedNoteIndex != null && _expandedNoteIndex! >= filteredNotes.length) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _selectedNote = null);
+            if (mounted) setState(() => _expandedNoteIndex = null);
           });
         }
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 800;
-            final showDetailPanel = isWide && _selectedNote != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Search bar
+            _buildSearchBar(),
+            const SizedBox(height: 12),
 
-            return Row(
-              children: [
-                // Main notes panel
-                Expanded(
-                  flex: showDetailPanel ? 3 : 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Search bar
-                      _buildSearchBar(),
-                      const SizedBox(height: 12),
+            // Tag filters
+            if (allTags.isNotEmpty) ...[
+              _buildTagFilters(allTags),
+              const SizedBox(height: 12),
+            ],
 
-                      // Tag filters
-                      if (allTags.isNotEmpty) ...[
-                        _buildTagFilters(allTags),
-                        const SizedBox(height: 12),
-                      ],
+            // Notes header with count and add button
+            _buildNotesHeader(filteredNotes.length, notes.isEmpty),
 
-                      // Notes header with count and add button
-                      _buildNotesHeader(filteredNotes.length, notes.isEmpty),
+            const SizedBox(height: 8),
 
-                      const SizedBox(height: 8),
-
-                      // Notes list
-                      Expanded(
-                        child: filteredNotes.isEmpty
-                            ? _buildEmptyState(notes.isEmpty)
-                            : _buildNotesList(filteredNotes, constraints),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Detail panel (wide screens only)
-                if (showDetailPanel) ...[
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 380,
-                    child: _NoteDetailPanel(
-                      note: _selectedNote!,
-                      isDark: widget.isDark,
-                      cardColor: widget.cardColor,
-                      borderColor: widget.borderColor,
-                      textPrimary: widget.textPrimary,
-                      textSecondary: widget.textSecondary,
-                      accentColor: widget.accentColor,
-                      onClose: () => setState(() => _selectedNote = null),
-                      onDelete: () => setState(() => _selectedNote = null),
-                      onUpdate: (updated) => setState(() => _selectedNote = updated),
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
+            // Notes list
+            Expanded(
+              child: filteredNotes.isEmpty
+                  ? _buildEmptyState(notes.isEmpty)
+                  : _buildNotesList(filteredNotes),
+            ),
+          ],
         );
       },
     );
@@ -456,26 +440,248 @@ class _KnowledgePanelState extends ConsumerState<_KnowledgePanel> {
     );
   }
 
-  Widget _buildNotesList(List<Note> notes, BoxConstraints constraints) {
+  Widget _buildNotesList(List<Note> notes) {
     return ListView.builder(
       itemCount: notes.length,
       itemBuilder: (context, index) {
         final note = notes[index];
-        final isSelected = _selectedNote?.id == note.id;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _NoteListItem(
-            note: note,
-            isSelected: isSelected,
-            cardColor: widget.cardColor,
-            borderColor: widget.borderColor,
-            textPrimary: widget.textPrimary,
-            textSecondary: widget.textSecondary,
-            accentColor: widget.accentColor,
-            onTap: () => setState(() => _selectedNote = note),
-          ),
+        final isExpanded = _expandedNoteIndex == index;
+        
+        return Column(
+          children: [
+            // Note header row
+            GestureDetector(
+              onTap: () {
+                if (isExpanded) {
+                  setState(() => _expandedNoteIndex = null);
+                } else {
+                  _initEditControllers(note);
+                  setState(() => _expandedNoteIndex = index);
+                }
+              },
+              child: Container(
+                margin: EdgeInsets.only(bottom: isExpanded ? 0 : 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: widget.cardColor,
+                  borderRadius: isExpanded
+                      ? const BorderRadius.vertical(top: Radius.circular(10))
+                      : BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isExpanded ? widget.accentColor.withValues(alpha: 0.4) : widget.borderColor,
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Icon
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: widget.accentColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.note_rounded, color: widget.accentColor, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            note.title,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: widget.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            note.content?.isNotEmpty == true ? note.content! : 'No content',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: widget.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Date
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          DateFormat('MMM d').format(note.updatedAt),
+                          style: TextStyle(fontSize: 11, color: widget.textSecondary.withValues(alpha: 0.7)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat('yyyy').format(note.updatedAt),
+                          style: TextStyle(fontSize: 10, color: widget.textSecondary.withValues(alpha: 0.5)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      size: 20,
+                      color: widget.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Inline edit panel
+            if (isExpanded)
+              _buildInlineNoteEditor(note, index),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildInlineNoteEditor(Note note, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      decoration: BoxDecoration(
+        color: widget.cardColor,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+        border: Border.all(color: widget.accentColor.withValues(alpha: 0.4), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
+          // Title
+          Text('Title', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _titleController,
+            style: TextStyle(fontSize: 14, color: widget.textPrimary, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'Note title',
+              hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
+              filled: true,
+              fillColor: widget.borderColor.withValues(alpha: 0.3),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            onChanged: (_) => setState(() => _hasChanges = true),
+          ),
+          const SizedBox(height: 10),
+          
+          // Content
+          Text('Content', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _contentController,
+            maxLines: 4,
+            style: TextStyle(fontSize: 13, color: widget.textPrimary, height: 1.4),
+            decoration: InputDecoration(
+              hintText: 'Write your note...',
+              hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5)),
+              filled: true,
+              fillColor: widget.borderColor.withValues(alpha: 0.3),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+            onChanged: (_) => setState(() => _hasChanges = true),
+          ),
+          const SizedBox(height: 10),
+          
+          // Tags
+          Text('Tags', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _tagsController,
+            style: TextStyle(fontSize: 13, color: widget.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'comma, separated, tags',
+              hintStyle: TextStyle(color: widget.textSecondary.withValues(alpha: 0.5), fontSize: 13),
+              filled: true,
+              fillColor: widget.borderColor.withValues(alpha: 0.3),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            onChanged: (_) => setState(() => _hasChanges = true),
+          ),
+          const SizedBox(height: 12),
+          
+          Divider(color: widget.borderColor, height: 1),
+          const SizedBox(height: 8),
+          
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: _hasChanges ? () async {
+                    final db = ref.read(databaseProvider);
+                    await db.updateNote(
+                      note.uuid,
+                      title: _titleController!.text.trim(),
+                      content: _contentController!.text,
+                      tags: _tagsController!.text.trim(),
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _hasChanges = false;
+                        _expandedNoteIndex = null;
+                      });
+                    }
+                  } : null,
+                  icon: Icon(Icons.check_rounded, size: 16, color: _hasChanges ? Colors.green : widget.textSecondary),
+                  label: Text('Save', style: TextStyle(fontSize: 12, color: _hasChanges ? Colors.green : widget.textSecondary)),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+              ),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: widget.cardColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        title: Text('Delete Note?', style: TextStyle(color: widget.textPrimary, fontSize: 16)),
+                        content: Text('This action cannot be undone.', style: TextStyle(color: widget.textSecondary, fontSize: 14)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text('Cancel', style: TextStyle(color: widget.textSecondary)),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      final db = ref.read(databaseProvider);
+                      await db.deleteNote(note.uuid);
+                      if (mounted) setState(() => _expandedNoteIndex = null);
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                  label: const Text('Delete', style: TextStyle(fontSize: 12, color: Color(0xFFEF4444))),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

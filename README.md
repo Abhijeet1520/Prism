@@ -1,4 +1,4 @@
-<h1 align="center">Prism — Your Offline AI Hub</h1>
+<h1 align="center">Prism – Your Offline AI Hub</h1>
 
 <p align="center">
   <strong>Download AI models once, use everywhere. Privacy-first assistant with inter-app AI hosting.</strong>
@@ -30,7 +30,7 @@ Today's mobile AI is **fragmented and wasteful**:
 |-------|--------|
 | 📦 **Redundant Downloads** | 5 AI apps = 5 copies of the same model (100MB-4GB each) |
 | 🔋 **Battery Drain** | Multiple inference engines destroy battery life |
-| 🚫 **No Interop** | Apps can't share AI — each reinvents the wheel |
+| 🚫 **No Interop** | Apps can't share AI – each reinvents the wheel |
 
 ---
 
@@ -59,8 +59,8 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
   <img src="website/screenshots/Home section scrolled, showcasing tasks, ai status, schedule, finance.jpg" alt="Dashboard" width="240"/>
 </p>
 
-**Home** — Daily digest with AI status, tasks, and finance summary.
-**Chat** — Real-time streaming with function calling (add tasks, log expenses).
+**Home** – Daily digest with AI status, tasks, and finance summary.
+**Chat** – Real-time streaming with function calling (add tasks, log expenses).
 → Source: [`lib/features/home/`](https://github.com/Abhijeet1520/Prism/tree/main/lib/features/home), [`lib/features/chat/`](https://github.com/Abhijeet1520/Prism/tree/main/lib/features/chat)
 
 ### Second Brain
@@ -70,9 +70,9 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
   <img src="website/screenshots/Brain Persona section.jpg" alt="Personas" width="240"/>
 </p>
 
-**Notes** — Search, tag filters, FTS5 full-text search.
-**Editor** — Inline editing with timestamps.
-**Personas** — Custom AI personalities for different use cases.
+**Notes** – Search, tag filters, FTS5 full-text search.
+**Editor** – Inline editing with timestamps.
+**Personas** – Custom AI personalities for different use cases.
 → Source: [`lib/features/brain/`](https://github.com/Abhijeet1520/Prism/tree/main/lib/features/brain)
 
 <details>
@@ -84,9 +84,9 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
   <img src="website/screenshots/Finance page showcasing transactions.jpg" alt="Finance" width="240"/>
 </p>
 
-**Apps** — Central hub for Tasks, Finance, Files, Tools.
-**Kanban** — Drag-and-drop task board.
-**Finance** — Expense tracking with categories.
+**Apps** – Central hub for Tasks, Finance, Files, Tools.
+**Kanban** – Drag-and-drop task board.
+**Finance** – Expense tracking with categories.
 → Source: [`lib/features/apps/`](https://github.com/Abhijeet1520/Prism/tree/main/lib/features/apps)
 
 </details>
@@ -100,9 +100,9 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
   <img src="website/screenshots/MCP Servers under Tools in Apps.jpg" alt="MCP" width="240"/>
 </p>
 
-**Tools** — Function calling registry (add_task, log_expense, search_notes).
-**Gateway** — Local HTTP server for inter-app AI.
-**MCP** — Model Context Protocol server config.
+**Tools** – Function calling registry (add_task, log_expense, search_notes).
+**Gateway** – Local HTTP server for inter-app AI.
+**MCP** – Model Context Protocol server config.
 → Source: [`lib/features/apps/tools_sub_screen.dart`](https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/tools_sub_screen.dart), [`lib/features/apps/gateway_sub_screen.dart`](https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/gateway_sub_screen.dart)
 
 </details>
@@ -115,8 +115,8 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
   <img src="website/screenshots/SettingsPage2-with data & storage.jpg" alt="Data" width="240"/>
 </p>
 
-**Settings** — Providers, themes, privacy.
-**Data** — Export/import, storage management.
+**Settings** – Providers, themes, privacy.
+**Data** – Export/import, storage management.
 → Source: [`lib/features/settings/`](https://github.com/Abhijeet1520/Prism/tree/main/lib/features/settings)
 
 </details>
@@ -171,7 +171,7 @@ flutter run
 
 1. Settings → Providers → Enter Hugging Face token
 2. Download **Gemma 3 1B** or **Phi-4 Mini**
-3. Start chatting — 100% on-device!
+3. Start chatting – 100% on-device!
 
 ---
 
@@ -195,9 +195,9 @@ lib/
 
 ## Privacy
 
-- **100% Offline** — Local models, no cloud uploads
-- **No Telemetry** — Zero analytics or tracking
-- **Open Source** — Fully auditable
+- **100% Offline** – Local models, no cloud uploads
+- **No Telemetry** – Zero analytics or tracking
+- **Open Source** – Fully auditable
 
 ---
 
@@ -215,7 +215,7 @@ lib/
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT – see [LICENSE](LICENSE)
 
 ---
 
