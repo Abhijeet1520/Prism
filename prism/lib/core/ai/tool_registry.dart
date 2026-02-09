@@ -5,9 +5,11 @@
 library;
 
 import 'dart:convert';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:io' show Platform;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:langchain/langchain.dart';
+import 'package:notification_listener_service/notification_event.dart';
+import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
@@ -218,38 +220,54 @@ class PrismToolRegistry {
   static const readNotificationsTool = ToolSpec(
     name: 'read_notifications',
     description:
-        'Read the user\'s recent push notifications. Returns notification history and permission status.',
+        'Read recent device notifications (Android only). Can extract financial info from payment apps.',
     inputJsonSchema: {
       'type': 'object',
       'properties': {
         'limit': {
           'type': 'integer',
-          'description': 'Max number of notifications to return (default 10)',
+          'description': 'Max number of notifications to return (default 20)',
+        },
+        'filter_app': {
+          'type': 'string',
+          'description': 'Filter by app package name (e.g., "com.google.android.apps.banking")',
         },
       },
       'required': [],
     },
   );
 
-  // ── Cached notification history ──────────────────
+  // ── Notification history cache ───────────────────
 
-  /// In-memory store for received notifications (Firebase doesn't persist history).
+  /// In-memory store for intercepted notifications.
   static final List<Map<String, dynamic>> _notificationHistory = [];
 
-  /// Add a notification to the in-memory history.
-  static void addNotification(RemoteMessage message) {
+  /// Called by the notification listener service when a notification is posted.
+  static void onNotificationPosted(ServiceNotificationEvent event) {
     _notificationHistory.insert(0, {
-      'title': message.notification?.title ?? '',
-      'body': message.notification?.body ?? '',
-      'data': message.data,
-      'sentTime': message.sentTime?.toIso8601String() ??
-          DateTime.now().toIso8601String(),
-      'messageId': message.messageId ?? '',
+      'id': event.id,
+      'packageName': event.packageName,
+      'title': event.title ?? '',
+      'content': event.content ?? '',
+      'timestamp': DateTime.now().toIso8601String(),
     });
-    // Keep only last 50 notifications in memory
-    if (_notificationHistory.length > 50) {
-      _notificationHistory.removeRange(50, _notificationHistory.length);
+    // Keep only last 100 notifications
+    if (_notificationHistory.length > 100) {
+      _notificationHistory.removeRange(100, _notificationHistory.length);
     }
+  }
+
+  /// Initialize the notification listener service (call from main.dart).
+  static Future<void> initNotificationListener() async {
+    if (!Platform.isAndroid) return;
+
+    final hasPermission =
+        await NotificationListenerService.isPermissionGranted();
+    if (!hasPermission) return;
+
+    NotificationListenerService.notificationsStream.listen((event) {
+      onNotificationPosted(event);
+    });
   }
 
   /// Execute a tool call and return the result as a string.
@@ -434,35 +452,40 @@ class PrismToolRegistry {
 
   static Future<String> _executeReadNotifications(
       Map<String, dynamic> args) async {
-    final limit = args['limit'] as int? ?? 10;
+    final limit = args['limit'] as int? ?? 20;
+    final filterApp = args['filter_app'] as String?;
 
-    // Check permission status
-    final messaging = FirebaseMessaging.instance;
-    NotificationSettings? settings;
-    try {
-      settings = await messaging.getNotificationSettings();
-    } catch (_) {
+    // Android only
+    if (!Platform.isAndroid) {
       return json.encode({
-        'error': 'Firebase not initialized. Notification reading requires Firebase setup.',
-        'setup_required': true,
+        'error': 'Notification reading is only available on Android.',
+        'platform': Platform.operatingSystem,
       });
     }
 
-    final authorized = settings.authorizationStatus ==
-            AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional;
+    // Check permission
+    final hasPermission =
+        await NotificationListenerService.isPermissionGranted();
 
-    if (!authorized) {
+    if (!hasPermission) {
       return json.encode({
         'permission': 'denied',
         'message':
-            'Notification permission not granted. Please enable notifications in Settings.',
+            'Notification access not granted. Please enable in Settings > Apps > Special access > Notification access.',
         'notifications': [],
       });
     }
 
-    // Return cached notifications
-    final notifications = _notificationHistory.take(limit).toList();
+    // Filter and return cached notifications
+    var notifications = _notificationHistory;
+    if (filterApp != null && filterApp.isNotEmpty) {
+      notifications = notifications
+          .where((n) => (n['packageName'] as String?)
+              ?.toLowerCase()
+              .contains(filterApp.toLowerCase()) ?? false)
+          .toList();
+    }
+    notifications = notifications.take(limit).toList();
 
     return json.encode({
       'permission': 'granted',

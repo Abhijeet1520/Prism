@@ -14,7 +14,7 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [Conversations, Messages, TaskEntries, Transactions, Notes, AppSettings],
+  tables: [Conversations, Messages, TaskEntries, Transactions, Areas, Resources, Notes, ResourceAreas, NoteResources, AppSettings],
   include: {'queries.drift'},
 )
 class PrismDatabase extends _$PrismDatabase {
@@ -30,7 +30,7 @@ class PrismDatabase extends _$PrismDatabase {
         );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -44,6 +44,13 @@ class PrismDatabase extends _$PrismDatabase {
         if (from < 2) {
           // v1 → v2: Ensure FTS5 tables exist (they were missing in v1)
           await _createFts5Tables();
+        }
+        if (from < 3) {
+          // v2 → v3: Add Areas, Resources, and junction tables
+          await m.createTable(areas);
+          await m.createTable(resources);
+          await m.createTable(resourceAreas);
+          await m.createTable(noteResources);
         }
       },
       beforeOpen: (details) async {
@@ -362,6 +369,197 @@ class PrismDatabase extends _$PrismDatabase {
   /// Delete a note by uuid.
   Future<int> deleteNote(String uuid) {
     return (delete(notes)..where((n) => n.uuid.equals(uuid))).go();
+  }
+
+  // ─── Area queries ──────────────────────────────
+
+  /// Watch all areas, newest first.
+  Stream<List<Area>> watchAreas() {
+    return (select(areas)..orderBy([(a) => OrderingTerm.desc(a.updatedAt)]))
+        .watch();
+  }
+
+  /// Get an area by UUID.
+  Future<Area?> getArea(String uuid) {
+    return (select(areas)..where((a) => a.uuid.equals(uuid))).getSingleOrNull();
+  }
+
+  /// Create an area.
+  Future<int> createArea({
+    required String uuid,
+    required String name,
+    String description = '',
+    String icon = 'folder',
+    int color = 0xFF6750A4,
+  }) {
+    return into(areas).insert(AreasCompanion.insert(
+      uuid: uuid,
+      name: name,
+      description: Value(description),
+      icon: Value(icon),
+      color: Value(color),
+    ));
+  }
+
+  /// Update an area's fields.
+  Future<void> updateArea(
+    String uuid, {
+    String? name,
+    String? description,
+    String? icon,
+    int? color,
+  }) {
+    return (update(areas)..where((a) => a.uuid.equals(uuid))).write(
+      AreasCompanion(
+        name: name != null ? Value(name) : const Value.absent(),
+        description: description != null ? Value(description) : const Value.absent(),
+        icon: icon != null ? Value(icon) : const Value.absent(),
+        color: color != null ? Value(color) : const Value.absent(),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Delete an area by uuid (also removes junction entries).
+  Future<void> deleteArea(String uuid) async {
+    final area = await getArea(uuid);
+    if (area != null) {
+      await (delete(resourceAreas)..where((ra) => ra.areaId.equals(area.id))).go();
+      await (delete(areas)..where((a) => a.uuid.equals(uuid))).go();
+    }
+  }
+
+  // ─── Resource queries ──────────────────────────
+
+  /// Watch all resources, newest first.
+  Stream<List<Resource>> watchResources() {
+    return (select(resources)..orderBy([(r) => OrderingTerm.desc(r.updatedAt)]))
+        .watch();
+  }
+
+  /// Get a resource by UUID.
+  Future<Resource?> getResource(String uuid) {
+    return (select(resources)..where((r) => r.uuid.equals(uuid))).getSingleOrNull();
+  }
+
+  /// Create a resource.
+  Future<int> createResource({
+    required String uuid,
+    required String name,
+    String description = '',
+    String icon = 'description',
+  }) {
+    return into(resources).insert(ResourcesCompanion.insert(
+      uuid: uuid,
+      name: name,
+      description: Value(description),
+      icon: Value(icon),
+    ));
+  }
+
+  /// Update a resource's fields.
+  Future<void> updateResource(
+    String uuid, {
+    String? name,
+    String? description,
+    String? icon,
+  }) {
+    return (update(resources)..where((r) => r.uuid.equals(uuid))).write(
+      ResourcesCompanion(
+        name: name != null ? Value(name) : const Value.absent(),
+        description: description != null ? Value(description) : const Value.absent(),
+        icon: icon != null ? Value(icon) : const Value.absent(),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Delete a resource by uuid (also removes junction entries).
+  Future<void> deleteResource(String uuid) async {
+    final resource = await getResource(uuid);
+    if (resource != null) {
+      await (delete(resourceAreas)..where((ra) => ra.resourceId.equals(resource.id))).go();
+      await (delete(noteResources)..where((nr) => nr.resourceId.equals(resource.id))).go();
+      await (delete(resources)..where((r) => r.uuid.equals(uuid))).go();
+    }
+  }
+
+  // ─── Junction table queries ────────────────────
+
+  /// Link a resource to an area.
+  Future<void> linkResourceToArea(int resourceId, int areaId) {
+    return into(resourceAreas).insertOnConflictUpdate(
+      ResourceAreasCompanion.insert(resourceId: resourceId, areaId: areaId),
+    );
+  }
+
+  /// Unlink a resource from an area.
+  Future<void> unlinkResourceFromArea(int resourceId, int areaId) {
+    return (delete(resourceAreas)
+          ..where((ra) => ra.resourceId.equals(resourceId) & ra.areaId.equals(areaId)))
+        .go();
+  }
+
+  /// Get all areas for a resource.
+  Future<List<Area>> getAreasForResource(int resourceId) async {
+    final links = await (select(resourceAreas)..where((ra) => ra.resourceId.equals(resourceId))).get();
+    if (links.isEmpty) return [];
+    final areaIds = links.map((l) => l.areaId).toList();
+    return (select(areas)..where((a) => a.id.isIn(areaIds))).get();
+  }
+
+  /// Get all resources for an area.
+  Future<List<Resource>> getResourcesForArea(int areaId) async {
+    final links = await (select(resourceAreas)..where((ra) => ra.areaId.equals(areaId))).get();
+    if (links.isEmpty) return [];
+    final resourceIds = links.map((l) => l.resourceId).toList();
+    return (select(resources)..where((r) => r.id.isIn(resourceIds))).get();
+  }
+
+  /// Link a note to a resource.
+  Future<void> linkNoteToResource(int noteId, int resourceId) {
+    return into(noteResources).insertOnConflictUpdate(
+      NoteResourcesCompanion.insert(noteId: noteId, resourceId: resourceId),
+    );
+  }
+
+  /// Unlink a note from a resource.
+  Future<void> unlinkNoteFromResource(int noteId, int resourceId) {
+    return (delete(noteResources)
+          ..where((nr) => nr.noteId.equals(noteId) & nr.resourceId.equals(resourceId)))
+        .go();
+  }
+
+  /// Get all resources for a note.
+  Future<List<Resource>> getResourcesForNote(int noteId) async {
+    final links = await (select(noteResources)..where((nr) => nr.noteId.equals(noteId))).get();
+    if (links.isEmpty) return [];
+    final resourceIds = links.map((l) => l.resourceId).toList();
+    return (select(resources)..where((r) => r.id.isIn(resourceIds))).get();
+  }
+
+  /// Get all notes for a resource.
+  Future<List<Note>> getNotesForResource(int resourceId) async {
+    final links = await (select(noteResources)..where((nr) => nr.resourceId.equals(resourceId))).get();
+    if (links.isEmpty) return [];
+    final noteIds = links.map((l) => l.noteId).toList();
+    return (select(notes)..where((n) => n.id.isIn(noteIds))).get();
+  }
+
+  /// Set all areas for a resource (replace existing links).
+  Future<void> setAreasForResource(int resourceId, List<int> areaIds) async {
+    await (delete(resourceAreas)..where((ra) => ra.resourceId.equals(resourceId))).go();
+    for (final areaId in areaIds) {
+      await linkResourceToArea(resourceId, areaId);
+    }
+  }
+
+  /// Set all resources for a note (replace existing links).
+  Future<void> setResourcesForNote(int noteId, List<int> resourceIds) async {
+    await (delete(noteResources)..where((nr) => nr.noteId.equals(noteId))).go();
+    for (final resourceId in resourceIds) {
+      await linkNoteToResource(noteId, resourceId);
+    }
   }
 
   // ─── Settings queries ──────────────────────────

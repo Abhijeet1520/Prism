@@ -71,6 +71,31 @@ class Transactions extends Table with AutoIncrementingPrimaryKey {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// ─── Areas (PARA methodology) ─────────────────────
+
+@DataClassName('Area')
+class Areas extends Table with AutoIncrementingPrimaryKey {
+  TextColumn get uuid => text().unique()();
+  TextColumn get name => text()();
+  TextColumn get description => text().withDefault(const Constant(''))();
+  TextColumn get icon => text().withDefault(const Constant('folder'))();
+  IntColumn get color => integer().withDefault(const Constant(0xFF6750A4))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+// ─── Resources (PARA methodology) ─────────────────
+
+@DataClassName('Resource')
+class Resources extends Table with AutoIncrementingPrimaryKey {
+  TextColumn get uuid => text().unique()();
+  TextColumn get name => text()();
+  TextColumn get description => text().withDefault(const Constant(''))();
+  TextColumn get icon => text().withDefault(const Constant('description'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 // ─── Notes (Brain / Knowledge Base) ───────────────
 
 @DataClassName('Note')
@@ -82,6 +107,28 @@ class Notes extends Table with AutoIncrementingPrimaryKey {
   TextColumn get source => text().withDefault(const Constant('manual'))(); // 'manual' | 'import' | 'ai'
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+// ─── Junction: Resource ↔ Area (many-to-many) ─────
+
+@DataClassName('ResourceArea')
+class ResourceAreas extends Table {
+  IntColumn get resourceId => integer().references(Resources, #id)();
+  IntColumn get areaId => integer().references(Areas, #id)();
+
+  @override
+  Set<Column> get primaryKey => {resourceId, areaId};
+}
+
+// ─── Junction: Note ↔ Resource (many-to-many) ─────
+
+@DataClassName('NoteResource')
+class NoteResources extends Table {
+  IntColumn get noteId => integer().references(Notes, #id)();
+  IntColumn get resourceId => integer().references(Resources, #id)();
+
+  @override
+  Set<Column> get primaryKey => {noteId, resourceId};
 }
 
 // ─── App Settings ─────────────────────────────────
