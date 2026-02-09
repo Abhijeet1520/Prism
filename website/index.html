@@ -334,7 +334,7 @@
   <section class="hero">
     <div>
       <div class="hero-badge">
-        <span>●</span> v0.2 Alpha — Open Source
+        <span>●</span> v1.0 Released — Open Source
       </div>
       <div class="orb-container"><div class="orb"></div></div>
       <h1>Your Offline<br/><span class="gradient">AI Hub.</span></h1>
@@ -490,12 +490,34 @@
 
         <div class="gallery-item">
           <div class="gallery-img-container">
+            <img src="screenshots/Conversations with local model.jpg" alt="Local Model Chat" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🤖 Local Model Chat</h3>
+            <p>Fully offline conversations powered by on-device GGUF models. No cloud, no data leaves your phone.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/chat/chat_screen.dart" target="_blank" class="gallery-tag">chat_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
             <img src="screenshots/Gateway option enabled under app showcasing the server running.jpg" alt="Gateway" class="gallery-img" style="--crop-top: 30px;"/>
           </div>
           <div class="gallery-content">
             <h3>🌐 Inter-App Gateway</h3>
-            <p>Local HTTP server for other apps. POST to localhost:8080 — OpenAI-compatible API.</p>
+            <p>Local HTTP server for other apps. POST to localhost:8090 — OpenAI-compatible API.</p>
             <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/gateway_sub_screen.dart" target="_blank" class="gallery-tag">gateway_sub_screen.dart</a>
+          </div>
+        </div>
+
+        <div class="gallery-item">
+          <div class="gallery-img-container">
+            <img src="screenshots/Prism API via localhost.jpg" alt="API Playground" class="gallery-img" style="--crop-top: 30px;"/>
+          </div>
+          <div class="gallery-content">
+            <h3>🧪 API Playground</h3>
+            <p>Swagger-like UI served at localhost. Authenticate with access code, test endpoints with live streaming.</p>
+            <a href="https://github.com/Abhijeet1520/Prism/blob/main/lib/core/ai/api_playground_html.dart" target="_blank" class="gallery-tag">api_playground_html.dart</a>
           </div>
         </div>
 
@@ -655,33 +677,27 @@
       <div class="roadmap-timeline">
         <div class="roadmap-item">
           <div class="roadmap-dot active"></div>
-          <div class="version">v0.1 — Completed</div>
-          <h4>UX Preview</h4>
-          <p>Core app shell, themed UI, daily digest home screen, soul orb animation, 7 theme presets, splash screen, 5-tab navigation.</p>
-        </div>
-        <div class="roadmap-item">
-          <div class="roadmap-dot active"></div>
-          <div class="version">v0.2 — Current</div>
+          <div class="version">v1.0 — Released</div>
           <h4>Core Intelligence</h4>
-          <p>Real-time streaming chat, tool calling, Drift database, ML Kit on-device intelligence, and multi-provider AI backend.</p>
+          <p>Full app shell, themed UI, real-time streaming chat, tool calling (14 tools), Drift database, local GGUF inference, cloud providers, API Gateway with Swagger-like playground, model catalog with HuggingFace downloads.</p>
         </div>
         <div class="roadmap-item">
           <div class="roadmap-dot"></div>
-          <div class="version">v0.3 — Next</div>
+          <div class="version">v1.1 — Next</div>
           <h4>Voice &amp; RAG</h4>
           <p>Full voice input/output, retrieval-augmented generation (RAG) for knowledge base queries, and smart proactive suggestions.</p>
         </div>
         <div class="roadmap-item">
           <div class="roadmap-dot"></div>
-          <div class="version">v0.4</div>
+          <div class="version">v1.2</div>
           <h4>Calendar &amp; Integrations</h4>
           <p>Calendar sync (Google/Apple), wake word detection ("Hey Prism"), continuous listening, and notification actions.</p>
         </div>
         <div class="roadmap-item">
           <div class="roadmap-dot"></div>
-          <div class="version">v0.5</div>
+          <div class="version">v2.0</div>
           <h4>Ecosystem</h4>
-          <p>Home screen widgets, encrypted multi-device sync, plugin system for third-party extensions.</p>
+          <p>Home screen widgets, encrypted multi-device sync, plugin system for third-party extensions, iOS support.</p>
         </div>
       </div>
     </div>
@@ -691,7 +707,7 @@
   <section class="cta">
     <div class="container">
       <h2>One Hub for All Your AI</h2>
-      <p>Stop duplicating models across apps. Download the alpha, explore the source, and experience centralized offline AI.</p>
+      <p>Stop duplicating models across apps. Download v1.0, explore the source, and experience centralized offline AI.</p>
       <div class="hero-actions">
         <a href="https://github.com/Abhijeet1520/Prism/releases" class="btn-primary">Get Started</a>
         <a href="https://github.com/Abhijeet1520/Prism" class="btn-secondary">Star on GitHub</a>

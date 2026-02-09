@@ -56,11 +56,15 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
 <p>
   <img src="website/screenshots/Home section with welcome.jpg" alt="Home" width="240"/>
   <img src="website/screenshots/Chat with showcasing available tools reply from model and tool calling.jpg" alt="Chat" width="240"/>
+  <img src="website/screenshots/Conversations with local model.jpg" alt="Local Model Chat" width="240"/>
+</p>
+<p>
   <img src="website/screenshots/Home section scrolled, showcasing tasks, ai status, schedule, finance.jpg" alt="Dashboard" width="240"/>
 </p>
 
 **Home** – Daily digest with AI status, tasks, and finance summary.
 **Chat** – Real-time streaming with function calling (add tasks, log expenses).
+**Local Model** – Fully offline conversations powered by on-device GGUF models.
 → Source: [`lib/features/home/`](https://github.com/Abhijeet1520/Prism/tree/main/lib/features/home), [`lib/features/chat/`](https://github.com/Abhijeet1520/Prism/tree/main/lib/features/chat)
 
 ### Second Brain
@@ -97,11 +101,15 @@ Other Apps → POST /v1/chat/completions → Prism → Local GGUF Models
 <p>
   <img src="website/screenshots/Tools under Apps showcasing tools available for llm.jpg" alt="Tools" width="240"/>
   <img src="website/screenshots/Gateway option enabled under app showcasing the server running.jpg" alt="Gateway" width="240"/>
+  <img src="website/screenshots/Prism API via localhost.jpg" alt="API Playground" width="240"/>
+</p>
+<p>
   <img src="website/screenshots/MCP Servers under Tools in Apps.jpg" alt="MCP" width="240"/>
 </p>
 
 **Tools** – Function calling registry (add_task, log_expense, search_notes).
 **Gateway** – Local HTTP server for inter-app AI.
+**API Playground** – Swagger-like UI to test the local API with auth & streaming.
 **MCP** – Model Context Protocol server config.
 → Source: [`lib/features/apps/tools_sub_screen.dart`](https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/tools_sub_screen.dart), [`lib/features/apps/gateway_sub_screen.dart`](https://github.com/Abhijeet1520/Prism/blob/main/lib/features/apps/gateway_sub_screen.dart)
 
