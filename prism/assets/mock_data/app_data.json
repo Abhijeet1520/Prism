@@ -112,5 +112,22 @@
     {"title": "Dentist Appointment", "time": "2:00 PM", "duration": "1 hr", "type": "personal"},
     {"title": "Sprint Review", "time": "4:00 PM", "duration": "30 min", "type": "work"},
     {"title": "Gym Session", "time": "6:30 PM", "duration": "1 hr", "type": "personal"}
+  ],
+  "areas": [
+    {"uuid": "area_work", "name": "Work", "description": "Professional projects and career development", "icon": "work", "color": 4284955319},
+    {"uuid": "area_health", "name": "Health & Wellness", "description": "Fitness, nutrition, and mental health", "icon": "favorite", "color": 4293467747},
+    {"uuid": "area_finance", "name": "Finance", "description": "Budgeting, investments, and financial planning", "icon": "account_balance", "color": 4283215696},
+    {"uuid": "area_learning", "name": "Learning", "description": "Education, courses, and skill development", "icon": "school", "color": 4288423856},
+    {"uuid": "area_personal", "name": "Personal", "description": "Hobbies, relationships, and life admin", "icon": "person", "color": 4294940672}
+  ],
+  "resources": [
+    {"uuid": "res_flutter", "name": "Flutter Development", "description": "Flutter/Dart resources and best practices", "icon": "code", "areas": ["area_work", "area_learning"]},
+    {"uuid": "res_ai_ml", "name": "AI & Machine Learning", "description": "LLMs, transformers, and ML concepts", "icon": "psychology", "areas": ["area_work", "area_learning"]},
+    {"uuid": "res_fitness", "name": "Fitness Routines", "description": "Workout plans and exercise guides", "icon": "fitness_center", "areas": ["area_health"]},
+    {"uuid": "res_nutrition", "name": "Nutrition & Meal Planning", "description": "Diet plans and healthy recipes", "icon": "restaurant", "areas": ["area_health"]},
+    {"uuid": "res_investing", "name": "Investment Research", "description": "Stock analysis and portfolio strategies", "icon": "trending_up", "areas": ["area_finance"]},
+    {"uuid": "res_budgeting", "name": "Budgeting Templates", "description": "Monthly budgets and expense tracking", "icon": "calculate", "areas": ["area_finance"]},
+    {"uuid": "res_books", "name": "Reading List", "description": "Books to read and book notes", "icon": "menu_book", "areas": ["area_learning", "area_personal"]},
+    {"uuid": "res_side_projects", "name": "Side Projects", "description": "Personal coding projects and experiments", "icon": "build", "areas": ["area_personal", "area_work"]}
   ]
 }
