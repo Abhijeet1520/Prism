@@ -245,13 +245,6 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
           contextWindow: 4096,
         ),
       ],
-      activeModel: ModelConfig(
-        id: 'mock',
-        name: 'Prism (Demo)',
-        provider: ProviderType.mock,
-        contextWindow: 4096,
-      ),
-      isModelLoaded: true,
     );
   }
 
@@ -284,6 +277,22 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
         state = state.copyWith(
             favouriteGoodModel: ModelConfig.fromJson(
                 jsonDecode(goodJson) as Map<String, dynamic>));
+      }
+
+      // Restore last active model (if any)
+      final lastModelJson = prefs.getString('last_active_model');
+      if (lastModelJson != null) {
+        final lastModel = ModelConfig.fromJson(
+            jsonDecode(lastModelJson) as Map<String, dynamic>);
+        // Only auto-select API/cloud models (they don't need loading).
+        // Local models need explicit load so the user can manage resources.
+        if (lastModel.provider != ProviderType.local &&
+            lastModel.provider != ProviderType.mock) {
+          await selectModel(lastModel);
+        } else if (lastModel.provider == ProviderType.local) {
+          // Just remember it was selected but don't load — user triggers load.
+          state = state.copyWith(activeModel: lastModel);
+        }
       }
     } catch (_) {}
   }
@@ -362,6 +371,17 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
       case ProviderType.mock:
         state = state.copyWith(isModelLoaded: true);
     }
+
+    // Persist the last active model for next app launch.
+    _saveLastActiveModel(config);
+  }
+
+  Future<void> _saveLastActiveModel(ModelConfig config) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          'last_active_model', jsonEncode(config.toJson()));
+    } catch (_) {}
   }
 
   Future<void> _loadLocalModel(ModelConfig config) async {
@@ -381,14 +401,24 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
     try {
       state = state.copyWith(loadProgress: 0.0);
 
-      // don't set n_ctx (let model decide its own context size)
-      // and only use greedy sampling. Setting large n_ctx
-      // values (32K+) on mobile causes out-of-memory crashes.
-      // n_ctx = 0 means "use the model's native context size from metadata".
+      // Performance-tuned params for local inference:
+      // - flash_attn: use flash attention (faster on supported devices)
+      // - offload_kqv: offload KQV ops to GPU when available
+      // - n_batch: larger batch for prompt processing throughput
+      // - n_threads: use available CPU cores (leave 1 for UI thread)
+      // - greedy: deterministic sampling without conflicting dual-sampler
+      // - n_ctx: 0 = use model's native context size from metadata
+      final cpuCores = Platform.numberOfProcessors;
+      final threads = (cpuCores > 2) ? cpuCores - 1 : cpuCores;
       _llamaModel = llama.Llama(
         llama.LlamaController.fromMap({
           'model_path': config.filePath!,
           'greedy': true,
+          'flash_attention': true,
+          'offload_kqv': true,
+          'n_batch': 512,
+          'n_threads': threads,
+          'n_threads_batch': threads,
         }),
       );
       state = state.copyWith(isModelLoaded: true, loadProgress: 1.0);

@@ -412,12 +412,14 @@ const String apiPlaygroundHtml = r'''
         <div class="form-group">
           <label class="form-label">Model</label>
           <div style="display:flex;gap:8px">
-            <input id="chat-model" class="form-input" value="auto" style="flex:1"
-                   placeholder="Model ID (leave 'auto' for default)">
-            <button class="add-msg-btn" onclick="loadModels()" style="white-space:nowrap">
-              Fetch Models
+            <select id="chat-model" class="form-select" style="flex:1">
+              <option value="auto">auto (default)</option>
+            </select>
+            <button class="add-msg-btn" onclick="loadModels()" style="white-space:nowrap" title="Refresh model list">
+              ↻ Refresh
             </button>
           </div>
+          <div id="model-status" style="font-size:11px;color:var(--text2);margin-top:4px;min-height:16px"></div>
         </div>
 
         <!-- Messages -->
@@ -521,6 +523,8 @@ function showMain() {
   document.getElementById('main-screen').style.display = 'block';
   document.getElementById('base-url').textContent = BASE;
   document.getElementById('info-url').textContent = BASE;
+  // Auto-fetch models on connect
+  loadModels();
 }
 
 function disconnect() {
@@ -586,14 +590,39 @@ async function sendModels(btn) {
 }
 
 async function loadModels() {
+  const select = document.getElementById('chat-model');
+  const status = document.getElementById('model-status');
+  const prev = select.value;
+  status.textContent = 'Loading models…';
+  status.style.color = 'var(--text2)';
   try {
     const res = await fetch(BASE + '/v1/models', {headers: authHeaders()});
     const data = await res.json();
+    // Clear existing options
+    select.innerHTML = '';
     if (data.data && data.data.length > 0) {
-      document.getElementById('chat-model').value = data.data[0].id;
+      data.data.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        const label = m.id + (m.provider ? '  [' + m.provider + ']' : '');
+        opt.textContent = label;
+        select.appendChild(opt);
+      });
+      // Restore previous selection if it still exists
+      const ids = data.data.map(m => m.id);
+      if (ids.includes(prev)) select.value = prev;
+      status.textContent = data.data.length + ' model' + (data.data.length > 1 ? 's' : '') + ' available';
+      status.style.color = 'var(--green)';
+    } else {
+      const opt = document.createElement('option');
+      opt.value = 'auto'; opt.textContent = 'auto (default)';
+      select.appendChild(opt);
+      status.textContent = 'No models found — is a model loaded in the app?';
+      status.style.color = 'var(--orange)';
     }
   } catch (e) {
-    // silently fail
+    status.textContent = 'Failed to fetch models';
+    status.style.color = 'var(--red)';
   }
 }
 

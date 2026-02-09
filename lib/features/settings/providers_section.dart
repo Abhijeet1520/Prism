@@ -419,8 +419,24 @@ class ProvidersSection extends ConsumerWidget {
                       final download = modelMgr.activeDownloads[entry.fileName];
                       final isDownloaded = modelMgr.localModelPaths
                           .any((p) => p.contains(entry.fileName));
+                      final isDownloading = download != null &&
+                          download.status == DownloadStatus.downloading;
 
-                      return Container(
+                      return InkWell(
+                        onTap: isDownloading
+                            ? null
+                            : isDownloaded
+                                ? () => _showInstalledModelOptions(
+                                    context, ref, entry, modelMgr,
+                                    cardColor: cardColor,
+                                    borderColor: borderColor,
+                                    textPrimary: textPrimary,
+                                    textSecondary: textSecondary,
+                                    accentColor: accentColor)
+                                : () => showDownloadConfirmation(
+                                    context, ref, entry),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -557,6 +573,7 @@ class ProvidersSection extends ConsumerWidget {
                             ],
                           ],
                         ),
+                      ),
                       );
                     },
                   ),
@@ -628,36 +645,49 @@ class ProvidersSection extends ConsumerWidget {
         SettingsDivider(color: borderColor),
 
         // ── CONFIGURE CLOUD PROVIDER ──
-        GroupLabel(text: 'CLOUD PROVIDERS', color: textSecondary),
-        const SizedBox(height: 8),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: Text('CLOUD PROVIDERS',
+                style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5)),
+            children: [
+              const SizedBox(height: 8),
 
-        ...cloudState.providers.map((provider) {
-          final saved = cloudState.savedConfigs[provider.id];
-          final isConfigured = saved?.isEnabled == true;
-          final maskedKey = cloudNotifier.getMaskedKey(provider.id);
+              ...cloudState.providers.map((provider) {
+                final saved = cloudState.savedConfigs[provider.id];
+                final isConfigured = saved?.isEnabled == true;
+                final maskedKey = cloudNotifier.getMaskedKey(provider.id);
 
-          return CloudProviderTile(
-            provider: provider,
-            isConfigured: isConfigured,
-            maskedKey: maskedKey,
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textPrimary: textPrimary,
-            textSecondary: textSecondary,
-            accentColor: accentColor,
-          );
-        }),
+                return CloudProviderTile(
+                  provider: provider,
+                  isConfigured: isConfigured,
+                  maskedKey: maskedKey,
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  accentColor: accentColor,
+                );
+              }),
 
-        if (cloudState.providers.isEmpty)
-          InfoCard(
-            icon: Icons.cloud_outlined,
-            text: 'No cloud providers configured. Add one below by entering '
-                'a provider name, base URL, and API key.',
-            cardColor: cardColor,
-            borderColor: borderColor,
-            textSecondary: textSecondary,
-            accentColor: accentColor,
+              if (cloudState.providers.isEmpty)
+                InfoCard(
+                  icon: Icons.cloud_outlined,
+                  text: 'No cloud providers configured. Add one below by entering '
+                      'a provider name, base URL, and API key.',
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textSecondary: textSecondary,
+                  accentColor: accentColor,
+                ),
+            ],
           ),
+        ),
 
         SettingsDivider(color: borderColor),
 
@@ -805,6 +835,116 @@ class _EnabledProvidersSummary extends StatelessWidget {
       }).toList(),
     );
   }
+}
+
+// ─── Installed Model Options Dialog ──────────────────
+
+void _showInstalledModelOptions(
+  BuildContext context,
+  WidgetRef ref,
+  ModelCatalogEntry entry,
+  ModelManagerState modelMgr, {
+  required Color cardColor,
+  required Color borderColor,
+  required Color textPrimary,
+  required Color textSecondary,
+  required Color accentColor,
+}) {
+  final installedPath = modelMgr.localModelPaths
+      .firstWhere((p) => p.contains(entry.fileName), orElse: () => '');
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final bgColor = isDark ? const Color(0xFF16162A) : Colors.white;
+
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: bgColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Icon(Icons.check_circle_rounded, size: 22, color: const Color(0xFF10B981)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(entry.name,
+                style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_outline,
+                    size: 16, color: Color(0xFF10B981)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('This model is installed and ready to use.',
+                      style: TextStyle(color: const Color(0xFF10B981), fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _DetailRow(label: 'Size', value: entry.sizeLabel, color: textSecondary),
+          _DetailRow(
+              label: 'Context',
+              value: '${entry.contextWindow ~/ 1024}K tokens',
+              color: textSecondary),
+          _DetailRow(label: 'Category', value: entry.category, color: textSecondary),
+          if (installedPath.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Path:', style: TextStyle(color: textSecondary, fontSize: 11)),
+            Text(installedPath,
+                style: TextStyle(color: textPrimary, fontSize: 11),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            if (installedPath.isNotEmpty) {
+              ref.read(modelManagerProvider.notifier).deleteModel(installedPath);
+            }
+          },
+          child: const Text('Delete Model',
+              style: TextStyle(color: Color(0xFFEF4444), fontSize: 13)),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            if (installedPath.isNotEmpty) {
+              final name = installedPath.split('/').last.split('\\').last;
+              ref.read(aiServiceProvider.notifier).selectModel(ModelConfig(
+                id: name,
+                name: entry.name,
+                provider: ProviderType.local,
+                filePath: installedPath,
+              ));
+            }
+          },
+          child: Text('Load Model', style: TextStyle(color: accentColor, fontSize: 13)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text('Close', style: TextStyle(color: textSecondary, fontSize: 13)),
+        ),
+      ],
+    ),
+  );
 }
 
 // ─── Download Confirmation Dialog ────────────────────

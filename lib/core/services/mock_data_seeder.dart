@@ -113,7 +113,7 @@ class MockDataSeeder {
 
   /// Seeds demo tasks into the database.
   Future<void> seedTasks() async {
-    final existing = await db.watchTasks().first;
+    final existing = await db.watchAllTasks().first;
     if (existing.isNotEmpty) return;
 
     final raw = await rootBundle.loadString('assets/mock_data/app_data.json');

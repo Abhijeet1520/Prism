@@ -1695,14 +1695,14 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
       groups.putIfAbsent(m.provider, () => []).add(m);
     }
 
-    // Order: mock first (demo), then local, gemini, ollama, cloud APIs, custom
+    // Order: local first, then cloud providers, demo last
     final order = [
-      ProviderType.mock,
       ProviderType.local,
       ProviderType.gemini,
       ProviderType.ollama,
       ProviderType.openai,
       ProviderType.custom,
+      ProviderType.mock,
     ];
     final sortedKeys =
         order.where((t) => groups.containsKey(t)).toList();
