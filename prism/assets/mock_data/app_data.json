@@ -1,0 +1,42 @@
+{
+  "conversations": [
+    {
+      "id": "conv-001",
+      "title": "Morning planning",
+      "model": "gemma-3-4b",
+      "provider": "ollama",
+      "messages": [
+        {"role": "user", "content": "Help me plan my day", "timestamp": "2026-01-15T08:00:00Z"},
+        {"role": "assistant", "content": "Good morning! Let me help you organize your day. What are your top priorities?", "timestamp": "2026-01-15T08:00:02Z"}
+      ],
+      "created_at": "2026-01-15T08:00:00Z",
+      "updated_at": "2026-01-15T08:00:02Z"
+    },
+    {
+      "id": "conv-002",
+      "title": "Code review help",
+      "model": "gemma-3-12b",
+      "provider": "ollama",
+      "messages": [
+        {"role": "user", "content": "Review this function for bugs", "timestamp": "2026-01-14T14:30:00Z"},
+        {"role": "assistant", "content": "I'd be happy to review your code. Please share the function you'd like me to look at.", "timestamp": "2026-01-14T14:30:01Z"}
+      ],
+      "created_at": "2026-01-14T14:30:00Z",
+      "updated_at": "2026-01-14T14:30:01Z"
+    }
+  ],
+  "models": [
+    {"id": "gemma-3-4b", "name": "Gemma 3 4B", "provider": "ollama", "size": "2.4 GB", "context_window": 8192, "local": true},
+    {"id": "gemma-3-12b", "name": "Gemma 3 12B", "provider": "ollama", "size": "7.2 GB", "context_window": 8192, "local": true},
+    {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "size": "cloud", "context_window": 128000, "local": false},
+    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "provider": "gemini", "size": "cloud", "context_window": 1000000, "local": false}
+  ],
+  "daily_summary": {
+    "greeting": "Good morning, Abhi!",
+    "date": "2026-01-15",
+    "tasks_due": 3,
+    "unread_messages": 2,
+    "budget_status": "On track — 38% budget remaining",
+    "tip": "Try asking: 'Summarize my notes from this week'"
+  }
+}

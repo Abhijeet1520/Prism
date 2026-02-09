@@ -1,0 +1,62 @@
+name: prism
+description: "Privacy-first AI personal assistant powered by local and cloud LLMs."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ─── UI ───────────────────────────────────────────
+  moon_design: ^1.1.0
+
+  # ─── State Management ────────────────────────────
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # ─── Routing ─────────────────────────────────────
+  go_router: ^14.8.1
+
+  # ─── AI / LLM ───────────────────────────────────
+  langchain: ^0.8.1
+  langchain_ollama: ^0.4.1
+
+  # ─── Database ────────────────────────────────────
+  drift: ^2.23.1
+  drift_flutter: ^0.2.4
+  sqlite3_flutter_libs: ^0.5.5
+
+  # ─── ML Kit (on-device intelligence) ─────────────
+  google_mlkit_text_recognition: ^0.14.0
+  google_mlkit_entity_extraction: ^0.14.0
+  google_mlkit_smart_reply: ^0.11.0
+  google_mlkit_language_id: ^0.10.0
+
+  # ─── Utilities ───────────────────────────────────
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  shared_preferences: ^2.5.2
+  uuid: ^4.5.1
+  dio: ^5.8.0+1
+  file_picker: ^9.2.1
+  intl: any
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.23.1
+  build_runner: ^2.4.14
+  riverpod_generator: ^2.6.3
+  custom_lint:
+  riverpod_lint: ^2.6.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/mock_data/

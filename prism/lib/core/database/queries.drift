@@ -1,0 +1,93 @@
+-- Drift SQL file for FTS5 full-text search and custom queries.
+-- This is included in the @DriftDatabase annotation.
+
+import 'tables.dart';
+
+-- ─── FTS5 for Messages ──────────────────────────────
+CREATE VIRTUAL TABLE message_search USING fts5 (
+    content,
+    content=messages,
+    content_rowid=id
+);
+
+CREATE TRIGGER messages_search_insert AFTER INSERT ON messages BEGIN
+  INSERT INTO message_search(rowid, content) VALUES (new.id, new.content);
+END;
+
+CREATE TRIGGER messages_search_delete AFTER DELETE ON messages BEGIN
+  INSERT INTO message_search(message_search, rowid, content) VALUES ('delete', old.id, old.content);
+END;
+
+CREATE TRIGGER messages_search_update AFTER UPDATE ON messages BEGIN
+  INSERT INTO message_search(message_search, rowid, content) VALUES ('delete', old.id, old.content);
+  INSERT INTO message_search(rowid, content) VALUES (new.id, new.content);
+END;
+
+-- ─── FTS5 for Notes ─────────────────────────────────
+CREATE VIRTUAL TABLE note_search USING fts5 (
+    title,
+    content,
+    content=notes,
+    content_rowid=id
+);
+
+CREATE TRIGGER notes_search_insert AFTER INSERT ON notes BEGIN
+  INSERT INTO note_search(rowid, title, content) VALUES (new.id, new.title, new.content);
+END;
+
+CREATE TRIGGER notes_search_delete AFTER DELETE ON notes BEGIN
+  INSERT INTO note_search(note_search, rowid, title, content) VALUES ('delete', old.id, old.title, old.content);
+END;
+
+CREATE TRIGGER notes_search_update AFTER UPDATE ON notes BEGIN
+  INSERT INTO note_search(note_search, rowid, title, content) VALUES ('delete', old.id, old.title, old.content);
+  INSERT INTO note_search(rowid, title, content) VALUES (new.id, new.title, new.content);
+END;
+
+-- ─── Custom queries ─────────────────────────────────
+
+-- Search messages by content
+searchMessages: SELECT m.**, c.**
+  FROM message_search
+  INNER JOIN messages m ON m.id = message_search.rowid
+  LEFT OUTER JOIN conversations c ON c.id = m.conversation_id
+  WHERE message_search MATCH :query
+  ORDER BY rank;
+
+-- Search notes by title or content
+searchNotes: SELECT n.**
+  FROM note_search
+  INNER JOIN notes n ON n.id = note_search.rowid
+  WHERE note_search MATCH :query
+  ORDER BY rank;
+
+-- Get recent conversations with last message
+recentConversations: SELECT c.**,
+    (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
+    (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) AS message_count
+  FROM conversations c
+  WHERE c.is_archived = 0
+  ORDER BY c.updated_at DESC
+  LIMIT :limit;
+
+-- Monthly expense summary
+monthlyExpenses: SELECT category, SUM(amount) AS total, COUNT(*) AS count
+  FROM transactions
+  WHERE type = 'expense'
+    AND date >= :startDate
+    AND date < :endDate
+  GROUP BY category
+  ORDER BY total DESC;
+
+-- Tasks due today or overdue
+upcomingTasks: SELECT * FROM task_entries
+  WHERE is_completed = 0
+    AND (due_date IS NULL OR due_date <= :beforeDate)
+  ORDER BY
+    CASE priority
+      WHEN 'high' THEN 0
+      WHEN 'medium' THEN 1
+      WHEN 'low' THEN 2
+    END,
+    due_date ASC
+  LIMIT :limit;
