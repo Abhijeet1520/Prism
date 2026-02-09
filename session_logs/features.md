@@ -18,12 +18,12 @@
 
 | Feature | Status | Description | Expected |
 |---------|--------|-------------|----------|
-| **Chat Interface** | 🎨 UI Only | Message display, input bar, conversation list | v0.2 |
-| **Streaming Responses** | ⬜ Planned | Token-by-token AI response display | v0.2 |
-| **Multi-Provider Support** | ⬜ Planned | OpenAI, Gemini, Claude, Ollama, etc. | v0.3 |
+| **Chat Interface** | 🔧 Partial | Markdown rendering, token/model footer, conversation list | v0.2 |
+| **Streaming Responses** | 🔧 Partial | Token-by-token display with timing info | v0.2 |
+| **Multi-Provider Support** | 🔧 Partial | 7 cloud providers configured, API key portal links | v0.3 |
 | **Local Model (Ollama)** | ⬜ Planned | Connect to local Ollama instance | v0.2 |
-| **Local Model (GGUF)** | ⬜ Planned | Direct llama.cpp inference via llama_sdk | v0.4 |
-| **Model Download** | ⬜ Planned | Download GGUF from HuggingFace | v0.4 |
+| **Local Model (GGUF)** | 🔧 Partial | llama_sdk integrated, model catalog fixed (10 models) | v0.4 |
+| **Model Download** | 🔧 Partial | HuggingFace download with JSON catalog, field mapping fixed | v0.4 |
 
 ## Knowledge & Organization
 
@@ -38,8 +38,8 @@
 | Feature | Status | Description | Expected |
 |---------|--------|-------------|----------|
 | **Tasks** | 🎨 UI Only | Task list with categories and priorities | v0.3 |
-| **Finance** | 🎨 UI Only | Transactions, budgets, spending summary | v0.3 |
-| **Files** | 🎨 UI Only | Virtual filesystem browser | v0.3 |
+| **Finance** | 🔧 Partial | Transaction tap → actions (edit, category change, duplicate, delete) | v0.3 |
+| **Files** | 🔧 Partial | Breadcrumb nav, file viewer/editor with Markdown rendering | v0.3 |
 | **Tools** | 🎨 UI Only | Tool grid with categories | v0.3 |
 | **Gateway** | 🎨 UI Only | AI API gateway management | v0.5 |
 
@@ -59,9 +59,9 @@
 | Feature | Status | Description | Expected |
 |---------|--------|-------------|----------|
 | **Theme Selection** | 🔧 Partial | Dark mode works, need more presets | v0.2 |
-| **AI Providers Config** | 🎨 UI Only | Add/manage provider API keys | v0.2 |
-| **Persona System** | 🎨 UI Only | Agent personality configuration | v0.4 |
-| **Voice Input** | ⬜ Planned | Speech-to-text for chat | v0.3 |
+| **AI Providers Config** | 🔧 Partial | API key config, portal links, provider type mapping fixed | v0.2 |
+| **Persona System** | 🔧 Partial | 8 personas with tags/examples, soul document | v0.4 |
+| **Voice Input** | 🔧 Partial | Voice-first home input, speech_to_text wired up | v0.3 |
 | **Voice Output** | ⬜ Planned | Text-to-speech for AI responses | v0.4 |
 
 ## Security
