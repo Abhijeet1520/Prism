@@ -14,7 +14,13 @@ final appRouter = GoRouter(
       builder: (context, state, child) => AppShell(child: child),
       routes: [
         GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
-        GoRoute(path: '/chat', builder: (_, _) => const ChatScreen()),
+        GoRoute(
+          path: '/chat',
+          builder: (_, state) {
+            final message = state.uri.queryParameters['message'];
+            return ChatScreen(initialMessage: message);
+          },
+        ),
         GoRoute(path: '/brain', builder: (_, _) => const BrainScreen()),
         GoRoute(
           path: '/apps',

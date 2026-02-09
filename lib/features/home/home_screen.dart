@@ -274,7 +274,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               controller: _inputController,
                               onSubmitted: (text) {
                                 if (text.trim().isNotEmpty) {
-                                  context.go('/chat');
+                                  context.go('/chat?message=${Uri.encodeComponent(text.trim())}');
+                                  _inputController.clear();
                                 }
                               },
                               decoration: InputDecoration(
@@ -288,8 +289,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                           IconButton(
                             onPressed: () {
-                              if (_inputController.text.trim().isNotEmpty) {
-                                context.go('/chat');
+                              final text = _inputController.text.trim();
+                              if (text.isNotEmpty) {
+                                context.go('/chat?message=${Uri.encodeComponent(text)}');
+                                _inputController.clear();
                               }
                             },
                             icon: Icon(Icons.arrow_upward_rounded,

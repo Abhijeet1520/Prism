@@ -20,7 +20,9 @@ import '../../core/ai/tool_registry.dart';
 import '../../core/database/database.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  final String? initialMessage;
+
+  const ChatScreen({super.key, this.initialMessage});
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -29,6 +31,27 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   String? _selectedConversationUuid;
   String _searchQuery = '';
+  bool _handledInitialMessage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialMessage != null && widget.initialMessage!.trim().isNotEmpty) {
+      _handleInitialMessage();
+    }
+  }
+
+  Future<void> _handleInitialMessage() async {
+    final db = ref.read(databaseProvider);
+    final uuid = const Uuid().v4();
+    await db.createConversation(uuid: uuid);
+    if (mounted) {
+      setState(() {
+        _selectedConversationUuid = uuid;
+        _handledInitialMessage = true;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +79,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ? _ChatArea(
                         key: ValueKey(_selectedConversationUuid),
                         conversationUuid: _selectedConversationUuid!,
+                        initialMessage: _handledInitialMessage ? widget.initialMessage : null,
                       )
                     : _EmptyState(onNewChat: _createNewChat),
               ),
@@ -68,6 +92,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           return _ChatArea(
             key: ValueKey(_selectedConversationUuid),
             conversationUuid: _selectedConversationUuid!,
+            initialMessage: _handledInitialMessage ? widget.initialMessage : null,
             onBack: () => setState(() => _selectedConversationUuid = null),
           );
         }
@@ -447,11 +472,13 @@ class _EmptyState extends StatelessWidget {
 class _ChatArea extends ConsumerStatefulWidget {
   final String conversationUuid;
   final VoidCallback? onBack;
+  final String? initialMessage;
 
   const _ChatArea({
     super.key,
     required this.conversationUuid,
     this.onBack,
+    this.initialMessage,
   });
 
   @override
@@ -542,6 +569,13 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
           )));
     });
     _scrollToBottom();
+
+    // Auto-send initial message from home screen
+    if (widget.initialMessage != null &&
+        widget.initialMessage!.trim().isNotEmpty &&
+        _messages.isEmpty) {
+      await _sendMessage(widget.initialMessage!.trim());
+    }
   }
 
   Future<void> _toggleTemporary() async {
