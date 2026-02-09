@@ -811,37 +811,192 @@ class _EnabledProvidersSummary extends StatelessWidget {
 
 void showDownloadConfirmation(
     BuildContext context, WidgetRef ref, ModelCatalogEntry entry) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final bgColor = isDark ? const Color(0xFF16162A) : Colors.white;
+  final textPrimary =
+      isDark ? const Color(0xFFE2E2EC) : const Color(0xFF1A1A2E);
+  final textSecondary =
+      isDark ? const Color(0xFF7A7A90) : const Color(0xFF6B6B80);
+  final borderColor =
+      isDark ? const Color(0xFF252540) : const Color(0xFFE2E2EC);
+  final accentColor = Theme.of(context).colorScheme.primary;
+
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Download Model'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: bgColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
         children: [
-          Text('Download ${entry.name}?'),
-          const SizedBox(height: 8),
-          Text('Size: ${entry.sizeLabel}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          Text('This will be saved locally for offline use.',
-              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Icon(Icons.download_rounded, size: 22, color: accentColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('Download Model',
+                style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600)),
+          ),
         ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Model name & description
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: accentColor.withValues(alpha: 0.15), width: 0.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.name,
+                      style: TextStyle(
+                          color: textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15)),
+                  const SizedBox(height: 6),
+                  Text(entry.description,
+                      style: TextStyle(color: textSecondary, fontSize: 12)),
+                  const SizedBox(height: 10),
+                  _DetailRow(
+                      label: 'Size', value: entry.sizeLabel, color: textSecondary),
+                  _DetailRow(
+                      label: 'Context',
+                      value: '${entry.contextWindow ~/ 1024}K tokens',
+                      color: textSecondary),
+                  _DetailRow(
+                      label: 'Category',
+                      value: entry.category,
+                      color: textSecondary),
+                  _DetailRow(
+                      label: 'Format',
+                      value: 'GGUF Q4_K_M',
+                      color: textSecondary),
+                  if (entry.supportsVision)
+                    _DetailRow(
+                        label: 'Vision', value: 'Yes', color: textSecondary),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // HuggingFace repo + link
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: borderColor.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.hub_rounded, size: 14, color: textSecondary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(entry.repo,
+                            style: TextStyle(
+                                color: textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => launchUrl(Uri.parse(entry.repoUrl),
+                        mode: LaunchMode.externalApplication),
+                    child: Row(
+                      children: [
+                        Icon(Icons.open_in_new_rounded,
+                            size: 13, color: accentColor),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            entry.repoUrl,
+                            style: TextStyle(
+                                color: accentColor,
+                                fontSize: 11,
+                                decoration: TextDecoration.underline,
+                                decorationColor: accentColor),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.storage_rounded, size: 14, color: textSecondary),
+                const SizedBox(width: 6),
+                Text('Requires ${entry.sizeLabel} free storage',
+                    style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancel'),
+          child: Text('Cancel',
+              style: TextStyle(color: textSecondary, fontSize: 13)),
         ),
-        FilledButton(
+        FilledButton.icon(
+          style: FilledButton.styleFrom(backgroundColor: accentColor),
           onPressed: () {
             Navigator.pop(ctx);
             ref.read(modelManagerProvider.notifier).downloadModel(entry);
           },
-          child: const Text('Download'),
+          icon: const Icon(Icons.download_rounded, size: 16),
+          label: Text('Download ${entry.sizeLabel}',
+              style: const TextStyle(fontSize: 13)),
         ),
       ],
     ),
   );
+}
+
+/// Detail row for model info card.
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _DetailRow(
+      {required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 70,
+            child: Text(label,
+                style: TextStyle(
+                    color: color, fontSize: 11, fontWeight: FontWeight.w500)),
+          ),
+          Text(value, style: TextStyle(color: color, fontSize: 11)),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Custom HuggingFace Repo Dialog ──────────────────

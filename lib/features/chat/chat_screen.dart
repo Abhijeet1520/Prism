@@ -4,6 +4,7 @@
 /// Supports streaming AI responses, message persistence, model switching.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -507,6 +508,10 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
   // ─── File attachment state ────────────────────────
   final List<_AttachedFile> _attachedFiles = [];
 
+  // ─── Streaming throttle ───────────────────────────
+  Timer? _streamThrottle;
+  bool _needsStreamUpdate = false;
+
   @override
   void initState() {
     super.initState();
@@ -616,6 +621,7 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();
+    _streamThrottle?.cancel();
     super.dispose();
   }
 
@@ -655,10 +661,8 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
+        _scrollController.jumpTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
         );
       }
     });
@@ -845,10 +849,30 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
           case ToolStreamContent(:final content):
             buffer.write(content);
             tokenEstimate++;
-            setState(() => _streamingText = buffer.toString());
-            _scrollToBottom();
+            _streamingText = buffer.toString();
+            // Throttle UI updates to ~30fps instead of every token
+            if (!_needsStreamUpdate) {
+              _needsStreamUpdate = true;
+              _streamThrottle ??= Timer.periodic(
+                const Duration(milliseconds: 33),
+                (_) {
+                  if (_needsStreamUpdate && mounted) {
+                    _needsStreamUpdate = false;
+                    setState(() {});
+                    _scrollToBottom();
+                  }
+                },
+              );
+            }
 
           case ToolCallRequest():
+            _streamThrottle?.cancel();
+            _streamThrottle = null;
+            // Flush any pending update
+            if (_needsStreamUpdate && mounted) {
+              _needsStreamUpdate = false;
+              setState(() {});
+            }
             stopwatch.stop();
             // If there was any content before the tool call, save it
             final preContent = buffer.toString();
@@ -888,6 +912,11 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
       }
     } catch (_) {}
     stopwatch.stop();
+
+    // Clean up streaming throttle
+    _streamThrottle?.cancel();
+    _streamThrottle = null;
+    _needsStreamUpdate = false;
 
     // Finalize normal response (no tool call)
     final response = buffer.toString();
@@ -988,10 +1017,10 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
       _isWaitingForToolApproval = false;
     });
 
-    // Add a note that the tool was denied and continue with a regular response
+    // Add a clear denial message so the model knows the action was NOT performed
     final denialMsg = _DisplayMessage(
       role: 'tool',
-      content: '{"denied": true, "message": "User denied tool execution"}',
+      content: '{"error": "DENIED_BY_USER", "executed": false, "message": "The user DENIED this tool call. The action was NOT performed. Do NOT tell the user it was done. Acknowledge the user\'s decision and ask if they want something else."}',
       toolCallId: msg.toolCallId,
       toolName: msg.toolName,
     );
@@ -1012,7 +1041,7 @@ class _ChatAreaState extends ConsumerState<_ChatArea> {
         uuid: const Uuid().v4(),
         conversationId: _conversationId!,
         role: 'tool',
-        content: '{"denied": true}',
+        content: '{"error": "DENIED_BY_USER", "executed": false}',
       );
     }
 

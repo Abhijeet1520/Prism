@@ -6,6 +6,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:langchain/langchain.dart';
@@ -368,17 +369,25 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
       state = state.copyWith(error: 'No model file path specified');
       return;
     }
+
+    // Verify the file actually exists (may have been deleted)
+    final file = File(config.filePath!);
+    if (!await file.exists()) {
+      state = state.copyWith(
+          error: 'Model file not found: ${config.filePath}');
+      return;
+    }
+
     try {
       state = state.copyWith(loadProgress: 0.0);
-      // Keep params minimal — matches Maid's proven approach.
-      // Only model_path, seed, and greedy are needed.
-      // n_ctx/temperature/top_p passed to LlamaController can conflict
-      // with greedy sampling and cause silent failures on small models.
+
+      // don't set n_ctx (let model decide its own context size)
+      // and only use greedy sampling. Setting large n_ctx
+      // values (32K+) on mobile causes out-of-memory crashes.
+      // n_ctx = 0 means "use the model's native context size from metadata".
       _llamaModel = llama.Llama(
         llama.LlamaController.fromMap({
           'model_path': config.filePath!,
-          'seed': DateTime.now().millisecondsSinceEpoch % 1000000,
-          'n_ctx': config.contextWindow,
           'greedy': true,
         }),
       );
@@ -543,8 +552,21 @@ class AIServiceNotifier extends Notifier<AIServiceState> {
         yield* _generateMockWithTools(messagesWithPersona, tools);
       } else {
         // Fallback: no tool calling, just stream content
-        await for (final token in generateStream(messages)) {
-          yield ToolStreamContent(token);
+        // Call _generateLocal/_generateOllama directly to avoid
+        // double isGenerating state from nested generateStream call.
+        switch (config.provider) {
+          case ProviderType.local:
+            await for (final token in _generateLocal(messagesWithPersona)) {
+              yield ToolStreamContent(token);
+            }
+          case ProviderType.ollama:
+            await for (final token in _generateOllama(messagesWithPersona)) {
+              yield ToolStreamContent(token);
+            }
+          default:
+            await for (final token in _generateAPI(messagesWithPersona, config)) {
+              yield ToolStreamContent(token);
+            }
         }
       }
     } catch (e) {
