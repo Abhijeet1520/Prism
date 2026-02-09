@@ -75,7 +75,13 @@ class ProvidersSection extends ConsumerWidget {
             accentColor: accentColor,
           )
         else
-          ...modelMgr.localModelPaths.map((path) {
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 250),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: ListView(
+                shrinkWrap: true,
+                children: modelMgr.localModelPaths.map((path) {
             final name = path.split('/').last.split('\\').last;
             final isActive = aiState.activeModel?.filePath == path;
             return InkWell(
@@ -240,7 +246,10 @@ class ProvidersSection extends ConsumerWidget {
                 ),
               ),
             );
-          }),
+          }).toList(),
+              ),
+            ),
+          ),
 
         const SizedBox(height: 8),
         Row(
@@ -564,72 +573,8 @@ class ProvidersSection extends ConsumerWidget {
 
         SettingsDivider(color: borderColor),
 
-        // ── CLOUD API ──
-        GroupLabel(text: 'CLOUD PROVIDERS', color: textSecondary),
-        const SizedBox(height: 8),
-
-        // Existing registered cloud models
-        ...aiState.availableModels
-            .where((m) =>
-                m.provider != ProviderType.local &&
-                m.provider != ProviderType.mock)
-            .map((model) {
-          final isActive = aiState.activeModel?.id == model.id;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: isActive ? accentColor : borderColor,
-                  width: isActive ? 1.5 : 0.5),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(model.name,
-                          style: TextStyle(
-                              color: textPrimary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13)),
-                      Text(
-                          '${model.provider.name} · ${model.contextWindow ~/ 1024}K',
-                          style: TextStyle(
-                              color: textSecondary, fontSize: 11)),
-                    ],
-                  ),
-                ),
-                if (!isActive)
-                  SmallButton(
-                      label: 'Select',
-                      color: accentColor,
-                      onTap: () => notifier.selectModel(model))
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color:
-                          const Color(0xFF10B981).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text('active',
-                        style: TextStyle(
-                            fontSize: 10, color: Color(0xFF10B981))),
-                  ),
-              ],
-            ),
-          );
-        }),
-
-        const SizedBox(height: 8),
-
         // ── CONFIGURE CLOUD PROVIDER ──
-        GroupLabel(text: 'ADD / CONFIGURE PROVIDER', color: textSecondary),
+        GroupLabel(text: 'CLOUD PROVIDERS', color: textSecondary),
         const SizedBox(height: 8),
 
         ...cloudState.providers.map((provider) {
